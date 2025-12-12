@@ -193,7 +193,7 @@ export default function MainLayout({ children }) {
             {/* Notifications Dropdown */}
             {showNotifications && (
               <div 
-                className="absolute right-0 top-12 w-80 rounded-xl shadow-2xl overflow-hidden animate-fade-in-down z-50"
+                className="absolute right-0 sm:right-0 top-12 w-[calc(100vw-2rem)] sm:w-80 max-w-sm rounded-xl shadow-2xl overflow-hidden animate-fade-in-down z-50"
                 style={{ 
                   backgroundColor: isDark ? '#1e293b' : '#ffffff',
                   border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`

@@ -191,27 +191,27 @@ export default function Attendance() {
           <div className="hidden lg:block w-px h-16" style={{ backgroundColor: isDark ? '#334155' : '#e2e8f0' }} />
 
           {/* Stats Row - Right */}
-          <div className="flex-1 grid grid-cols-5 gap-3">
+          <div className="flex-1 w-full grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
             {[
               { label: "Present", value: monthlyStats.present, color: "#16a34a", bg: "#dcfce7" },
               { label: "Absent", value: monthlyStats.absent, color: "#dc2626", bg: "#fee2e2" },
               { label: "Leaves", value: monthlyStats.leaves, color: "#ea580c", bg: "#ffedd5" },
               { label: "Holidays", value: monthlyStats.holidays, color: "#2563eb", bg: "#dbeafe" },
-              { label: "Total Days", value: monthlyStats.workingDays, color: "#1e3a5f", bg: "#f1f5f9" },
+              { label: "Total", value: monthlyStats.workingDays, color: "#1e3a5f", bg: "#f1f5f9" },
             ].map((stat, index) => (
               <div 
                 key={index} 
-                className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:scale-[1.02]"
+                className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 sm:py-3 rounded-xl transition-all hover:scale-[1.02]"
                 style={{ backgroundColor: isDark ? '#334155' : stat.bg }}
               >
                 <div 
-                  className="text-2xl font-bold"
+                  className="text-lg sm:text-2xl font-bold"
                   style={{ color: stat.color }}
                 >
                   {stat.value}
                 </div>
                 <div 
-                  className="text-xs font-medium leading-tight"
+                  className="text-[10px] sm:text-xs font-medium leading-tight"
                   style={{ color: isDark ? '#94a3b8' : stat.color }}
                 >
                   {stat.label}

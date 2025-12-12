@@ -72,7 +72,7 @@ export default function Login() {
             <div className="absolute top-1/2 left-1/3 w-64 h-64 rounded-full blur-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}></div>
           </div>
 
-          <div className="relative z-10 text-center max-w-lg animate-fade-in-left">
+          <div className="relative z-10 text-center max-w-lg animate-fade-slide-up">
             <div className="mb-8">
               {/* Logo Icon */}
               <div 
@@ -126,7 +126,7 @@ export default function Login() {
 
         {/* RIGHT SIDE - Login Form */}
         <div 
-          className="w-full lg:w-1/2 flex items-center justify-center p-8"
+          className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8"
           style={{ backgroundColor: isDark ? darkNavy : '#ffffff' }}
         >
           <div className="w-full max-w-md animate-fade-in-right">
@@ -144,13 +144,13 @@ export default function Login() {
             </div>
 
             <div className="mb-8">
-              <h1 className="text-3xl font-bold" style={{ color: isDark ? '#ffffff' : darkNavy }}>Sign In</h1>
-              <p className="mt-2" style={{ color: isDark ? '#94a3b8' : '#64748b' }}>Welcome back! Please enter your credentials.</p>
+              <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: isDark ? '#ffffff' : darkNavy }}>Sign In</h1>
+              <p className="mt-2 text-sm sm:text-base" style={{ color: isDark ? '#94a3b8' : '#64748b' }}>Welcome back! Please enter your credentials.</p>
             </div>
 
             {/* Social Login Buttons */}
             <div className="space-y-3 mb-6">
-              <button
+              {/* <button
                 onClick={handleGoogleLogin}
                 className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-xl font-semibold transition-all hover:scale-[1.02]"
                 style={{ 
@@ -166,7 +166,7 @@ export default function Login() {
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
                 Continue with Google
-              </button>
+              </button> */}
               <button
                 onClick={handleMicrosoftLogin}
                 className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-xl font-semibold transition-all hover:scale-[1.02]"
@@ -316,7 +316,7 @@ export default function Login() {
       </div>
 
       {/* Footer - Dark Navy */}
-      <footer style={{ backgroundColor: darkNavy }}>
+      {/* <footer style={{ backgroundColor: darkNavy }}>
         <div className="max-w-7xl mx-auto px-6 py-10">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="md:col-span-1">
@@ -365,7 +365,7 @@ export default function Login() {
             </div>
           </div>
         </div>
-      </footer>
+      </footer> */}
     </div>
   );
 }

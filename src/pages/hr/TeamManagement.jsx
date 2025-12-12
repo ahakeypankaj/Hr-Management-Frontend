@@ -133,14 +133,14 @@ export default function TeamManagement() {
   return (
     <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
       {/* Header */}
-      <div className="flex items-center justify-between animate-fade-in-down">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-down">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>Team Management</h1>
-          <p style={{ color: textSecondary }}>Manage your team members and track performance</p>
+          <h1 className="text-xl sm:text-2xl font-bold" style={{ color: textPrimary }}>Team Management</h1>
+          <p className="text-sm sm:text-base" style={{ color: textSecondary }}>Manage your team members and track performance</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-5 py-2.5 rounded-xl font-bold text-white transition-all hover:opacity-90"
+          className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-bold text-white transition-all hover:opacity-90 text-sm sm:text-base w-full sm:w-auto"
           style={{ backgroundColor: navyBlue, boxShadow: `0 4px 15px ${navyBlue}40` }}
         >
           + Add Team Member

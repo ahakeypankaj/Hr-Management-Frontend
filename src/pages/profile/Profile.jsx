@@ -141,25 +141,25 @@ export default function Profile() {
   return (
     <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
       {/* Header */}
-      <div className="flex items-center justify-between animate-fade-in-down">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-down">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>My Profile</h1>
-          <p style={{ color: textSecondary }}>View and manage your personal information</p>
+          <h1 className="text-xl sm:text-2xl font-bold" style={{ color: textPrimary }}>My Profile</h1>
+          <p className="text-sm sm:text-base" style={{ color: textSecondary }}>View and manage your personal information</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 sm:gap-3">
           <button
             onClick={() => setShowPasswordModal(true)}
-            className="px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all hover:opacity-80"
+            className="px-3 sm:px-4 py-2 rounded-xl font-semibold flex items-center gap-1 sm:gap-2 transition-all hover:opacity-80 text-sm sm:text-base"
             style={{ backgroundColor: '#dc2626', color: '#ffffff' }}
           >
-            🔐 Change Password
+            🔐 <span className="hidden sm:inline">Change</span> Password
           </button>
           <button
             onClick={() => setShowIDCardModal(true)}
-            className="px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all hover:opacity-80"
+            className="px-3 sm:px-4 py-2 rounded-xl font-semibold flex items-center gap-1 sm:gap-2 transition-all hover:opacity-80 text-sm sm:text-base"
             style={{ backgroundColor: navyBlue, color: '#ffffff' }}
           >
-            🪪 View ID Card
+            🪪 <span className="hidden sm:inline">View</span> ID Card
           </button>
         </div>
       </div>
@@ -471,11 +471,11 @@ export default function Profile() {
               </button>
 
               {/* Profile Section - White Background */}
-              <div className="px-6 py-6" style={{ backgroundColor: '#ffffff' }}>
-                <div className="flex items-center gap-5">
+              <div className="px-4 sm:px-6 py-4 sm:py-6" style={{ backgroundColor: '#ffffff' }}>
+                <div className="flex items-center gap-3 sm:gap-5">
                   {/* Profile Photo */}
                   <div 
-                    className="w-24 h-24 rounded-xl flex items-center justify-center text-4xl font-bold shadow-lg"
+                    className="w-16 h-16 sm:w-24 sm:h-24 rounded-xl flex items-center justify-center text-2xl sm:text-4xl font-bold shadow-lg flex-shrink-0"
                     style={{ 
                       backgroundColor: '#1a1a1a',
                       color: '#ffffff',
@@ -485,14 +485,14 @@ export default function Profile() {
                     {profile.name.charAt(0)}
                   </div>
                   {/* Employee Info */}
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold" style={{ color: '#0a0a0a' }}>{profile.name}</h3>
-                    <p className="font-medium" style={{ color: '#666666' }}>{profile.role}</p>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base sm:text-xl font-bold truncate" style={{ color: '#0a0a0a' }}>{profile.name}</h3>
+                    <p className="font-medium text-sm sm:text-base truncate" style={{ color: '#666666' }}>{profile.role}</p>
                     <div 
-                      className="mt-2 px-3 py-1 rounded-md inline-block"
+                      className="mt-2 px-2 sm:px-3 py-1 rounded-md inline-block"
                       style={{ backgroundColor: '#0a0a0a' }}
                     >
-                      <span className="text-white text-sm font-bold tracking-wider">{profile.id}</span>
+                      <span className="text-white text-xs sm:text-sm font-bold tracking-wider">{profile.id}</span>
                     </div>
                   </div>
                 </div>

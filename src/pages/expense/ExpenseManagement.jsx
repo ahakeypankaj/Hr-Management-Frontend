@@ -171,26 +171,26 @@ export default function ExpenseManagement() {
       </div>
 
       {/* Category Quick Filters */}
-      <div className="flex flex-wrap gap-2 animate-fade-in-up">
+      <div className="flex flex-wrap gap-2 animate-fade-in-up overflow-x-auto pb-2">
         {expenseCategories.map((cat) => {
           const count = expenses.filter(e => e.category === cat.id).length;
           return (
             <button
               key={cat.id}
               onClick={() => { setFilterCategory(cat.id); setCurrentPage(1); }}
-              className="px-4 py-2 rounded-xl font-medium text-sm transition-all flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 rounded-xl font-medium text-xs sm:text-sm transition-all flex items-center gap-1 sm:gap-2 whitespace-nowrap flex-shrink-0"
               style={{
                 backgroundColor: filterCategory === cat.id ? cat.color : (isDark ? '#334155' : '#f1f5f9'),
                 color: filterCategory === cat.id ? '#ffffff' : textPrimary,
               }}
             >
-              {cat.icon} {cat.name} ({count})
+              {cat.icon} <span className="hidden sm:inline">{cat.name}</span> ({count})
             </button>
           );
         })}
         <button
           onClick={() => { setFilterCategory("All"); setCurrentPage(1); }}
-          className="px-4 py-2 rounded-xl font-medium text-sm transition-all"
+          className="px-3 sm:px-4 py-2 rounded-xl font-medium text-xs sm:text-sm transition-all whitespace-nowrap flex-shrink-0"
           style={{
             backgroundColor: filterCategory === "All" ? navyBlue : (isDark ? '#334155' : '#f1f5f9'),
             color: filterCategory === "All" ? '#ffffff' : textPrimary,

@@ -158,18 +158,18 @@ export default function Dashboard() {
     <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
       {/* Welcome Header */}
       <div 
-        className="rounded-2xl p-6 text-white relative overflow-hidden animate-fade-in-up"
+        className="rounded-2xl p-4 sm:p-6 text-white relative overflow-hidden animate-fade-in-up"
         style={{ background: isAdmin ? 'linear-gradient(135deg, #dc2626 0%, #991b1b 50%, #7f1d1d 100%)' : colors.gradient }}
       >
         {/* Animated Background */}
         <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-300 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          <div className="absolute top-0 right-0 w-32 sm:w-64 h-32 sm:h-64 bg-white rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-0 left-0 w-24 sm:w-48 h-24 sm:h-48 bg-blue-300 rounded-full blur-3xl animate-pulse delay-1000"></div>
         </div>
         <div className="relative z-10 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Welcome back, {user.name}! 👋</h1>
-            <p className={isAdmin ? "text-red-100" : "text-blue-100"} style={{ fontSize: '1.125rem' }}>
+            <h1 className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2">Welcome back, {user.name}! 👋</h1>
+            <p className={`text-sm sm:text-lg ${isAdmin ? "text-red-100" : "text-blue-100"}`}>
               {isAdmin
                 ? "System administration overview"
                 : isHRManager
@@ -178,7 +178,7 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="hidden md:block animate-float">
-            <div className="w-24 h-24 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-5xl">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-4xl sm:text-5xl">
               {isAdmin ? "🛡️" : isHRManager ? "👔" : "👤"}
             </div>
           </div>

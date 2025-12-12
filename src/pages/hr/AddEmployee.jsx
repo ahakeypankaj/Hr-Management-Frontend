@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
+import { createOnboarding } from "../../services/onboardingServices";
 
 // Country codes for phone
 const countryCodes = [
@@ -53,7 +54,7 @@ export default function AddEmployee() {
     // Personal Information
     candidateName: "",
     personalEmail: "",
-    phoneCode: "+91",
+    phoneCode: "",
     phone: "",
     dateOfBirth: "",
     gender: "",
@@ -81,11 +82,12 @@ export default function AddEmployee() {
     emergencyContactName: "",
     emergencyContactRelation: "",
     emergencyContactPhone: "",
-    emergencyPhoneCode: "+91",
+    emergencyPhoneCode: "",
   });
 
   const [documents, setDocuments] = useState({});
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navyBlue = '#1e3a5f';
   const cardStyle = {
@@ -95,9 +97,10 @@ export default function AddEmployee() {
   };
   const textPrimary = isDark ? '#f8fafc' : '#0f172a';
   const textSecondary = isDark ? '#94a3b8' : '#64748b';
+  const defaultBorderColor = isDark ? '#475569' : '#e2e8f0';
   const inputStyle = {
     backgroundColor: isDark ? '#334155' : '#f8fafc',
-    border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`,
+    border: `1px solid ${defaultBorderColor}`,
     color: textPrimary
   };
 
@@ -108,10 +111,46 @@ export default function AddEmployee() {
     { id: 4, title: "Review", icon: "✅" },
   ];
 
+  // Validation helpers
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone) => {
+    // Remove spaces and special characters, keep only digits
+    const cleanedPhone = phone.replace(/\D/g, '');
+    return cleanedPhone.length === 10;
+  };
+
+  const validatePhoneCode = (code) => {
+    return code && code.trim() !== '';
+  };
+
   const handleInputChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
+    // Clear error when user starts typing
     if (errors[field]) {
       setErrors({ ...errors, [field]: null });
+    }
+    
+    // Real-time validation for specific fields
+    if (field === 'personalEmail' && value) {
+      if (!validateEmail(value)) {
+        setErrors({ ...errors, personalEmail: 'Please enter a valid email address' });
+      }
+    }
+    
+    if (field === 'phone' && value) {
+      if (!validatePhone(value)) {
+        setErrors({ ...errors, phone: 'Phone number must be exactly 10 digits' });
+      }
+    }
+    
+    if (field === 'emergencyContactPhone' && value) {
+      if (!validatePhone(value)) {
+        setErrors({ ...errors, emergencyContactPhone: 'Phone number must be exactly 10 digits' });
+      }
     }
   };
 
@@ -129,15 +168,121 @@ export default function AddEmployee() {
     const newErrors = {};
     
     if (step === 1) {
-      if (!formData.candidateName) newErrors.candidateName = "Name is required";
-      if (!formData.personalEmail) newErrors.personalEmail = "Email is required";
-      if (!formData.phone) newErrors.phone = "Phone is required";
+      // Name validation
+      if (!formData.candidateName || formData.candidateName.trim() === '') {
+        newErrors.candidateName = "Full name is required";
+      } else if (formData.candidateName.trim().length < 2) {
+        newErrors.candidateName = "Name must be at least 2 characters";
+      }
+      
+      // Email validation
+      if (!formData.personalEmail || formData.personalEmail.trim() === '') {
+        newErrors.personalEmail = "Email is required";
+      } else if (!validateEmail(formData.personalEmail)) {
+        newErrors.personalEmail = "Please enter a valid email address";
+      }
+      
+      // Phone code validation
+      if (!validatePhoneCode(formData.phoneCode)) {
+        newErrors.phoneCode = "Please select a country code";
+      }
+      
+      // Phone number validation
+      if (!formData.phone || formData.phone.trim() === '') {
+        newErrors.phone = "Phone number is required";
+      } else if (!validatePhone(formData.phone)) {
+        newErrors.phone = "Phone number must be exactly 10 digits";
+      }
+      
+      // Date of birth validation (optional but if provided, should be valid)
+      if (formData.dateOfBirth) {
+        const dob = new Date(formData.dateOfBirth);
+        const today = new Date();
+        if (dob > today) {
+          newErrors.dateOfBirth = "Date of birth cannot be in the future";
+        }
+        const age = today.getFullYear() - dob.getFullYear();
+        if (age < 18 || age > 100) {
+          newErrors.dateOfBirth = "Age must be between 18 and 100 years";
+        }
+      }
+      
+      // Address validation
+      if (!formData.currentAddress || formData.currentAddress.trim() === '') {
+        newErrors.currentAddress = "Current address is required";
+      } else if (formData.currentAddress.trim().length < 10) {
+        newErrors.currentAddress = "Please provide a complete address (at least 10 characters)";
+      }
+      
+      if (!formData.sameAsCurrentAddress) {
+        if (!formData.permanentAddress || formData.permanentAddress.trim() === '') {
+          newErrors.permanentAddress = "Permanent address is required";
+        } else if (formData.permanentAddress.trim().length < 10) {
+          newErrors.permanentAddress = "Please provide a complete address (at least 10 characters)";
+        }
+      }
+      
+      // Emergency contact validation
+      if (!formData.emergencyContactName || formData.emergencyContactName.trim() === '') {
+        newErrors.emergencyContactName = "Emergency contact name is required";
+      }
+      
+      if (!formData.emergencyContactRelation || formData.emergencyContactRelation.trim() === '') {
+        newErrors.emergencyContactRelation = "Relationship is required";
+      }
+      
+      if (!validatePhoneCode(formData.emergencyPhoneCode)) {
+        newErrors.emergencyPhoneCode = "Please select a country code";
+      }
+      
+      if (!formData.emergencyContactPhone || formData.emergencyContactPhone.trim() === '') {
+        newErrors.emergencyContactPhone = "Emergency contact phone is required";
+      } else if (!validatePhone(formData.emergencyContactPhone)) {
+        newErrors.emergencyContactPhone = "Phone number must be exactly 10 digits";
+      }
+      
     } else if (step === 2) {
-      if (!formData.jobTitle) newErrors.jobTitle = "Job title is required";
-      if (!formData.department) newErrors.department = "Department is required";
-      if (!formData.proposedJoiningDate) newErrors.proposedJoiningDate = "Joining date is required";
-      if (!formData.managerId) newErrors.managerId = "Manager is required";
+      // Job title validation
+      if (!formData.jobTitle || formData.jobTitle.trim() === '') {
+        newErrors.jobTitle = "Job title is required";
+      } else if (formData.jobTitle.trim().length < 2) {
+        newErrors.jobTitle = "Job title must be at least 2 characters";
+      }
+      
+      // Department validation
+      if (!formData.department || formData.department.trim() === '') {
+        newErrors.department = "Department is required";
+      }
+      
+      // Designation validation (optional but if provided should be valid)
+      if (formData.designation && formData.designation.trim().length < 2) {
+        newErrors.designation = "Designation must be at least 2 characters";
+      }
+      
+      // Joining date validation
+      if (!formData.proposedJoiningDate) {
+        newErrors.proposedJoiningDate = "Joining date is required";
+      } else {
+        const joiningDate = new Date(formData.proposedJoiningDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (joiningDate < today) {
+          newErrors.proposedJoiningDate = "Joining date cannot be in the past";
+        }
+      }
+      
+      // Manager validation
+      if (!formData.managerId || formData.managerId.trim() === '') {
+        newErrors.managerId = "Reporting manager is required";
+      }
+      
+      // Work location validation (optional but if provided should be valid)
+      if (formData.workLocation && formData.workLocation.trim().length < 2) {
+        newErrors.workLocation = "Work location must be at least 2 characters";
+      }
+      
     } else if (step === 3) {
+      // Document validation
       documentTypes.filter(d => d.required).forEach(doc => {
         if (!documents[doc.id]) {
           newErrors[doc.id] = `${doc.label} is required`;
@@ -159,11 +304,53 @@ export default function AddEmployee() {
     setCurrentStep(currentStep - 1);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (validateStep(currentStep)) {
-      // Submit logic would go here
-      alert("Employee added successfully!");
-      navigate("/hr/users");
+      setIsSubmitting(true);
+      try {
+        // Split candidateName into firstName and lastName
+        const nameParts = formData.candidateName.trim().split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        // Prepare API payload
+        const onboardingPayload = {
+          personalInfo: {
+            firstName: firstName,
+            lastName: lastName,
+            email: formData.personalEmail,
+            phone: `${formData.phoneCode}${formData.phone}`,
+            department: formData.department,
+            designation: formData.designation || formData.jobTitle,
+            joiningDate: formData.proposedJoiningDate
+          },
+          bankDetails: {
+            accountNumber: "", // Not in form, can be added later
+            ifscCode: "" // Not in form, can be added later
+          },
+          documents: Object.keys(documents).map(docId => ({
+            type: docId,
+            name: documents[docId]?.name || docId
+          })),
+          emergencyContact: {
+            name: formData.emergencyContactName,
+            relationship: formData.emergencyContactRelation,
+            phone: `${formData.emergencyPhoneCode}${formData.emergencyContactPhone}`
+          }
+        };
+
+        // Call API
+        const response = await createOnboarding(onboardingPayload);
+        
+        alert("Employee added successfully!");
+        navigate("/hr/users");
+      } catch (error) {
+        console.error('Error submitting onboarding:', error);
+        const errorMessage = error.response?.data?.message || error.message || 'Failed to add employee. Please try again.';
+        alert(`Error: ${errorMessage}`);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -189,13 +376,13 @@ export default function AddEmployee() {
       </div>
 
       {/* Progress Steps */}
-      <div className="p-6 animate-fade-in-up" style={cardStyle}>
+      <div className="p-4 sm:p-6 animate-fade-in-up" style={cardStyle}>
         <div className="flex items-center justify-between">
           {steps.map((step, index) => (
             <React.Fragment key={step.id}>
               <div className="flex flex-col items-center">
                 <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-bold transition-all"
+                  className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-2xl font-bold transition-all"
                   style={{
                     backgroundColor: currentStep >= step.id ? navyBlue : (isDark ? '#334155' : '#f1f5f9'),
                     color: currentStep >= step.id ? '#ffffff' : textSecondary,
@@ -204,13 +391,13 @@ export default function AddEmployee() {
                 >
                   {currentStep > step.id ? "✓" : step.icon}
                 </div>
-                <p className="mt-2 text-sm font-semibold" style={{ color: currentStep >= step.id ? navyBlue : textSecondary }}>
+                <p className="mt-1 sm:mt-2 text-[10px] sm:text-sm font-semibold text-center" style={{ color: currentStep >= step.id ? navyBlue : textSecondary }}>
                   {step.title}
                 </p>
               </div>
               {index < steps.length - 1 && (
                 <div 
-                  className="flex-1 h-1 mx-4 rounded-full"
+                  className="flex-1 h-1 mx-1 sm:mx-4 rounded-full"
                   style={{ backgroundColor: currentStep > step.id ? navyBlue : (isDark ? '#334155' : '#e2e8f0') }}
                 />
               )}
@@ -220,7 +407,7 @@ export default function AddEmployee() {
       </div>
 
       {/* Form Content */}
-      <div className="p-8 animate-fade-in-up" style={cardStyle}>
+      <div className="p-4 sm:p-8 animate-fade-in-up" style={cardStyle}>
         {/* Step 1: Personal Information */}
         {currentStep === 1 && (
           <div className="space-y-6">
@@ -273,23 +460,49 @@ export default function AddEmployee() {
                   <select
                     value={formData.phoneCode}
                     onChange={(e) => handleInputChange("phoneCode", e.target.value)}
-                    className="px-3 py-4 rounded-xl outline-none"
-                    style={inputStyle}
+                    className="px-3 py-4 rounded-xl outline-none transition-all"
+                    style={{
+                      ...inputStyle,
+                      borderColor: errors.phoneCode ? '#dc2626' : defaultBorderColor
+                    }}
                   >
+                    <option value="">Select Code</option>
                     {countryCodes.map((c) => (
                       <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
                     ))}
                   </select>
                   <input
-                    type="text"
+                    type="tel"
                     value={formData.phone}
-                    onChange={(e) => handleInputChange("phone", e.target.value)}
+                    onChange={(e) => {
+                      // Only allow digits and limit to 10 digits
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      handleInputChange("phone", value);
+                    }}
+                    onKeyPress={(e) => {
+                      // Only allow digits
+                      if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab') {
+                        e.preventDefault();
+                      }
+                    }}
+                    maxLength={10}
+                    pattern="[0-9]{10}"
+                    inputMode="numeric"
                     className="flex-1 px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
-                    style={inputStyle}
-                    placeholder="98765 43210"
+                    style={{
+                      ...inputStyle,
+                      borderColor: errors.phone ? '#dc2626' : inputStyle.border.split(' ')[2]
+                    }}
+                    placeholder="9876543210"
                   />
                 </div>
+                {errors.phoneCode && <p className="text-red-500 text-xs mt-1">{errors.phoneCode}</p>}
                 {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                {!errors.phone && formData.phone && (
+                  <p className="text-xs mt-1" style={{ color: textSecondary }}>
+                    {formData.phone.length}/10 digits
+                  </p>
+                )}
               </div>
 
               <div>
@@ -299,8 +512,12 @@ export default function AddEmployee() {
                   value={formData.dateOfBirth}
                   onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
                   className="w-full px-4 py-4 rounded-xl outline-none transition-all"
-                  style={inputStyle}
+                  style={{
+                    ...inputStyle,
+                    borderColor: errors.dateOfBirth ? '#dc2626' : defaultBorderColor
+                  }}
                 />
+                {errors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{errors.dateOfBirth}</p>}
               </div>
 
               <div>
@@ -341,15 +558,21 @@ export default function AddEmployee() {
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Current Address</label>
+                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
+                    Current Address <span className="text-red-500">*</span>
+                  </label>
                   <textarea
                     value={formData.currentAddress}
                     onChange={(e) => handleInputChange("currentAddress", e.target.value)}
                     rows={3}
                     className="w-full px-4 py-4 rounded-xl outline-none resize-none transition-all focus:ring-2 focus:ring-blue-400"
-                    style={inputStyle}
+                    style={{
+                      ...inputStyle,
+                      borderColor: errors.currentAddress ? '#dc2626' : defaultBorderColor
+                    }}
                     placeholder="Enter current address..."
                   />
+                  {errors.currentAddress && <p className="text-red-500 text-xs mt-1">{errors.currentAddress}</p>}
                 </div>
 
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -364,15 +587,21 @@ export default function AddEmployee() {
 
                 {!formData.sameAsCurrentAddress && (
                   <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Permanent Address</label>
+                    <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
+                      Permanent Address <span className="text-red-500">*</span>
+                    </label>
                     <textarea
                       value={formData.permanentAddress}
                       onChange={(e) => handleInputChange("permanentAddress", e.target.value)}
                       rows={3}
                       className="w-full px-4 py-4 rounded-xl outline-none resize-none transition-all focus:ring-2 focus:ring-blue-400"
-                      style={inputStyle}
+                      style={{
+                        ...inputStyle,
+                        borderColor: errors.permanentAddress ? '#dc2626' : defaultBorderColor
+                      }}
                       placeholder="Enter permanent address..."
                     />
+                    {errors.permanentAddress && <p className="text-red-500 text-xs mt-1">{errors.permanentAddress}</p>}
                   </div>
                 )}
               </div>
@@ -384,52 +613,93 @@ export default function AddEmployee() {
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Contact Name</label>
+                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
+                    Contact Name <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={formData.emergencyContactName}
                     onChange={(e) => handleInputChange("emergencyContactName", e.target.value)}
-                    className="w-full px-4 py-4 rounded-xl outline-none transition-all"
-                    style={inputStyle}
+                    className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+                    style={{
+                      ...inputStyle,
+                      borderColor: errors.emergencyContactName ? '#dc2626' : defaultBorderColor
+                    }}
                     placeholder="Full name"
                   />
+                  {errors.emergencyContactName && <p className="text-red-500 text-xs mt-1">{errors.emergencyContactName}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Relationship</label>
+                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
+                    Relationship <span className="text-red-500">*</span>
+                  </label>
                   <select
                     value={formData.emergencyContactRelation}
                     onChange={(e) => handleInputChange("emergencyContactRelation", e.target.value)}
-                    className="w-full px-4 py-4 rounded-xl outline-none"
-                    style={inputStyle}
+                    className="w-full px-4 py-4 rounded-xl outline-none transition-all"
+                    style={{
+                      ...inputStyle,
+                      borderColor: errors.emergencyContactRelation ? '#dc2626' : defaultBorderColor
+                    }}
                   >
                     <option value="">Select Relation</option>
                     {["Spouse", "Parent", "Sibling", "Friend", "Other"].map(r => (
                       <option key={r} value={r}>{r}</option>
                     ))}
                   </select>
+                  {errors.emergencyContactRelation && <p className="text-red-500 text-xs mt-1">{errors.emergencyContactRelation}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Phone Number</label>
+                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
                   <div className="flex gap-2">
                     <select
                       value={formData.emergencyPhoneCode}
                       onChange={(e) => handleInputChange("emergencyPhoneCode", e.target.value)}
-                      className="px-2 py-4 rounded-xl outline-none text-sm"
-                      style={inputStyle}
+                      className="px-2 py-4 rounded-xl outline-none text-sm transition-all"
+                      style={{
+                        ...inputStyle,
+                        borderColor: errors.emergencyPhoneCode ? '#dc2626' : inputStyle.border.split(' ')[2]
+                      }}
                     >
+                      <option value="">Code</option>
                       {countryCodes.map((c) => (
                         <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
                       ))}
                     </select>
                     <input
-                      type="text"
+                      type="tel"
                       value={formData.emergencyContactPhone}
-                      onChange={(e) => handleInputChange("emergencyContactPhone", e.target.value)}
-                      className="flex-1 px-4 py-4 rounded-xl outline-none transition-all"
-                      style={inputStyle}
-                      placeholder="Phone"
+                      onChange={(e) => {
+                        // Only allow digits and limit to 10 digits
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        handleInputChange("emergencyContactPhone", value);
+                      }}
+                      onKeyPress={(e) => {
+                        // Only allow digits
+                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab') {
+                          e.preventDefault();
+                        }
+                      }}
+                      maxLength={10}
+                      pattern="[0-9]{10}"
+                      inputMode="numeric"
+                      className="flex-1 px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+                      style={{
+                        ...inputStyle,
+                        borderColor: errors.emergencyContactPhone ? '#dc2626' : defaultBorderColor
+                      }}
+                      placeholder="9876543210"
                     />
                   </div>
+                  {errors.emergencyPhoneCode && <p className="text-red-500 text-xs mt-1">{errors.emergencyPhoneCode}</p>}
+                  {errors.emergencyContactPhone && <p className="text-red-500 text-xs mt-1">{errors.emergencyContactPhone}</p>}
+                  {!errors.emergencyContactPhone && formData.emergencyContactPhone && (
+                    <p className="text-xs mt-1" style={{ color: textSecondary }}>
+                      {formData.emergencyContactPhone.length}/10 digits
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -459,7 +729,10 @@ export default function AddEmployee() {
                   value={formData.jobTitle}
                   onChange={(e) => handleInputChange("jobTitle", e.target.value)}
                   className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
-                  style={inputStyle}
+                  style={{
+                    ...inputStyle,
+                    borderColor: errors.jobTitle ? '#dc2626' : defaultBorderColor
+                  }}
                   placeholder="e.g., Software Engineer"
                 />
                 {errors.jobTitle && <p className="text-red-500 text-xs mt-1">{errors.jobTitle}</p>}
@@ -472,8 +745,11 @@ export default function AddEmployee() {
                 <select
                   value={formData.department}
                   onChange={(e) => handleInputChange("department", e.target.value)}
-                  className="w-full px-4 py-4 rounded-xl outline-none"
-                  style={inputStyle}
+                  className="w-full px-4 py-4 rounded-xl outline-none transition-all"
+                  style={{
+                    ...inputStyle,
+                    borderColor: errors.department ? '#dc2626' : defaultBorderColor
+                  }}
                 >
                   <option value="">Select Department</option>
                   {departments.map(d => <option key={d} value={d}>{d}</option>)}
@@ -487,10 +763,14 @@ export default function AddEmployee() {
                   type="text"
                   value={formData.designation}
                   onChange={(e) => handleInputChange("designation", e.target.value)}
-                  className="w-full px-4 py-4 rounded-xl outline-none transition-all"
-                  style={inputStyle}
+                  className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+                  style={{
+                    ...inputStyle,
+                    borderColor: errors.designation ? '#dc2626' : defaultBorderColor
+                  }}
                   placeholder="e.g., Senior Developer"
                 />
+                {errors.designation && <p className="text-red-500 text-xs mt-1">{errors.designation}</p>}
               </div>
 
               <div>
@@ -526,7 +806,10 @@ export default function AddEmployee() {
                   value={formData.proposedJoiningDate}
                   onChange={(e) => handleInputChange("proposedJoiningDate", e.target.value)}
                   className="w-full px-4 py-4 rounded-xl outline-none transition-all"
-                  style={inputStyle}
+                  style={{
+                    ...inputStyle,
+                    borderColor: errors.proposedJoiningDate ? '#dc2626' : defaultBorderColor
+                  }}
                 />
                 {errors.proposedJoiningDate && <p className="text-red-500 text-xs mt-1">{errors.proposedJoiningDate}</p>}
               </div>
@@ -537,10 +820,14 @@ export default function AddEmployee() {
                   type="text"
                   value={formData.workLocation}
                   onChange={(e) => handleInputChange("workLocation", e.target.value)}
-                  className="w-full px-4 py-4 rounded-xl outline-none transition-all"
-                  style={inputStyle}
+                  className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+                  style={{
+                    ...inputStyle,
+                    borderColor: errors.workLocation ? '#dc2626' : defaultBorderColor
+                  }}
                   placeholder="e.g., Bangalore Office"
                 />
+                {errors.workLocation && <p className="text-red-500 text-xs mt-1">{errors.workLocation}</p>}
               </div>
 
               <div>
@@ -550,8 +837,11 @@ export default function AddEmployee() {
                 <select
                   value={formData.managerId}
                   onChange={(e) => handleInputChange("managerId", e.target.value)}
-                  className="w-full px-4 py-4 rounded-xl outline-none"
-                  style={inputStyle}
+                  className="w-full px-4 py-4 rounded-xl outline-none transition-all"
+                  style={{
+                    ...inputStyle,
+                    borderColor: errors.managerId ? '#dc2626' : defaultBorderColor
+                  }}
                 >
                   <option value="">Select Manager</option>
                   {managers.map(m => <option key={m.id} value={m.id}>{m.name} ({m.dept})</option>)}
@@ -889,13 +1179,24 @@ export default function AddEmployee() {
           ) : (
             <button
               onClick={handleSubmit}
-              className="px-8 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90"
+              disabled={isSubmitting}
+              className="px-8 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ 
                 background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
                 boxShadow: '0 4px 15px rgba(22, 163, 74, 0.4)'
               }}
             >
-              ✅ Submit & Add Employee
+              {isSubmitting ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Submitting...
+                </span>
+              ) : (
+                '✅ Submit & Add Employee'
+              )}
             </button>
           )}
         </div>
