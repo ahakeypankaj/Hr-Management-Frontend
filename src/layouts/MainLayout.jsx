@@ -374,7 +374,7 @@ export default function MainLayout({ children }) {
               HR Nexus v1.0
             </p>
             <p className="text-xs" style={{ color: isDark ? '#64748b' : '#94a3b8' }}>
-              © 2025 All Rights Reserved
+              2025 All Rights Reserved
             </p>
           </div>
         </div>
@@ -401,9 +401,9 @@ export default function MainLayout({ children }) {
         }}
       >
         <div className="flex items-center justify-center gap-2">
-          <span>Made with</span>
-          <span className="text-red-500">❤️</span>
-          <span>by HR Nexus Team</span>
+          {/* <span>Made with</span>
+          <span className="text-red-500">For</span> */}
+          <span>HR Nexus Team</span>
         </div>
       </footer>
     </div>
