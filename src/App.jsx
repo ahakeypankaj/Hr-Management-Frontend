@@ -6,9 +6,9 @@ import { ThemeProvider } from './context/ThemeContext'
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
     </ThemeProvider>
   )
 }

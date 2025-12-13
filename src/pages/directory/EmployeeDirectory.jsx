@@ -1,24 +1,26 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
+import { fetchEmployees } from "../../services/directoryService";
 
-const mockEmployees = [
-  { id: "EMP001", name: "Asha Kumar", dept: "Engineering", role: "Senior Developer", joiningDate: "2024-08-01", email: "asha@company.com", phone: "+91 98765 43210", status: "Active", dob: "1995-06-15" },
-  { id: "EMP002", name: "Ravi Sharma", dept: "HR", role: "HR Manager", joiningDate: "2023-01-11", email: "ravi@company.com", phone: "+91 98765 43211", status: "Active", dob: "1988-11-20" },
-  { id: "EMP003", name: "Priya Patel", dept: "Engineering", role: "UI/UX Designer", joiningDate: "2023-06-15", email: "priya@company.com", phone: "+91 98765 43212", status: "Active", dob: "1993-03-25" },
-  { id: "EMP004", name: "Vikram Singh", dept: "DevOps", role: "DevOps Engineer", joiningDate: "2024-02-20", email: "vikram@company.com", phone: "+91 98765 43213", status: "Active", dob: "1990-12-10" },
-  { id: "EMP005", name: "Anita Verma", dept: "QA", role: "QA Lead", joiningDate: "2022-11-05", email: "anita@company.com", phone: "+91 98765 43214", status: "Active", dob: "1991-07-30" },
-  { id: "EMP006", name: "Rahul Gupta", dept: "Sales", role: "Sales Executive", joiningDate: "2024-01-10", email: "rahul@company.com", phone: "+91 98765 43215", status: "On Leave", dob: "1994-02-14" },
-  { id: "EMP007", name: "Sneha Reddy", dept: "Finance", role: "Accountant", joiningDate: "2023-09-01", email: "sneha@company.com", phone: "+91 98765 43216", status: "Active", dob: "1992-09-05" },
-  { id: "EMP008", name: "Amit Kumar", dept: "Engineering", role: "Backend Developer", joiningDate: "2024-03-15", email: "amit@company.com", phone: "+91 98765 43217", status: "Active", dob: "1996-01-18" },
-  { id: "EMP009", name: "Karan Malhotra", dept: "Marketing", role: "Marketing Manager", joiningDate: "2023-04-10", email: "karan@company.com", phone: "+91 98765 43218", status: "Active", dob: "1989-05-22" },
-  { id: "EMP010", name: "Neha Singh", dept: "Product", role: "Product Manager", joiningDate: "2022-08-15", email: "neha@company.com", phone: "+91 98765 43219", status: "Active", dob: "1991-11-30" },
-  { id: "EMP011", name: "Arjun Nair", dept: "Engineering", role: "Tech Lead", joiningDate: "2021-06-20", email: "arjun@company.com", phone: "+91 98765 43220", status: "Active", dob: "1987-08-12" },
-  { id: "EMP012", name: "Divya Sharma", dept: "HR", role: "HR Executive", joiningDate: "2024-05-01", email: "divya@company.com", phone: "+91 98765 43221", status: "Active", dob: "1995-04-08" },
-];
-
-const departments = ["All", "Engineering", "HR", "DevOps", "QA", "Sales", "Finance", "Marketing", "Product"];
-const statuses = ["All", "Active", "On Leave"];
+// Map API user data to UI format
+const mapUserToEmployee = (user) => {
+  return {
+    id: user.employeeId || user._id,
+    _id: user._id,
+    name: user.name || "",
+    dept: user.department || "",
+    role: user.designation || user.role || "",
+    joiningDate: user.joiningDate ? new Date(user.joiningDate).toISOString().split('T')[0] : "",
+    email: user.companyEmail || user.personalEmail || "",
+    phone: user.phoneNumber || "",
+    status: user.isActive ? "Active" : "Inactive",
+    dob: user.dateOfBirth || null, // Not in API response, will be null
+    profilePicture: user.profilePicture || null,
+    employeeId: user.employeeId,
+    employmentType: user.employmentType || "",
+  };
+};
 
 const avatarColors = [
   "linear-gradient(135deg, #2563eb, #7c3aed)",
@@ -34,11 +36,43 @@ const ITEMS_PER_PAGE = 10;
 export default function EmployeeDirectory() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const [employees, setEmployees] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [sortBy, setSortBy] = useState("name");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Fetch employees from API
+  useEffect(() => {
+    const loadEmployees = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetchEmployees();
+        if (response.success && Array.isArray(response.users)) {
+          const mappedEmployees = response.users.map(mapUserToEmployee);
+          setEmployees(mappedEmployees);
+        } else {
+          setEmployees([]);
+        }
+      } catch (err) {
+        console.error("Error loading employees:", err);
+        setError(err.response?.data?.message || err.message || "Failed to load employees");
+        setEmployees([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadEmployees();
+  }, []);
+
+  // Extract unique departments from employees
+  const departments = ["All", ...new Set(employees.map(emp => emp.dept).filter(Boolean))];
+  const statuses = ["All", ...new Set(employees.map(emp => emp.status).filter(Boolean))];
 
   const navyBlue = '#1e3a5f';
   const cardStyle = {
@@ -52,7 +86,8 @@ export default function EmployeeDirectory() {
   // Get upcoming birthdays (within next 30 days)
   const getUpcomingBirthdays = () => {
     const today = new Date();
-    const upcoming = mockEmployees.filter(emp => {
+    const upcoming = employees.filter(emp => {
+      if (!emp.dob) return false;
       const bday = new Date(emp.dob);
       bday.setFullYear(today.getFullYear());
       const diff = (bday - today) / (1000 * 60 * 60 * 24);
@@ -64,11 +99,12 @@ export default function EmployeeDirectory() {
   const upcomingBirthdays = getUpcomingBirthdays();
 
   // Filter employees
-  const filteredEmployees = mockEmployees.filter((emp) => {
-    const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.id.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredEmployees = employees.filter((emp) => {
+    const matchesSearch = (emp.name && emp.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (emp.role && emp.role.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (emp.email && emp.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (emp.id && emp.id.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (emp.employeeId && emp.employeeId.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesDept = selectedDept === "All" || emp.dept === selectedDept;
     const matchesStatus = selectedStatus === "All" || emp.status === selectedStatus;
     return matchesSearch && matchesDept && matchesStatus;
@@ -99,7 +135,7 @@ export default function EmployeeDirectory() {
           <p style={{ color: textSecondary }}>Browse and search all employees in the organization</p>
         </div>
         <div className="px-4 py-2 rounded-xl" style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}>
-          <span className="font-bold text-2xl">{mockEmployees.length}</span>
+          <span className="font-bold text-2xl">{employees.length}</span>
           <span className="ml-2 text-sm">total employees</span>
         </div>
       </div>
@@ -192,9 +228,10 @@ export default function EmployeeDirectory() {
       </p>
 
       {/* Employee Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-fade-in-up">
-        {paginatedEmployees.map((emp) => (
-          <div key={emp.id} className="p-5 transition-all hover:scale-[1.02] hover-lift" style={cardStyle}>
+      {!isLoading && !error && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-fade-in-up">
+          {paginatedEmployees.map((emp) => (
+            <div key={emp._id || emp.id} className="p-5 transition-all hover:scale-[1.02] hover-lift" style={cardStyle}>
             {/* Avatar and Status */}
             <div className="flex items-start justify-between mb-4">
               <div
@@ -216,9 +253,9 @@ export default function EmployeeDirectory() {
 
             {/* Employee Info */}
             <h3 className="font-bold text-lg" style={{ color: textPrimary }}>{emp.name}</h3>
-            <p className="font-semibold text-sm" style={{ color: navyBlue }}>{emp.role}</p>
-            <p className="text-sm mt-1" style={{ color: textSecondary }}>{emp.dept}</p>
-            <p className="text-xs mt-1 font-mono" style={{ color: textSecondary }}>{emp.id}</p>
+            <p className="font-semibold text-sm" style={{ color: navyBlue }}>{emp.role || "N/A"}</p>
+            <p className="text-sm mt-1" style={{ color: textSecondary }}>{emp.dept || "N/A"}</p>
+            <p className="text-xs mt-1 font-mono" style={{ color: textSecondary }}>{emp.employeeId || emp.id || "N/A"}</p>
 
             {/* Contact Info */}
             <div className="mt-4 pt-4 space-y-2" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
@@ -232,7 +269,7 @@ export default function EmployeeDirectory() {
 
             {/* View Profile Link */}
             <Link
-              to={`/directory/${emp.id}`}
+              to={`/directory/${emp._id || emp.id}`}
               className="mt-4 block text-center py-2 rounded-lg font-semibold text-sm transition-all"
               style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}
             >
@@ -240,10 +277,11 @@ export default function EmployeeDirectory() {
             </Link>
           </div>
         ))}
-      </div>
+        </div>
+      )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {!isLoading && !error && totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <button
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -278,7 +316,7 @@ export default function EmployeeDirectory() {
       )}
 
       {/* Empty State */}
-      {paginatedEmployees.length === 0 && (
+      {!isLoading && !error && paginatedEmployees.length === 0 && (
         <div className="text-center py-12" style={cardStyle}>
           <span className="text-4xl block mb-2">👥</span>
           <p className="text-lg font-medium" style={{ color: textPrimary }}>No employees found</p>

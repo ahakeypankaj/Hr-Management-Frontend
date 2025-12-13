@@ -1,100 +1,113 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
+import { getAttendanceDashboard } from "../../services/attendanceService";
 
-// Mock logged-in employees data
-const mockLoggedInEmployees = [
-  { 
-    id: "EMP001", 
-    name: "Asha Kumar", 
-    email: "asha@company.com", 
-    department: "Engineering",
-    designation: "Senior Developer",
-    checkInTime: "09:15 AM",
-    checkOutTime: "-",
-    status: "Present",
-    avatar: "A"
-  },
-  { 
-    id: "EMP002", 
-    name: "Ravi Sharma", 
-    email: "ravi@company.com", 
-    department: "HR",
-    designation: "HR Manager",
-    checkInTime: "09:00 AM",
-    checkOutTime: "-",
-    status: "Present",
-    avatar: "R"
-  },
-  { 
-    id: "EMP003", 
-    name: "Priya Patel", 
-    email: "priya@company.com", 
-    department: "Engineering",
-    designation: "UI/UX Designer",
-    checkInTime: "09:30 AM",
-    checkOutTime: "-",
-    status: "Present",
-    avatar: "P"
-  },
-  { 
-    id: "EMP004", 
-    name: "Vikram Singh", 
-    email: "vikram@company.com", 
-    department: "DevOps",
-    designation: "DevOps Engineer",
-    checkInTime: "08:45 AM",
-    checkOutTime: "-",
-    status: "Present",
-    avatar: "V"
-  },
-  { 
-    id: "EMP005", 
-    name: "Anita Verma", 
-    email: "anita@company.com", 
-    department: "QA",
-    designation: "QA Lead",
-    checkInTime: "09:20 AM",
-    checkOutTime: "06:15 PM",
-    status: "Checked Out",
-    avatar: "A"
-  },
-  { 
-    id: "EMP006", 
-    name: "Rahul Gupta", 
-    email: "rahul@company.com", 
-    department: "Sales",
-    designation: "Sales Executive",
-    checkInTime: "-",
-    checkOutTime: "-",
-    status: "Optional Holiday",
-    avatar: "R"
-  },
-  { 
-    id: "EMP007", 
-    name: "Sneha Reddy", 
-    email: "sneha@company.com", 
-    department: "Finance",
-    designation: "Finance Manager",
-    checkInTime: "-",
-    checkOutTime: "-",
-    status: "Holiday",
-    avatar: "S"
-  },
-];
+// Map API attendance data to UI format
+const mapAttendanceToEmployee = (attendance) => {
+  // Format time from ISO string to readable format
+  const formatTime = (isoString) => {
+    if (!isoString) return "-";
+    const date = new Date(isoString);
+    return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+  };
 
-const departments = ["All", "Engineering", "DevOps", "QA", "Sales", "Product", "Finance", "HR"];
-const statusOptions = ["All", "Present", "Checked Out", "On Leave", "Holiday", "Optional Holiday"];
-const ITEMS_PER_PAGE = 10;
+  // Map API status to UI status
+  let status = "Absent"; // Default
+  
+  // If checked out, status is "Checked Out"
+  if (attendance.checkOutStatus === true) {
+    status = "Checked Out";
+  } 
+  // If has check-in time but not checked out, status is "Present"
+  else if (attendance.checkInTime && !attendance.checkOutStatus) {
+    status = "Present";
+  }
+  // Map API status values
+  else if (attendance.status === "onLeave") {
+    status = "On Leave";
+  } else if (attendance.status === "holiday") {
+    status = "Holiday";
+  } else if (attendance.status === "optionalHoliday") {
+    status = "Optional Holiday";
+  } else if (attendance.status === "absent") {
+    status = "Absent";
+  }
+
+  return {
+    id: attendance.user?.employeeId || attendance._id,
+    _id: attendance._id,
+    name: attendance.user?.name || "Unknown",
+    email: attendance.user?.companyEmail || "",
+    department: attendance.user?.department || "",
+    designation: attendance.user?.designation || "",
+    checkInTime: formatTime(attendance.checkInTime),
+    checkOutTime: formatTime(attendance.checkOutTime),
+    status: status,
+    avatar: (attendance.user?.name || "U").charAt(0).toUpperCase(),
+    totalHours: attendance.totalHours || 0,
+    workMode: attendance.workMode || "office",
+  };
+};
 
 export default function AttendanceManagement() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   
-  const [employees, setEmployees] = useState(mockLoggedInEmployees);
+  const [employees, setEmployees] = useState([]);
+  const [summary, setSummary] = useState({
+    totalEmployees: 0,
+    present: 0,
+    checkedOut: 0,
+    onLeave: 0,
+    holiday: 0,
+    optionalHoliday: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDept, setFilterDept] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    totalRecords: 0,
+    totalPages: 1,
+  });
+
+  // Fetch attendance dashboard data
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await getAttendanceDashboard();
+        if (response.summary) {
+          setSummary(response.summary);
+        }
+        if (response.table && response.table.data) {
+          const mappedEmployees = response.table.data.map(mapAttendanceToEmployee);
+          setEmployees(mappedEmployees);
+        }
+        if (response.table && response.table.pagination) {
+          setPagination(response.table.pagination);
+          setCurrentPage(response.table.pagination.page);
+        }
+      } catch (err) {
+        console.error("Error fetching attendance dashboard:", err);
+        setError(err.response?.data?.message || err.message || "Failed to load attendance data");
+        setEmployees([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboard();
+  }, []);
+
+  // Extract unique departments from employees for filter
+  const departments = ["All", ...new Set(employees.map(emp => emp.department).filter(Boolean))];
+  const statusOptions = ["All", "Present", "Checked Out", "On Leave", "Holiday", "Optional Holiday", "Absent"];
 
   const navyBlue = '#1e3a5f';
   const cardStyle = {
@@ -121,12 +134,14 @@ export default function AttendanceManagement() {
     return matchesSearch && matchesDept && matchesStatus;
   });
 
-  // Pagination
-  const totalPages = Math.ceil(filteredEmployees.length / ITEMS_PER_PAGE);
-  const paginatedEmployees = filteredEmployees.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  // Pagination - use API pagination if available, otherwise client-side
+  const totalPages = pagination.totalPages || Math.ceil(filteredEmployees.length / (pagination.limit || 10));
+  const paginatedEmployees = pagination.totalPages 
+    ? filteredEmployees // If API pagination, use all filtered results
+    : filteredEmployees.slice(
+        (currentPage - 1) * (pagination.limit || 10),
+        currentPage * (pagination.limit || 10)
+      );
 
   const handleFilterChange = () => setCurrentPage(1);
 
@@ -137,18 +152,19 @@ export default function AttendanceManagement() {
       case "On Leave": return { bg: "#fef3c7", color: "#d97706", icon: "🟡" };
       case "Holiday": return { bg: "#dbeafe", color: "#2563eb", icon: "🎊" };
       case "Optional Holiday": return { bg: "#e9d5ff", color: "#9333ea", icon: "🎉" };
+      case "Absent": return { bg: "#fee2e2", color: "#dc2626", icon: "🔴" };
       default: return { bg: "#f1f5f9", color: "#64748b", icon: "⚪" };
     }
   };
 
-  // Stats
+  // Stats from API summary
   const stats = [
-    { label: "Total Employees", value: employees.length, color: "#2563eb", icon: "👥" },
-    { label: "Present", value: employees.filter(e => e.status === "Present").length, color: "#16a34a", icon: "🟢" },
-    { label: "Checked Out", value: employees.filter(e => e.status === "Checked Out").length, color: "#2563eb", icon: "🔵" },
-    { label: "On Leave", value: employees.filter(e => e.status === "On Leave").length, color: "#d97706", icon: "🟡" },
-    { label: "Holiday", value: employees.filter(e => e.status === "Holiday").length, color: "#2563eb", icon: "🎊" },
-    { label: "Opt. Holiday", value: employees.filter(e => e.status === "Optional Holiday").length, color: "#9333ea", icon: "🎉" },
+    { label: "Total Employees", value: summary.totalEmployees || 0, color: "#2563eb", icon: "👥" },
+    { label: "Present", value: summary.present || 0, color: "#16a34a", icon: "🟢" },
+    { label: "Checked Out", value: summary.checkedOut || 0, color: "#2563eb", icon: "🔵" },
+    { label: "On Leave", value: summary.onLeave || 0, color: "#d97706", icon: "🟡" },
+    { label: "Holiday", value: summary.holiday || 0, color: "#2563eb", icon: "🎊" },
+    { label: "Opt. Holiday", value: summary.optionalHoliday || 0, color: "#9333ea", icon: "🎉" },
   ];
 
   return (
@@ -227,29 +243,30 @@ export default function AttendanceManagement() {
         </div>
         <div className="mt-4 flex items-center justify-between">
           <span className="text-sm" style={{ color: textSecondary }}>
-            Showing {paginatedEmployees.length} of {filteredEmployees.length} employees
+            Showing {paginatedEmployees.length} of {pagination.totalRecords || filteredEmployees.length} employees
           </span>
         </div>
       </div>
 
       {/* Employees List */}
-      <div style={cardStyle} className="overflow-hidden animate-fade-in-up">
-        <div 
-          className="p-5"
-          style={{ 
-            background: `linear-gradient(135deg, ${navyBlue} 0%, #2563eb 100%)`,
-          }}
-        >
-          <h2 className="text-lg font-bold text-white">Employee Attendance Status</h2>
-        </div>
-
-        {paginatedEmployees.length === 0 ? (
-          <div className="p-12 text-center">
-            <span className="text-5xl block mb-4">👥</span>
-            <p className="font-semibold" style={{ color: textPrimary }}>No employees found</p>
-            <p className="text-sm" style={{ color: textSecondary }}>Try adjusting your filters</p>
+      {!isLoading && !error && (
+        <div style={cardStyle} className="overflow-hidden animate-fade-in-up">
+          <div 
+            className="p-5"
+            style={{ 
+              background: `linear-gradient(135deg, ${navyBlue} 0%, #2563eb 100%)`,
+            }}
+          >
+            <h2 className="text-lg font-bold text-white">Employee Attendance Status</h2>
           </div>
-        ) : (
+
+          {paginatedEmployees.length === 0 ? (
+            <div className="p-12 text-center">
+              <span className="text-5xl block mb-4">👥</span>
+              <p className="font-semibold" style={{ color: textPrimary }}>No employees found</p>
+              <p className="text-sm" style={{ color: textSecondary }}>Try adjusting your filters</p>
+            </div>
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
@@ -290,19 +307,29 @@ export default function AttendanceManagement() {
                       </td>
                       <td className="px-6 py-4">
                         <div>
-                          <p className="font-medium" style={{ color: textPrimary }}>{employee.department}</p>
-                          <p className="text-xs" style={{ color: textSecondary }}>{employee.designation}</p>
+                          <p className="font-medium" style={{ color: textPrimary }}>{employee.department || "N/A"}</p>
+                          <p className="text-xs" style={{ color: textSecondary }}>{employee.designation || "N/A"}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <p className="font-medium" style={{ color: employee.checkInTime !== "-" ? '#16a34a' : textSecondary }}>
                           {employee.checkInTime}
                         </p>
+                        {employee.workMode && (
+                          <p className="text-xs mt-1" style={{ color: textSecondary }}>
+                            {employee.workMode === "remote" ? "🏠 Remote" : "🏢 Office"}
+                          </p>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <p className="font-medium" style={{ color: employee.checkOutTime !== "-" ? '#2563eb' : textSecondary }}>
                           {employee.checkOutTime}
                         </p>
+                        {employee.totalHours > 0 && employee.checkOutTime !== "-" && (
+                          <p className="text-xs mt-1" style={{ color: textSecondary }}>
+                            {employee.totalHours.toFixed(2)} hrs
+                          </p>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <span 
@@ -347,7 +374,8 @@ export default function AttendanceManagement() {
             Next →
           </button>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
