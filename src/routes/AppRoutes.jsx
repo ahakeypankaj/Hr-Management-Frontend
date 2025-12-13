@@ -27,6 +27,7 @@ import AddEmployee from '../pages/hr/AddEmployee'
 import PerformanceHub from '../pages/hr/PerformanceHub'
 import Reports from '../pages/hr/Reports'
 import Settings from '../pages/hr/Settings'
+import HRGrievances from '../pages/hr/HRGrievances'
 
 // Protected Route wrapper
 function ProtectedRoute({ children, allowedRoles = [] }) {
@@ -123,6 +124,11 @@ export default function AppRoutes() {
       {/* Attendance Management */}
       <Route path="/hr/attendance" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><AttendanceManagement /></ProtectedRoute>
+      } />
+      
+      {/* Grievance Management */}
+      <Route path="/hr/grievances" element={
+        <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><HRGrievances /></ProtectedRoute>
       } />
       
       {/* Approvals */}
