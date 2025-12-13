@@ -41,15 +41,7 @@ export const logout = async () => {
   const token = localStorage.getItem("authToken");
 
   try {
-    await api.post(
-      "/auth/logout",
-      {}, // no body
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    await api.post("/auth/logout",{});
   } catch (error) {
     console.error("Logout API error:", error);
   } finally {
