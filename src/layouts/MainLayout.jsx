@@ -129,7 +129,7 @@ export default function MainLayout({ children }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <h1 className="text-xl font-bold text-white hidden sm:block">HR Nexus</h1>
+            <h1 className="text-xl font-bold text-white hidden sm:block">Irish Taylor & Co</h1>
           </div>
         </div>
 
@@ -377,7 +377,7 @@ export default function MainLayout({ children }) {
             style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9' }}
           >
             <p className="text-xs font-medium" style={{ color: isDark ? '#94a3b8' : '#64748b' }}>
-              HR Nexus v1.0
+              Irish Taylor & Co
             </p>
             <p className="text-xs" style={{ color: isDark ? '#64748b' : '#94a3b8' }}>
               2025 All Rights Reserved
@@ -409,7 +409,7 @@ export default function MainLayout({ children }) {
         <div className="flex items-center justify-center gap-2">
           {/* <span>Made with</span>
           <span className="text-red-500">For</span> */}
-          <span>HR Nexus Team</span>
+          <span>Irish Taylor & Co</span>
         </div>
       </footer>
     </div>

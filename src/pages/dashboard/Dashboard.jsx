@@ -7,7 +7,7 @@ import BarChart from "../../components/charts/BarChart";
 import PieChart from "../../components/charts/PieChart";
 
 // Employee Stats
-const employeeStats = [
+const getEmployeeStats = (user) => [
   { label: "Pending Tasks", value: 3, color: "#2563eb", icon: "📋", change: "+2" },
   { label: "Leave Balance", value: 12, color: "#16a34a", icon: "🏖️", change: "days" },
   { label: "Attendance", value: "95%", color: "#7c3aed", icon: "⏰", change: "this month" },
@@ -45,6 +45,18 @@ const recentActivities = [
   { id: 3, action: "Profile updated", time: "Dec 10, 2024", icon: "✏️", type: "default" },
   { id: 4, action: "Task completed", time: "Dec 8, 2024", icon: "✅", type: "success" },
 ];
+
+// Get personalized activities based on user
+const getPersonalizedActivities = (user) => {
+  if (!user || !user.name) return recentActivities;
+  
+  return [
+    { id: 1, action: "Checked in", time: "Today, 9:00 AM", icon: "🟢", type: "success" },
+    { id: 2, action: `${user.name} submitted leave request`, time: "Yesterday, 3:30 PM", icon: "📅", type: "info" },
+    { id: 3, action: "Profile updated", time: "Dec 10, 2024", icon: "✏️", type: "default" },
+    { id: 4, action: `Task completed in ${user.department || 'department'}`, time: "Dec 8, 2024", icon: "✅", type: "success" },
+  ];
+};
 
 const upcomingEvents = [
   { id: 1, title: "Team Meeting", date: "Dec 13", time: "10:00 AM", type: "meeting" },
@@ -133,7 +145,7 @@ export default function Dashboard() {
   const isEmployee = user?.role === "employee";
   
   // Get appropriate stats and quick links based on role
-  const currentStats = isAdmin ? adminStats : (isHRManager ? hrStats : employeeStats);
+  const currentStats = isAdmin ? adminStats : (isHRManager ? hrStats : getEmployeeStats(user));
   const quickLinks = isAdmin ? adminQuickLinks : (isHRManager ? hrQuickLinks : employeeQuickLinks);
 
   // Get current week's quote
@@ -169,13 +181,18 @@ export default function Dashboard() {
         <div className="relative z-10 flex items-center justify-between">
           <div>
             <h1 className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2">Welcome back, {user.name}! 👋</h1>
-            <p className={`text-sm sm:text-lg ${isAdmin ? "text-red-100" : "text-blue-100"}`}>
+            <p className={`text-sm sm:text-lg ${isAdmin ? "text-red-100" : "text-blue-100"} mb-2`}>
               {isAdmin
                 ? "System administration overview"
                 : isHRManager
                 ? "Here's your organization overview for today"
                 : "Here's what's happening with your work today"}
             </p>
+            {isEmployee && user.designation && (
+              <p className={`text-xs sm:text-sm ${isAdmin ? "text-red-200" : "text-blue-200"}`}>
+                {user.designation} • {user.department} • Employee ID: {user.employeeId}
+              </p>
+            )}
           </div>
           <div className="hidden md:block animate-float">
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-4xl sm:text-5xl">
@@ -184,6 +201,49 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Employee Info Card - Employee Only */}
+      {isEmployee && (
+        <div 
+          className="p-6 rounded-2xl animate-fade-in-up"
+          style={cardStyle}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Employee Information</h2>
+            <div className="text-2xl">👤</div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="text-center">
+              <p className="text-sm" style={{ color: textSecondary }}>Employee ID</p>
+              <p className="font-semibold" style={{ color: textPrimary }}>{user.employeeId || 'N/A'}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm" style={{ color: textSecondary }}>Department</p>
+              <p className="font-semibold" style={{ color: textPrimary }}>{user.department || 'N/A'}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm" style={{ color: textSecondary }}>Designation</p>
+              <p className="font-semibold" style={{ color: textPrimary }}>{user.designation || 'N/A'}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm" style={{ color: textSecondary }}>Joining Date</p>
+              <p className="font-semibold" style={{ color: textPrimary }}>
+                {user.joiningDate ? new Date(user.joiningDate).toLocaleDateString() : 'N/A'}
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+            <div className="flex items-center justify-between text-sm">
+              <span style={{ color: textSecondary }}>Company Email:</span>
+              <span style={{ color: textPrimary }}>{user.companyEmail || 'N/A'}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm mt-1">
+              <span style={{ color: textSecondary }}>Employment Type:</span>
+              <span style={{ color: textPrimary }}>{user.employmentType || 'N/A'}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quote of the Week - Employee Only (not for Admin or HR) */}
       {isEmployee && (
@@ -394,7 +454,7 @@ export default function Dashboard() {
           <div className="lg:col-span-2 p-6 animate-fade-in-up stagger-3" style={cardStyle}>
             <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Recent Activity</h2>
             <div className="space-y-3">
-              {recentActivities.map((activity, index) => (
+              {getPersonalizedActivities(user).map((activity, index) => (
                 <div
                   key={activity.id}
                   className="flex items-center gap-4 p-4 rounded-xl transition-all hover:scale-[1.01]"

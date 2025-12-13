@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import { useMsal } from "@azure/msal-react";
+import { loginWithCredentials, loginWithMicrosoft } from "../../services/auth/auth";
 
 export default function Login() {
   const { login } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { instance } = useMsal();
   const isDark = theme === "dark";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,21 +22,50 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    if (email === "employee@company.com" && password === "employee123") {
-      login("employee", "Asha Kumar", "EMP001");
-    } else if (email === "hr@company.com" && password === "hr123") {
-      login("hr_manager", "Ravi Sharma", "HRM001");
-    } else if (email === "admin@company.com" && password === "admin123") {
-      login("admin", "System Admin", "ADM001");
-    } else {
-      setError("Invalid email or password. Try demo credentials.");
+    try {
+      const authResponse = await loginWithCredentials(email, password);
+      // Assuming authResponse contains user info and token
+      login(authResponse.user);
+    } catch (error) {
+      setError(error.response?.data?.message || "Login failed. Please check your credentials.");
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = () => login("employee", "Google User", "EMP003");
-  const handleMicrosoftLogin = () => login("employee", "Microsoft User", "EMP004");
+  const handleGoogleLogin = () => login({
+    _id: "EMP003",
+    name: "Google User",
+    role: "Employee",
+    employeeId: "EMP003",
+    department: "Engineering",
+    designation: "Software Engineer",
+    companyEmail: "google.user@irishtaylor.com",
+    personalEmail: "google@gmail.com",
+    phoneNumber: "+919876543213",
+    joiningDate: "2024-06-15T00:00:00.000Z",
+    employmentType: "Full-Time",
+    isActive: true
+  });
+  const handleMicrosoftLogin = async () => {
+    try {
+      setError("");
+      setLoading(true);
+      const loginRequest = {
+        scopes: ["openid", "profile", "email"]
+      };
+      const response = await instance.loginPopup(loginRequest);
+      const idToken = response.idToken;
+      const authResponse = await loginWithMicrosoft(idToken);
+      // Assuming authResponse contains user info and token
+      login(authResponse.user);
+    } catch (error) {
+      setError("Microsoft login failed. Please try again.");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -75,20 +107,13 @@ export default function Login() {
           <div className="relative z-10 text-center max-w-lg animate-fade-slide-up">
             <div className="mb-8">
               {/* Logo Icon */}
-              <div 
-                className="inline-flex items-center justify-center w-24 h-24 rounded-2xl mb-6"
-                style={{ backgroundColor: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)' }}
-              >
-                <svg className="w-12 h-12" fill="none" stroke="white" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <h1 className="text-5xl font-bold text-white mb-2">HR Nexus</h1>
-              <p style={{ color: 'rgba(255,255,255,0.8)' }} className="text-lg">Human Resource Management System</p>
+
+              <h1 className="text-5xl font-bold text-white mb-2">Irish Taylor & Co</h1>
+              <p style={{ color: 'rgba(255,255,255,0.8)' }} className="text-lg">Your Growth Partner</p>
             </div>
 
-            <h2 className="text-3xl font-bold text-white mb-4">Welcome Back!</h2>
             <p className="text-lg mb-10 leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              
               Your complete human resource management solution. Streamline operations, empower your team.
             </p>
 
@@ -112,15 +137,6 @@ export default function Login() {
               ))}
             </div>
 
-            {/* Stats */}
-            <div className="mt-10 flex justify-center gap-12">
-              {[["500+", "Companies"], ["50K+", "Employees"], ["99%", "Satisfaction"]].map(([val, label], i) => (
-                <div key={i} className="text-center">
-                  <p className="text-4xl font-bold text-white">{val}</p>
-                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>{label}</p>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 
@@ -140,7 +156,7 @@ export default function Login() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
-              <h1 className="text-2xl font-bold" style={{ color: isDark ? '#ffffff' : darkNavy }}>HR Nexus</h1>
+              <h1 className="text-2xl font-bold" style={{ color: isDark ? '#ffffff' : darkNavy }}>Irish Taylor & Co</h1>
             </div>
 
             <div className="mb-8">
@@ -169,7 +185,8 @@ export default function Login() {
               </button> */}
               <button
                 onClick={handleMicrosoftLogin}
-                className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-xl font-semibold transition-all hover:scale-[1.02]"
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-xl font-semibold transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ 
                   border: `2px solid ${isDark ? '#334155' : '#e2e8f0'}`,
                   backgroundColor: isDark ? '#1e293b' : '#ffffff',
@@ -314,58 +331,6 @@ export default function Login() {
           </div>
         </div>
       </div>
-
-      {/* Footer - Dark Navy */}
-      {/* <footer style={{ backgroundColor: darkNavy }}>
-        <div className="max-w-7xl mx-auto px-6 py-10">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="md:col-span-1">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: navyBlue }}>
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-                <span className="text-xl font-bold text-white">HR Nexus</span>
-              </div>
-              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                Empowering organizations with modern HR solutions.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-bold mb-4 text-white">Product</h3>
-              <ul className="space-y-2 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                <li><a href="#" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Integrations</a></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-bold mb-4 text-white">Company</h3>
-              <ul className="space-y-2 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-bold mb-4 text-white">Support</h3>
-              <ul className="space-y-2 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-8 pt-6 flex flex-col md:flex-row items-center justify-between gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>© {new Date().getFullYear()} HR Nexus. All rights reserved.</p>
-            <div className="flex items-center gap-4 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
-              <a href="#" className="hover:text-white transition-colors">Privacy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms</a>
-            </div>
-          </div>
-        </div>
-      </footer> */}
     </div>
   );
 }
