@@ -474,11 +474,11 @@ export default function Profile() {
                     <div className="flex items-center justify-between">
                       {/* Company Logo - Left */}
                       <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-lg">
-                        <span className="text-xl font-black" style={{ color: '#0a0a0a' }}>HR</span>
+                        <span className="text-xl font-black" style={{ color: '#0a0a0a' }}>IT</span>
                       </div>
                       {/* Company Name - Right */}
                       <div className="text-right">
-                        <h2 className="text-lg font-bold text-white tracking-widest">HR NEXUS</h2>
+                        <h2 className="text-lg font-bold text-white tracking-widest">Irish Taylor & Co</h2>
                         <p className="text-gray-400 text-xs uppercase tracking-wider">Employee Identity Card</p>
                       </div>
                     </div>
@@ -583,7 +583,7 @@ export default function Profile() {
                     className="px-6 py-2 text-center"
                     style={{ backgroundColor: '#0a0a0a' }}
                   >
-                    <p className="text-gray-500 text-xs">Property of HR Nexus • If found, please return to nearest office</p>
+                    <p className="text-gray-500 text-xs">Property of Irish Taylor & Co • If found, please return to nearest office</p>
                   </div>
                 </div>
 
