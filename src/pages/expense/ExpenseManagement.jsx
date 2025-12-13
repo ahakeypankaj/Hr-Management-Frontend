@@ -1,26 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import { createExpense, getExpenseSummary, listExpensesByUser } from "../../services/expenseService";
 
 // Country codes for phone
 const expenseCategories = [
   { id: "travel", name: "Travel", icon: "✈️", color: "#2563eb" },
   { id: "food", name: "Food & Meals", icon: "🍽️", color: "#16a34a" },
   { id: "accommodation", name: "Accommodation", icon: "🏨", color: "#7c3aed" },
-  { id: "transport", name: "Local Transport", icon: "🚕", color: "#ea580c" },
   { id: "office", name: "Office Supplies", icon: "📎", color: "#0891b2" },
-  { id: "communication", name: "Communication", icon: "📱", color: "#dc2626" },
-  { id: "training", name: "Training", icon: "📚", color: "#d97706" },
+  { id: "fuel", name: "Fuel", icon: "⛽", color: "#ea580c" },
+  { id: "internet", name: "Internet", icon: "📱", color: "#dc2626" },
   { id: "other", name: "Other", icon: "📦", color: "#64748b" },
-];
-
-const mockExpenses = [
-  { id: 1, title: "Client Meeting - Mumbai", category: "travel", amount: 12500, date: "2024-12-10", status: "approved", receipt: true, description: "Flight tickets for client meeting" },
-  { id: 2, title: "Team Lunch", category: "food", amount: 3200, date: "2024-12-08", status: "pending", receipt: true, description: "Team celebration lunch" },
-  { id: 3, title: "Hotel Stay - Delhi", category: "accommodation", amount: 8500, date: "2024-12-05", status: "approved", receipt: true, description: "2 nights hotel stay for conference" },
-  { id: 4, title: "Cab to Airport", category: "transport", amount: 850, date: "2024-12-04", status: "rejected", receipt: true, description: "Uber ride to airport", rejectReason: "Personal travel not covered" },
-  { id: 5, title: "Stationery Purchase", category: "office", amount: 1200, date: "2024-12-02", status: "pending", receipt: false, description: "Notebooks and pens" },
-  { id: 6, title: "AWS Training Course", category: "training", amount: 15000, date: "2024-11-28", status: "approved", receipt: true, description: "Online certification course" },
 ];
 
 const ITEMS_PER_PAGE = 10;
@@ -30,11 +21,22 @@ export default function ExpenseManagement() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   
-  const [expenses, setExpenses] = useState(mockExpenses);
+  const [expenses, setExpenses] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
-  
+  const [creatingExpense, setCreatingExpense] = useState(false);
+  const [loadingExpenses, setLoadingExpenses] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+  const [expenseSummary, setExpenseSummary] = useState({
+    total: 0,
+    approved: 0,
+    pending: 0,
+    rejected: 0,
+    paid: 0,
+    count: 0
+  });
+
   // Filters
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -49,6 +51,54 @@ export default function ExpenseManagement() {
     description: "",
     receipt: null
   });
+
+  useEffect(() => {
+    fetchExpenseSummary();
+    fetchExpenses();
+  }, []);
+
+  useEffect(() => {
+    fetchExpenses();
+  }, [currentPage]);
+
+  const fetchExpenseSummary = async () => {
+    try {
+      const summary = await getExpenseSummary();
+      setExpenseSummary(summary);
+    } catch (error) {
+      console.error('Error fetching expense summary:', error);
+      // Keep default values if API fails
+    }
+  };
+
+  const fetchExpenses = async () => {
+    try {
+      setLoadingExpenses(true);
+      const response = await listExpensesByUser(currentPage, ITEMS_PER_PAGE);
+      
+      // Transform API response to match component expectations
+      const transformedExpenses = response.expenses.map(expense => ({
+        id: expense._id,
+        title: expense.description || 'Expense', // Use description as title if no title
+        category: expense.expenseType,
+        amount: expense.amount,
+        date: new Date(expense.date).toISOString().split('T')[0], // Format date as YYYY-MM-DD
+        status: expense.status,
+        receipt: expense.receipts && expense.receipts.length > 0,
+        description: expense.description,
+        receipts: expense.receipts, // Keep original receipts array for detailed view
+        rejectionMessage: expense.rejectionMessage
+      }));
+      
+      setExpenses(transformedExpenses);
+      setTotalPages(Math.ceil(response.total / ITEMS_PER_PAGE));
+    } catch (error) {
+      console.error('Error fetching expenses:', error);
+      setExpenses([]);
+    } finally {
+      setLoadingExpenses(false);
+    }
+  };
 
   const navyBlue = '#1e3a5f';
   const cardStyle = {
@@ -65,24 +115,20 @@ export default function ExpenseManagement() {
   };
 
   // Stats
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const approvedExpenses = expenses.filter(e => e.status === 'approved').reduce((sum, e) => sum + e.amount, 0);
-  const pendingExpenses = expenses.filter(e => e.status === 'pending').reduce((sum, e) => sum + e.amount, 0);
-  const rejectedExpenses = expenses.filter(e => e.status === 'rejected').reduce((sum, e) => sum + e.amount, 0);
+  const totalExpenses = expenseSummary.total;
+  const approvedExpenses = expenseSummary.approved;
+  const pendingExpenses = expenseSummary.pending;
+  const rejectedExpenses = expenseSummary.rejected;
 
-  // Filter logic
+  // Filter logic (client-side filtering on current page data)
   const filteredExpenses = expenses.filter(expense => {
     if (filterCategory !== "All" && expense.category !== filterCategory) return false;
     if (filterStatus !== "All" && expense.status !== filterStatus) return false;
     return true;
   });
 
-  // Pagination
-  const totalPages = Math.ceil(filteredExpenses.length / ITEMS_PER_PAGE);
-  const paginatedExpenses = filteredExpenses.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  // For display purposes, show filtered count from current page
+  const displayExpenses = filteredExpenses;
 
   const getCategoryInfo = (categoryId) => {
     return expenseCategories.find(c => c.id === categoryId) || expenseCategories[7];
@@ -97,23 +143,30 @@ export default function ExpenseManagement() {
     }
   };
 
-  const handleCreateExpense = () => {
+  const handleCreateExpense = async () => {
     if (!expenseForm.title || !expenseForm.amount || !expenseForm.date) {
       alert("Please fill all required fields");
       return;
     }
-    
-    const newExpense = {
-      id: expenses.length + 1,
-      ...expenseForm,
-      amount: parseFloat(expenseForm.amount),
-      status: "pending",
-      receipt: expenseForm.receipt ? true : false
-    };
-    
-    setExpenses([newExpense, ...expenses]);
-    setShowCreateModal(false);
-    setExpenseForm({ title: "", category: "travel", amount: "", date: "", description: "", receipt: null });
+
+    try {
+      setCreatingExpense(true);
+
+      await createExpense(expenseForm);
+
+      setShowCreateModal(false);
+      setExpenseForm({ title: "", category: "travel", amount: "", date: "", description: "", receipt: null });
+      
+      // Refresh the expenses list and summary data
+      await Promise.all([fetchExpenses(), fetchExpenseSummary()]);
+      
+      alert("Expense created successfully!");
+    } catch (error) {
+      console.error('Error creating expense:', error);
+      alert("Failed to create expense. Please try again.");
+    } finally {
+      setCreatingExpense(false);
+    }
   };
 
   const handleViewExpense = (expense) => {
@@ -196,7 +249,7 @@ export default function ExpenseManagement() {
             color: filterCategory === "All" ? '#ffffff' : textPrimary,
           }}
         >
-          All ({expenses.length})
+          All ({expenseSummary.count})
         </button>
       </div>
 
@@ -218,7 +271,7 @@ export default function ExpenseManagement() {
         </div>
         <div className="flex-1"></div>
         <span className="text-sm" style={{ color: textSecondary }}>
-          Showing {paginatedExpenses.length} of {filteredExpenses.length} expenses
+          Showing {displayExpenses.length} of {expenses.length} expenses (Page {currentPage})
         </span>
       </div>
 
@@ -233,7 +286,12 @@ export default function ExpenseManagement() {
           <h2 className="text-lg font-bold text-white">My Expenses</h2>
         </div>
 
-        {paginatedExpenses.length === 0 ? (
+        {loadingExpenses ? (
+          <div className="p-12 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="font-semibold" style={{ color: textPrimary }}>Loading expenses...</p>
+          </div>
+        ) : displayExpenses.length === 0 ? (
           <div className="p-12 text-center">
             <span className="text-5xl block mb-4">📭</span>
             <p className="font-semibold" style={{ color: textPrimary }}>No expenses found</p>
@@ -241,7 +299,7 @@ export default function ExpenseManagement() {
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
-            {paginatedExpenses.map((expense) => {
+            {displayExpenses.map((expense) => {
               const category = getCategoryInfo(expense.category);
               const status = getStatusStyle(expense.status);
               return (
@@ -467,13 +525,21 @@ export default function ExpenseManagement() {
                 </button>
                 <button
                   onClick={handleCreateExpense}
-                  className="flex-1 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90"
+                  disabled={creatingExpense}
+                  className="flex-1 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ 
                     background: `linear-gradient(135deg, ${navyBlue} 0%, #2563eb 100%)`,
                     boxShadow: '0 4px 15px rgba(30, 58, 95, 0.4)'
                   }}
                 >
-                  💰 Submit Expense
+                  {creatingExpense ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Creating...
+                    </div>
+                  ) : (
+                    '💰 Submit Expense'
+                  )}
                 </button>
               </div>
             </div>

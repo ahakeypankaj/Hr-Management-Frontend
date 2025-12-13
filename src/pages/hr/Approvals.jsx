@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
+import { getPendingExpenses, approveExpense, rejectExpense } from "../../services/expenseService";
 
 // Mock approval data
 const mockApprovals = {
@@ -18,15 +19,11 @@ const mockApprovals = {
     { id: 5, name: "Deepa Nair", type: "Casual", startDate: "2024-12-18", endDate: "2024-12-18", days: 1, reason: "Personal work", status: "pending", department: "HR" },
     { id: 6, name: "Rajesh Kumar", type: "Sick", startDate: "2024-12-19", endDate: "2024-12-20", days: 2, reason: "Flu", status: "pending", department: "Engineering" },
   ],
-  expense: [
-    { id: 1, name: "Anita Verma", category: "Travel", amount: 15000, description: "Client visit to Mumbai", submittedOn: "2024-12-08", receipts: 3, status: "pending", department: "Sales" },
-    { id: 2, name: "Rahul Singh", category: "Equipment", amount: 5500, description: "Keyboard and mouse", submittedOn: "2024-12-07", receipts: 1, status: "pending", department: "Engineering" },
-    { id: 3, name: "Priya Patel", category: "Software", amount: 12000, description: "Design tool subscription", submittedOn: "2024-12-06", receipts: 1, status: "pending", department: "Engineering" },
-  ],
+  // expense data will be fetched from API
 };
 
 const leaveTypes = ["All", "Casual", "Sick", "Vacation"];
-const expenseCategories = ["All", "Travel", "Equipment", "Software", "Other"];
+const expenseCategories = ["All", "travel", "food", "accommodation", "office", "fuel", "internet", "other"];
 const departments = ["All", "Engineering", "Sales", "Finance", "HR", "DevOps"];
 const ITEMS_PER_PAGE = 10;
 
@@ -51,6 +48,11 @@ export default function Approvals() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Expense data state
+  const [expenseData, setExpenseData] = useState([]);
+  const [expenseLoading, setExpenseLoading] = useState(false);
+  const [expenseTotal, setExpenseTotal] = useState(0);
+
   const navyBlue = '#1e3a5f';
   const cardStyle = {
     backgroundColor: isDark ? '#1e293b' : '#ffffff',
@@ -63,11 +65,62 @@ export default function Approvals() {
   const tabs = [
     { id: "onboarding", label: "Onboarding", count: mockApprovals.onboarding.length, icon: "📋" },
     { id: "leave", label: "Leave Requests", count: mockApprovals.leave.length, icon: "🏖️" },
-    { id: "expense", label: "Expenses", count: mockApprovals.expense.length, icon: "💰" },
+    { id: "expense", label: "Expenses", count: expenseTotal, icon: "💰" },
   ];
 
+  // Fetch pending expenses
+  const fetchPendingExpenses = async (category = null) => {
+    try {
+      setExpenseLoading(true);
+      const response = await getPendingExpenses(category, 1, 1000); // Get all for filtering
+      
+      // Transform API response to match component expectations
+      const transformedExpenses = response.expenses.map(expense => ({
+        id: expense._id,
+        name: expense.user?.name || 'Unknown User',
+        category: expense.expenseType,
+        amount: expense.amount,
+        description: expense.description,
+        submittedOn: new Date(expense.createdAt).toISOString().split('T')[0],
+        receipts: expense.receipts ? expense.receipts.length : 0,
+        status: expense.status,
+        department: expense.user?.department || 'Unknown',
+        user: expense.user // Keep full user object for additional data
+      }));
+      
+      setExpenseData(transformedExpenses);
+      setExpenseTotal(response.total);
+    } catch (error) {
+      console.error('Error fetching pending expenses:', error);
+      setExpenseData([]);
+      setExpenseTotal(0);
+    } finally {
+      setExpenseLoading(false);
+    }
+  };
+
+  // Fetch expense data on mount
+  useEffect(() => {
+    fetchPendingExpenses();
+  }, []);
+
+  // Refetch expenses when category filter changes
+  useEffect(() => {
+    if (activeTab === "expense") {
+      const category = filterExpenseCategory === "All" ? null : filterExpenseCategory;
+      fetchPendingExpenses(category);
+    }
+  }, [filterExpenseCategory, activeTab]);
+
   // Get and filter current data
-  const rawData = mockApprovals[activeTab] || [];
+  const getRawData = () => {
+    if (activeTab === "expense") {
+      return expenseData;
+    }
+    return mockApprovals[activeTab] || [];
+  };
+
+  const rawData = getRawData();
   const filteredData = rawData.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDept = filterDept === "All" || item.department === filterDept;
@@ -95,7 +148,7 @@ export default function Approvals() {
     setSelectedItems([]);
   };
 
-  const totalPending = Object.values(mockApprovals).flat().length;
+  const totalPending = Object.values(mockApprovals).flat().length + expenseTotal;
 
   const handleSelectAll = () => {
     if (selectedItems.length === paginatedData.length) {
@@ -119,10 +172,56 @@ export default function Approvals() {
     setEffectiveDate("");
   };
 
-  const handleAction = () => {
-    // API call would go here
-    setShowModal(false);
-    setSelectedItems([]);
+  const handleAction = async () => {
+    if (modalAction === 'reject' && !comment.trim()) {
+      alert('Please provide a reason for rejection');
+      return;
+    }
+
+    try {
+      if (activeTab === 'expense') {
+        if (modalItem) {
+          // Single item action
+          if (modalAction === 'approve') {
+            await approveExpense(modalItem.id, comment);
+            alert('Expense approved successfully!');
+          } else if (modalAction === 'reject') {
+            await rejectExpense(modalItem.id, comment);
+            alert('Expense rejected successfully!');
+          }
+          
+          // Remove the processed item from the list
+          setExpenseData(prev => prev.filter(item => item.id !== modalItem.id));
+          setExpenseTotal(prev => prev - 1);
+        } else if (selectedItems.length > 0) {
+          // Bulk action - process all selected items
+          const promises = selectedItems.map(itemId => {
+            if (modalAction === 'approve') {
+              return approveExpense(itemId, comment);
+            } else if (modalAction === 'reject') {
+              return rejectExpense(itemId, comment);
+            }
+            return Promise.resolve();
+          });
+          
+          await Promise.all(promises);
+          alert(`${selectedItems.length} expenses ${modalAction}d successfully!`);
+          
+          // Remove all processed items from the list
+          setExpenseData(prev => prev.filter(item => !selectedItems.includes(item.id)));
+          setExpenseTotal(prev => prev - selectedItems.length);
+        }
+      } else {
+        // Handle other tabs (onboarding, leave) - placeholder for now
+        alert(`${modalAction} action for ${activeTab} is not yet implemented`);
+      }
+      
+      setShowModal(false);
+      setSelectedItems([]);
+    } catch (error) {
+      console.error('Error processing action:', error);
+      alert(`Failed to ${modalAction} request. Please try again.`);
+    }
   };
 
   const handleBulkAction = (action) => {
@@ -290,7 +389,7 @@ export default function Approvals() {
           className="p-4 flex items-center gap-4"
           style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`, backgroundColor: isDark ? '#334155' : '#f8fafc' }}
         >
-          <label className="flex items-center cursor-pointer">
+          {/* <label className="flex items-center cursor-pointer">
             <input 
               type="checkbox" 
               checked={selectedItems.length === paginatedData.length && paginatedData.length > 0}
@@ -298,12 +397,17 @@ export default function Approvals() {
               className="w-5 h-5 rounded"
             />
             <span className="ml-2 text-sm font-medium" style={{ color: textSecondary }}>Select All</span>
-          </label>
+          </label> */}
         </div>
 
         {/* Items */}
         <div className="divide-y" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
-          {paginatedData.length === 0 ? (
+          {activeTab === "expense" && expenseLoading ? (
+            <div className="p-12 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+              <p className="font-semibold" style={{ color: textPrimary }}>Loading expense requests...</p>
+            </div>
+          ) : paginatedData.length === 0 ? (
             <div className="p-12 text-center">
               <span className="text-5xl block mb-4">✅</span>
               <p className="font-bold text-lg" style={{ color: textPrimary }}>All caught up!</p>
