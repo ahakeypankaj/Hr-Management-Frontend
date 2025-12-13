@@ -43,9 +43,11 @@ export default function MainLayout({ children }) {
   const hrMenu = [
     { name: "Dashboard", path: "/dashboard", icon: "📊" },
     { name: "Approvals", path: "/hr/approvals", icon: "✅", highlight: true },
-    { name: "Team Management", path: "/hr/team", icon: "👔" },
-    { name: "User Management", path: "/hr/users", icon: "⚙️" },
-    { name: "Directory", path: "/directory", icon: "👥" },
+    { name: "User Management", path: "/hr/team", icon: "👥" },
+    { name: "Add Employee", path: "/hr/users/add", icon: "➕" },
+    { name: "Attendance Mgmt", path: "/hr/attendance", icon: "⏰" },
+    { name: "Grievance Mgmt", path: "/hr/grievances", icon: "📝" },
+    { name: "Directory", path: "/directory", icon: "📖" },
     { name: "Performance Hub", path: "/hr/performance", icon: "📈" },
     { name: "Events & Kudos", path: "/events", icon: "🎉" },
     { name: "Reports", path: "/hr/reports", icon: "📑" },
@@ -61,10 +63,12 @@ export default function MainLayout({ children }) {
   const adminMenu = [
     { name: "Dashboard", path: "/dashboard", icon: "📊" },
     { divider: true, label: "User Administration" },
-    { name: "User Management", path: "/hr/users", icon: "👥" },
+    { name: "User Management", path: "/hr/team", icon: "👥" },
+    { name: "Add Employee", path: "/hr/users/add", icon: "➕" },
     { name: "Approvals", path: "/hr/approvals", icon: "✅", highlight: true },
     { divider: true, label: "Organization" },
-    { name: "Team Management", path: "/hr/team", icon: "👔" },
+    { name: "Attendance Mgmt", path: "/hr/attendance", icon: "⏰" },
+    { name: "Grievance Mgmt", path: "/hr/grievances", icon: "📝" },
     { name: "Directory", path: "/directory", icon: "📖" },
     { name: "Performance Hub", path: "/hr/performance", icon: "📈" },
     { name: "Events & Kudos", path: "/events", icon: "🎉" },
@@ -127,7 +131,7 @@ export default function MainLayout({ children }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <h1 className="text-xl font-bold text-white hidden sm:block">HR Nexus</h1>
+            <h1 className="text-xl font-bold text-white hidden sm:block">Irish Taylor & Co</h1>
           </div>
         </div>
 
@@ -291,7 +295,7 @@ export default function MainLayout({ children }) {
 
       {/* LEFT SIDEBAR */}
       <aside
-        className="fixed top-16 left-0 bottom-0 w-64 z-50 overflow-y-auto transition-transform duration-300 animate-fade-in-left"
+        className="fixed top-16 left-0 bottom-0 w-64 z-50 flex flex-col transition-transform duration-300 animate-fade-in-left"
         style={{ 
           backgroundColor: isDark ? '#1e293b' : '#ffffff',
           borderRight: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
@@ -300,7 +304,7 @@ export default function MainLayout({ children }) {
         }}
       >
         {/* Role Badge */}
-        <div className="p-4">
+        <div className="p-4 flex-shrink-0">
           <div
             className="px-4 py-3 rounded-xl text-center font-semibold text-sm text-white"
             style={{ 
@@ -312,8 +316,8 @@ export default function MainLayout({ children }) {
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="px-3 pb-20">
+        {/* Navigation - Scrollable */}
+        <nav className="px-3 flex-1 overflow-y-auto">
           {menu.map((item, index) => {
             if (item.divider) {
               return (
@@ -359,19 +363,23 @@ export default function MainLayout({ children }) {
               </button>
             );
           })}
+          <div className="pb-4"></div>
         </nav>
 
-        {/* Sidebar Footer */}
+        {/* Sidebar Footer - Fixed at bottom */}
         <div 
-          className="absolute bottom-0 left-0 right-0 p-4"
-          style={{ backgroundColor: isDark ? '#1e293b' : '#ffffff' }}
+          className="p-4 flex-shrink-0"
+          style={{ 
+            backgroundColor: isDark ? '#1e293b' : '#ffffff',
+            borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`
+          }}
         >
           <div 
             className="p-4 rounded-xl text-center"
             style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9' }}
           >
             <p className="text-xs font-medium" style={{ color: isDark ? '#94a3b8' : '#64748b' }}>
-              HR Nexus v1.0
+              Irish Taylor & Co
             </p>
             <p className="text-xs" style={{ color: isDark ? '#64748b' : '#94a3b8' }}>
               2025 All Rights Reserved
@@ -403,7 +411,7 @@ export default function MainLayout({ children }) {
         <div className="flex items-center justify-center gap-2">
           {/* <span>Made with</span>
           <span className="text-red-500">For</span> */}
-          <span>HR Nexus Team</span>
+          <span>Irish Taylor & Co</span>
         </div>
       </footer>
     </div>

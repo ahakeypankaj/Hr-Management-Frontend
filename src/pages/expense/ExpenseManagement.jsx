@@ -23,7 +23,7 @@ const mockExpenses = [
   { id: 6, title: "AWS Training Course", category: "training", amount: 15000, date: "2024-11-28", status: "approved", receipt: true, description: "Online certification course" },
 ];
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 10;
 
 export default function ExpenseManagement() {
   const { user } = useAuth();
@@ -355,12 +355,6 @@ export default function ExpenseManagement() {
                     <p className="text-blue-200 text-sm">Submit a new expense claim</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowCreateModal(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
             </div>
 
@@ -521,12 +515,6 @@ export default function ExpenseManagement() {
                     <p className="text-white/80 text-sm">{getCategoryInfo(selectedExpense.category).name}</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowViewModal(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
             </div>
 

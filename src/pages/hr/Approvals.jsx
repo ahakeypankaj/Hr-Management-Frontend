@@ -11,12 +11,12 @@ const mockApprovals = {
     { id: 5, name: "Kiran Reddy", email: "kiran.reddy@company.com", department: "Engineering", designation: "QA Engineer", submittedOn: "2024-12-06", documents: 4, status: "pending" },
   ],
   leave: [
-    { id: 1, name: "Asha Kumar", type: "Casual Leave", startDate: "2024-12-20", endDate: "2024-12-22", days: 3, reason: "Family function", status: "pending", department: "Engineering" },
-    { id: 2, name: "Vikram Singh", type: "Optional Leave", startDate: "2024-12-16", endDate: "2024-12-17", days: 2, reason: "Internet installation", status: "pending", department: "DevOps" },
-    { id: 3, name: "Meena Sharma", type: "Sick Leave", startDate: "2024-12-15", endDate: "2024-12-15", days: 1, reason: "Medical appointment", status: "pending", department: "Sales" },
-    { id: 4, name: "Suresh Reddy", type: "Earned Leave", startDate: "2025-01-02", endDate: "2025-01-10", days: 7, reason: "Vacation", status: "pending", department: "Finance" },
-    { id: 5, name: "Deepa Nair", type: "Casual Leave", startDate: "2024-12-18", endDate: "2024-12-18", days: 1, reason: "Personal work", status: "pending", department: "HR" },
-    { id: 6, name: "Rajesh Kumar", type: "Sick Leave", startDate: "2024-12-19", endDate: "2024-12-20", days: 2, reason: "Flu", status: "pending", department: "Engineering" },
+    { id: 1, name: "Asha Kumar", type: "Casual", startDate: "2024-12-20", endDate: "2024-12-22", days: 3, reason: "Family function", status: "pending", department: "Engineering" },
+    { id: 2, name: "Vikram Singh", type: "Casual", startDate: "2024-12-16", endDate: "2024-12-17", days: 2, reason: "Internet installation", status: "pending", department: "DevOps" },
+    { id: 3, name: "Meena Sharma", type: "Sick", startDate: "2024-12-15", endDate: "2024-12-15", days: 1, reason: "Medical appointment", status: "pending", department: "Sales" },
+    { id: 4, name: "Suresh Reddy", type: "Vacation", startDate: "2025-01-02", endDate: "2025-01-10", days: 7, reason: "Vacation", status: "pending", department: "Finance" },
+    { id: 5, name: "Deepa Nair", type: "Casual", startDate: "2024-12-18", endDate: "2024-12-18", days: 1, reason: "Personal work", status: "pending", department: "HR" },
+    { id: 6, name: "Rajesh Kumar", type: "Sick", startDate: "2024-12-19", endDate: "2024-12-20", days: 2, reason: "Flu", status: "pending", department: "Engineering" },
   ],
   expense: [
     { id: 1, name: "Anita Verma", category: "Travel", amount: 15000, description: "Client visit to Mumbai", submittedOn: "2024-12-08", receipts: 3, status: "pending", department: "Sales" },
@@ -25,10 +25,10 @@ const mockApprovals = {
   ],
 };
 
-const leaveTypes = ["All", "Casual Leave", "Sick Leave", "Earned Leave", "Optional Leave"];
+const leaveTypes = ["All", "Casual", "Sick", "Vacation"];
 const expenseCategories = ["All", "Travel", "Equipment", "Software", "Other"];
 const departments = ["All", "Engineering", "Sales", "Finance", "HR", "DevOps"];
-const ITEMS_PER_PAGE = 4;
+const ITEMS_PER_PAGE = 10;
 
 export default function Approvals() {
   const { theme } = useTheme();
@@ -451,13 +451,6 @@ export default function Approvals() {
               <h2 className="text-xl font-bold" style={{ color: textPrimary }}>
                 {modalAction === 'approve' ? '✓ Approve' : '✗ Reject'} {modalItem ? 'Request' : `${selectedItems.length} Requests`}
               </h2>
-              <button 
-                onClick={() => setShowModal(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9' }}
-              >
-                ✕
-              </button>
             </div>
 
             {modalItem && (

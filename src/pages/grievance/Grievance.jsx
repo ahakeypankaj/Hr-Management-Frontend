@@ -1,28 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import { fetchGrievances, submitGrievance, addGrievanceComment } from "../../services/grievanceService";
 
-const mockGrievances = [
-  { id: 1, category: "HR", subject: "Leave Request Delay", description: "My leave request submitted 2 weeks ago is still pending approval.", status: "In Progress", createdAt: "2024-12-10", assignedTo: "HR Team", priority: "high" },
-  { id: 2, category: "Admin", subject: "AC Not Working", description: "The air conditioning in the 3rd floor meeting room has not been working for the past week.", status: "Resolved", createdAt: "2024-12-05", assignedTo: "Facilities Team", priority: "medium" },
-  { id: 3, category: "Finance", subject: "Reimbursement Pending", description: "Travel reimbursement for November trip is still pending.", status: "Submitted", createdAt: "2024-12-08", assignedTo: "Finance Team", priority: "medium" },
-  { id: 4, category: "IT", subject: "Laptop Battery Issue", description: "My laptop battery drains very quickly, need replacement.", status: "In Progress", createdAt: "2024-12-07", assignedTo: "IT Team", priority: "low" },
-  { id: 5, category: "HR", subject: "Payslip Error", description: "Incorrect deduction shown in November payslip.", status: "Submitted", createdAt: "2024-12-09", assignedTo: "HR Team", priority: "high" },
-  { id: 6, category: "Admin", subject: "Parking Space", description: "Request for dedicated parking space.", status: "Resolved", createdAt: "2024-11-28", assignedTo: "Admin Team", priority: "low" },
-];
-
-const categories = ["HR", "Admin", "Finance", "IT", "Other"];
-const priorities = ["high", "medium", "low"];
+const categories = ["HR", "Admin", "Finance", "IT", "Workplace", "Other"];
+const priorities = ["high", "medium", "low", "critical"];
 const statusOptions = ["Submitted", "In Progress", "Resolved"];
 
-const ITEMS_PER_PAGE = 4;
+const ITEMS_PER_PAGE = 10;
 
 export default function Grievance() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const [grievances, setGrievances] = useState(mockGrievances);
+  const [grievances, setGrievances] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [editingGrievance, setEditingGrievance] = useState(null);
+  const [editForm, setEditForm] = useState({ category: "HR", priority: "medium", anonymous: false });
+  const [newComment, setNewComment] = useState("");
+  const [commentingGrievanceId, setCommentingGrievanceId] = useState(null);
   const [form, setForm] = useState({ category: "HR", subject: "", description: "", anonymous: false, priority: "medium" });
   
   // Filters
@@ -32,6 +31,46 @@ export default function Grievance() {
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Fetch grievances on component mount
+  useEffect(() => {
+    const loadGrievances = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await fetchGrievances();
+        // Map API response to component format
+        const mappedGrievances = data.map(grievance => ({
+          id: grievance._id,
+          category: grievance.category,
+          subject: grievance.subject,
+          description: grievance.description,
+          status: grievance.status.charAt(0).toUpperCase() + grievance.status.slice(1), // "submitted" -> "Submitted"
+          createdAt: new Date(grievance.createdAt).toISOString().split("T")[0], // Format date
+          assignedTo: `${grievance.assignedDepartment} Team`,
+          priority: grievance.priority,
+          isAnonymous: grievance.isAnonymous,
+          dueDate: grievance.dueDate,
+          escalated: grievance.escalated,
+          escalationLevel: grievance.escalationLevel,
+          comments: grievance.comments ? grievance.comments.map(comment => ({
+            id: comment._id,
+            message: comment.message,
+            createdAt: comment.createdAt,
+            userName: comment.userId?.name || 'Anonymous User'
+          })) : []
+        }));
+        setGrievances(mappedGrievances);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Failed to load grievances');
+        console.error('Error fetching grievances:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadGrievances();
+  }, []);
 
   const navyBlue = '#1e3a5f';
   const cardStyle = {
@@ -56,18 +95,84 @@ export default function Grievance() {
 
   const handleFilterChange = () => setCurrentPage(1);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const newGrievance = {
-      id: Date.now(),
-      ...form,
-      status: "Submitted",
-      createdAt: new Date().toISOString().split("T")[0],
-      assignedTo: `${form.category} Team`,
-    };
-    setGrievances([newGrievance, ...grievances]);
-    setForm({ category: "HR", subject: "", description: "", anonymous: false, priority: "medium" });
-    setShowForm(false);
+    try {
+      setSubmitting(true);
+      const grievanceData = {
+        subject: form.subject,
+        description: form.description,
+        category: form.category,
+        priority: form.priority,
+        isAnonymous: form.anonymous
+      };
+
+      const response = await submitGrievance(grievanceData);
+
+      // Add the new grievance to the list
+      const newGrievance = {
+        id: response.grievance._id,
+        category: response.grievance.category,
+        subject: response.grievance.subject,
+        description: response.grievance.description,
+        status: response.grievance.status.charAt(0).toUpperCase() + response.grievance.status.slice(1),
+        createdAt: new Date(response.grievance.createdAt).toISOString().split("T")[0],
+        assignedTo: `${response.grievance.assignedDepartment} Team`,
+        priority: response.grievance.priority,
+        isAnonymous: response.grievance.isAnonymous,
+        dueDate: response.grievance.dueDate,
+        escalated: response.grievance.escalated,
+        escalationLevel: response.grievance.escalationLevel
+      };
+
+      setGrievances([newGrievance, ...grievances]);
+      setForm({ category: "HR", subject: "", description: "", anonymous: false, priority: "medium" });
+      setShowForm(false);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to submit grievance');
+      console.error('Error submitting grievance:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditClick = (grievance) => {
+    setEditingGrievance(grievance);
+    setEditForm({
+      category: grievance.category,
+      priority: grievance.priority,
+      anonymous: grievance.isAnonymous
+    });
+  };
+
+
+  const handleAddComment = async (grievanceId) => {
+    if (!newComment.trim()) return;
+    
+    try {
+      const response = await addGrievanceComment(grievanceId, newComment);
+      
+      // Update the grievance with new comments
+      const updatedGrievances = grievances.map(g => 
+        g.id === grievanceId 
+          ? { 
+              ...g, 
+              comments: response.grievance.comments.map(comment => ({
+                id: comment._id,
+                message: comment.message,
+                createdAt: comment.createdAt,
+                userName: comment.userId?.name || 'Anonymous User'
+              }))
+            }
+          : g
+      );
+      setGrievances(updatedGrievances);
+      setNewComment("");
+      setCommentingGrievanceId(null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to add comment');
+      console.error('Error adding comment:', err);
+    }
   };
 
   const getStatusStyle = (status) => {
@@ -147,12 +252,6 @@ export default function Grievance() {
                     <p className="text-orange-200 text-sm">Report an issue or concern</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowForm(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
             </div>
 
@@ -237,15 +336,133 @@ export default function Grievance() {
                 </button>
                 <button 
                   type="submit" 
-                  className="flex-1 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90"
+                  disabled={submitting}
+                  className="flex-1 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ 
-                    background: 'linear-gradient(135deg, #ea580c 0%, #f97316 100%)',
-                    boxShadow: '0 4px 15px rgba(234, 88, 12, 0.4)'
+                    background: submitting ? '#64748b' : 'linear-gradient(135deg, #ea580c 0%, #f97316 100%)',
+                    boxShadow: submitting ? 'none' : '0 4px 15px rgba(234, 88, 12, 0.4)'
                   }}
                 >
-                  📤 Submit Grievance
+                  {submitting ? '⏳ Submitting...' : '📤 Submit Grievance'}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingGrievance && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in p-4"
+          style={{ 
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)'
+          }}
+        >
+          <div 
+            className="w-full max-w-2xl animate-scale-in"
+            style={{ 
+              backgroundColor: isDark ? '#1e293b' : '#ffffff',
+              borderRadius: '24px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              maxHeight: '85vh',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Modal Header */}
+            <div 
+              className="p-6"
+              style={{ 
+                background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl">
+                    ✏️
+                  </div>
+                  <div>
+                    <p className="text-blue-200 text-sm">grievance details</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingGrievance(null)}
+                  className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <form  className="p-6 space-y-5 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 100px)' }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>📁 Category</label>
+                  <select
+                    value={editForm.category}
+                    onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                    className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+                    style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                  >
+                    {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>🚨 Priority</label>
+                  <select
+                    value={editForm.priority}
+                    onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })}
+                    className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+                    style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                  >
+                    {priorities.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>📌 Subject</label>
+                <input
+                  type="text"
+                  value={editingGrievance.subject}
+                  disabled
+                  className="w-full px-4 py-4 rounded-xl outline-none transition-all opacity-60 cursor-not-allowed"
+                  style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>💬 Description</label>
+                <textarea
+                  value={editingGrievance.description}
+                  disabled
+                  rows={5}
+                  className="w-full px-4 py-4 rounded-xl outline-none resize-none transition-all opacity-60 cursor-not-allowed"
+                  style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                />
+              </div>
+              <div 
+                className="flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all hover:opacity-90"
+                style={{ backgroundColor: editForm.anonymous ? 'rgba(37, 99, 235, 0.15)' : (isDark ? '#334155' : '#f8fafc'), border: editForm.anonymous ? '2px solid #2563eb' : `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}
+              >
+                <input
+                  type="checkbox"
+                  id="edit-anonymous"
+                  checked={editForm.anonymous}
+                  className="w-5 h-5 rounded accent-blue-500"
+              disabled
+
+                  
+                />
+                <div>
+                  <label htmlFor="edit-anonymous" className="font-semibold cursor-pointer" style={{ color: textPrimary }}>
+                    🕶️ Submit Anonymously
+                  </label>
+                  <p className="text-xs" style={{ color: textSecondary }}>Your identity will be hidden from all parties</p>
+                </div>
+              </div>
+              
             </form>
           </div>
         </div>
@@ -317,7 +534,23 @@ export default function Grievance() {
           <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Your Grievances</h2>
         </div>
         <div>
-          {paginatedGrievances.length === 0 ? (
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p style={{ color: textSecondary }}>Loading grievances...</p>
+            </div>
+          ) : error ? (
+            <div className="p-8 text-center">
+              <span className="text-4xl block mb-2">⚠️</span>
+              <p style={{ color: textSecondary }}>{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : paginatedGrievances.length === 0 ? (
             <div className="p-8 text-center">
               <span className="text-4xl block mb-2">📭</span>
               <p style={{ color: textSecondary }}>No grievances found</p>
@@ -332,7 +565,7 @@ export default function Grievance() {
                   className="p-6 transition-all hover:bg-opacity-50"
                   style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between" onClick={() => handleEditClick(grievance)}>
                     <div className="flex items-start gap-4">
                       <div 
                         className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
@@ -356,12 +589,57 @@ export default function Grievance() {
                         </div>
                       </div>
                     </div>
-                    <span 
-                      className="px-3 py-1 rounded-full text-xs font-bold"
-                      style={{ backgroundColor: statusStyle.bg, color: statusStyle.color }}
-                    >
-                      {grievance.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span 
+                        className="px-3 py-1 rounded-full text-xs font-bold"
+                        style={{ backgroundColor: statusStyle.bg, color: statusStyle.color }}
+                      >
+                        {grievance.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Comments Section */}
+                  {grievance.comments && grievance.comments.length > 0 && (
+                    <div className="mt-4 pt-4 border-t" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                      <h4 className="text-sm font-semibold mb-3" style={{ color: textPrimary }}>Comments</h4>
+                      <div className="space-y-3">
+                        {grievance.comments.map((comment) => (
+                          <div key={comment.id} className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium" style={{ color: textPrimary }}>{comment.userName}</span>
+                              <span className="text-xs" style={{ color: textSecondary }}>
+                                {new Date(comment.createdAt).toLocaleDateString()} {new Date(comment.createdAt).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            <p className="text-sm" style={{ color: textSecondary }}>{comment.message}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Add Comment Section */}
+                  <div className="mt-4 pt-4 border-t" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={commentingGrievanceId === grievance.id ? newComment : ""}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        onFocus={() => setCommentingGrievanceId(grievance.id)}
+                        placeholder="Add a comment..."
+                        className="flex-1 px-3 py-2 rounded-lg text-sm outline-none transition-all focus:ring-2 focus:ring-orange-400"
+                        style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                      />
+                      <button
+                        onClick={() => handleAddComment(grievance.id)}
+                        disabled={!newComment.trim() || commentingGrievanceId !== grievance.id}
+                        className="px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: '#16a34a', color: '#ffffff' }}
+                      >
+                        💬 Send
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

@@ -415,12 +415,6 @@ export default function Events() {
                     </p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowEventModal(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
             </div>
 
@@ -596,12 +590,6 @@ export default function Events() {
                     <p className="text-purple-200 text-sm">Recognize your colleague's achievements</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowKudosModal(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
             </div>
 
