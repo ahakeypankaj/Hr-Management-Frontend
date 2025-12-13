@@ -1,30 +1,32 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import DonutChart from "../../components/charts/DonutChart";
+import { checkIn, checkOut, getAttendanceHistory, getTodayAttendance } from "../../services/attendanceService";
 
-const mockHistory = [
-  { id: 1, date: "2024-12-12", checkIn: "09:00 AM", checkOut: "06:15 PM", status: "Present", hours: "9h 15m" },
-  { id: 2, date: "2024-12-11", checkIn: "08:45 AM", checkOut: "06:00 PM", status: "Present", hours: "9h 15m" },
-  { id: 3, date: "2024-12-10", checkIn: "09:30 AM", checkOut: "06:30 PM", status: "Present", hours: "9h 00m" },
-  { id: 4, date: "2024-12-09", checkIn: "-", checkOut: "-", status: "Leave", hours: "-" },
-  { id: 5, date: "2024-12-08", checkIn: "-", checkOut: "-", status: "Weekend", hours: "-" },
-  { id: 6, date: "2024-12-07", checkIn: "-", checkOut: "-", status: "Weekend", hours: "-" },
-  { id: 7, date: "2024-12-06", checkIn: "09:00 AM", checkOut: "06:00 PM", status: "Present", hours: "9h 00m" },
-  { id: 8, date: "2024-12-05", checkIn: "09:15 AM", checkOut: "06:30 PM", status: "Present", hours: "9h 15m" },
-  { id: 9, date: "2024-12-04", checkIn: "08:50 AM", checkOut: "05:45 PM", status: "Present", hours: "8h 55m" },
-  { id: 10, date: "2024-12-03", checkIn: "09:05 AM", checkOut: "06:20 PM", status: "Present", hours: "9h 15m" },
-  { id: 11, date: "2024-12-02", checkIn: "-", checkOut: "-", status: "Optional Holiday", hours: "-" },
-  { id: 12, date: "2024-12-01", checkIn: "-", checkOut: "-", status: "Holiday", hours: "-" },
-  { id: 13, date: "2024-11-30", checkIn: "-", checkOut: "-", status: "Weekend", hours: "-" },
-  { id: 14, date: "2024-11-29", checkIn: "09:10 AM", checkOut: "06:00 PM", status: "Present", hours: "8h 50m" },
-  { id: 15, date: "2024-11-28", checkIn: "09:00 AM", checkOut: "06:30 PM", status: "Present", hours: "9h 30m" },
-  { id: 16, date: "2024-11-27", checkIn: "08:55 AM", checkOut: "06:15 PM", status: "Present", hours: "9h 20m" },
-  { id: 17, date: "2024-11-26", checkIn: "-", checkOut: "-", status: "Leave", hours: "-" },
-  { id: 18, date: "2024-11-25", checkIn: "09:20 AM", checkOut: "06:00 PM", status: "Present", hours: "8h 40m" },
-];
+// Helper function to format time from ISO string
+const formatTime = (isoString) => {
+  if (!isoString) return "-";
+  const date = new Date(isoString);
+  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+};
 
-const monthlyStats = { present: 18, holidays: 1, optionalHolidays: 1, leaves: 2, workingDays: 22 };
+// Helper function to format hours from totalHours (in hours)
+const formatHours = (totalHours) => {
+  if (totalHours === null || totalHours === undefined || totalHours === 0) return "-";
+  const hours = Math.floor(totalHours);
+  const minutes = Math.round((totalHours - hours) * 60);
+  if (hours === 0 && minutes === 0) return "-";
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+};
+
+// Helper function to capitalize first letter
+const capitalizeFirst = (str) => {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
 const statusOptions = ["All", "Present", "Holiday", "Optional Holiday", "Leave", "Weekend"];
 const ITEMS_PER_PAGE = 10;
 
@@ -33,8 +35,13 @@ export default function Attendance() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [isCheckedOut, setIsCheckedOut] = useState(false);
   const [checkInTime, setCheckInTime] = useState(null);
   const [message, setMessage] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attendanceHistory, setAttendanceHistory] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [monthlyStats, setMonthlyStats] = useState({ present: 0, holidays: 0, optionalHolidays: 0, leaves: 0, workingDays: 0 });
 
   // Filters
   const [filterStatus, setFilterStatus] = useState("All");
@@ -59,9 +66,85 @@ export default function Attendance() {
   const textPrimary = isDark ? '#f8fafc' : '#0f172a';
   const textSecondary = isDark ? '#94a3b8' : '#64748b';
 
+  // Fetch today's attendance status and history from API
+  useEffect(() => {
+    const fetchTodayStatus = async () => {
+      try {
+        const todayResponse = await getTodayAttendance();
+        const todayData = todayResponse.data;
+        console.log("todayData", todayData);
+        
+        // Set check-in and check-out status based on API response
+        if (todayData.checkInStatus && todayData.data) {
+          setIsCheckedIn(true);
+          setIsCheckedOut(todayData.data.checkOutStatus || false);
+          if (todayData.data.checkInTime) {
+            setCheckInTime(new Date(todayData.data.checkInTime));
+          }
+        } else {
+          setIsCheckedIn(false);
+          setIsCheckedOut(false);
+          setCheckInTime(null);
+        }
+      } catch (error) {
+        console.error("Error fetching today's attendance:", error);
+        setIsCheckedIn(false);
+        setIsCheckedOut(false);
+        setCheckInTime(null);
+      }
+    };
+
+    const fetchHistory = async () => {
+      setIsLoadingHistory(true);
+      try {
+        const response = await getAttendanceHistory();
+        const historyData = response.data.data || [];
+        console.log("historyData", historyData);
+        
+        // Map API response to component format
+        const mappedHistory = historyData.map((record, index) => ({
+          id: index + 1,
+          date: record.date,
+          checkIn: formatTime(record.checkInTime),
+          checkOut: formatTime(record.checkOutTime),
+          status: capitalizeFirst(record.status),
+          hours: formatHours(record.totalHours),
+        }));
+
+        // Calculate monthly stats from API data
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const currentMonthData = mappedHistory.filter(record => {
+          const recordDate = new Date(record.date);
+          const recordMonth = recordDate.toISOString().slice(0, 7);
+          return recordMonth === currentMonth;
+        });
+
+        const stats = {
+          present: currentMonthData.filter(r => r.status?.toLowerCase() === "present").length,
+          holidays: currentMonthData.filter(r => r.status?.toLowerCase() === "holiday").length,
+          optionalHolidays: currentMonthData.filter(r => r.status?.toLowerCase() === "optional holiday").length,
+          leaves: currentMonthData.filter(r => r.status?.toLowerCase() === "leave").length,
+          workingDays: currentMonthData.length,
+        };
+
+        setAttendanceHistory(mappedHistory);
+        setMonthlyStats(stats);
+      } catch (error) {
+        console.error("Error fetching attendance history:", error);
+        setAttendanceHistory([]);
+        setMonthlyStats({ present: 0, holidays: 0, optionalHolidays: 0, leaves: 0, workingDays: 0 });
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchTodayStatus();
+    fetchHistory();
+  }, []);
+
   // Filter history
-  const filteredHistory = mockHistory.filter(record => {
-    if (filterStatus !== "All" && record.status !== filterStatus) return false;
+  const filteredHistory = attendanceHistory.filter(record => {
+    if (filterStatus !== "All" && record.status?.toLowerCase() !== filterStatus.toLowerCase()) return false;
     return true;
   });
 
@@ -77,7 +160,7 @@ export default function Attendance() {
   const handleExportAttendance = () => {
     // Filter history for the selected month
     const selectedMonth = exportMonth;
-    const monthData = mockHistory.filter(record => {
+    const monthData = attendanceHistory.filter(record => {
       const recordDate = new Date(record.date);
       const recordMonth = recordDate.toISOString().slice(0, 7);
       return recordMonth === selectedMonth;
@@ -104,9 +187,12 @@ export default function Attendance() {
     });
 
     // Add summary stats
-    const presentCount = monthData.filter(r => r.status === 'Present').length;
-    const leaveCount = monthData.filter(r => r.status === 'Leave').length;
-    const holidayCount = monthData.filter(r => r.status === 'Holiday' || r.status === 'Optional Holiday').length;
+    const presentCount = monthData.filter(r => r.status?.toLowerCase() === 'present').length;
+    const leaveCount = monthData.filter(r => r.status?.toLowerCase() === 'leave').length;
+    const holidayCount = monthData.filter(r => {
+      const status = r.status?.toLowerCase();
+      return status === 'holiday' || status === 'optional holiday';
+    }).length;
     
     csvRows.push('');
     csvRows.push('Summary');
@@ -135,30 +221,129 @@ export default function Attendance() {
     setTimeout(() => setMessage(null), 3000);
   };
 
-  const handleCheckIn = () => {
-    const now = new Date();
-    setCheckInTime(now);
-    setIsCheckedIn(true);
-    setMessage({ type: "success", text: `Checked in at ${now.toLocaleTimeString()}` });
+  const handleCheckIn = async () => {
+    setIsSubmitting(true);
+    setMessage(null);
+    try {
+      const response = await checkIn(true);
+      const now = new Date();
+      setCheckInTime(now);
+      setIsCheckedIn(true);
+      setMessage({ 
+        type: "success", 
+        text: response.data?.message || `Checked in at ${now.toLocaleTimeString()}` 
+      });
+      
+      // Refresh today's attendance status
+      const todayResponse = await getTodayAttendance();
+      const todayData = todayResponse.data;
+      if (todayData.checkInStatus && todayData.data) {
+        setIsCheckedIn(true);
+        setIsCheckedOut(todayData.data.checkOutStatus || false);
+        if (todayData.data.checkInTime) {
+          setCheckInTime(new Date(todayData.data.checkInTime));
+        }
+      }
+      
+      // Refresh attendance history after check-in
+      const historyResponse = await getAttendanceHistory();
+      const historyData = historyResponse.data.data || [];
+      const mappedHistory = historyData.map((record, index) => ({
+        id: index + 1,
+        date: record.date,
+        checkIn: formatTime(record.checkInTime),
+        checkOut: formatTime(record.checkOutTime),
+        status: capitalizeFirst(record.status),
+        hours: formatHours(record.totalHours),
+      }));
+      setAttendanceHistory(mappedHistory);
+    } catch (error) {
+      console.error("Error checking in:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to check in. Please try again.";
+      setMessage({ type: "error", text: errorMessage });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleCheckOut = () => {
-    setIsCheckedIn(false);
-    setMessage({ type: "success", text: `Checked out at ${new Date().toLocaleTimeString()}` });
+  const handleCheckOut = async () => {
+    setIsSubmitting(true);
+    setMessage(null);
+    try {
+      const response = await checkOut(true);
+      const now = new Date();
+      setMessage({ 
+        type: "success", 
+        text: response.data?.message || `Checked out at ${now.toLocaleTimeString()}` 
+      });
+      
+      // Refresh today's attendance status
+      const todayResponse = await getTodayAttendance();
+      const todayData = todayResponse.data;
+      if (todayData.checkInStatus && todayData.data) {
+        setIsCheckedIn(true);
+        setIsCheckedOut(todayData.data.checkOutStatus || false);
+        if (todayData.data.checkInTime) {
+          setCheckInTime(new Date(todayData.data.checkInTime));
+        }
+      } else {
+        setIsCheckedIn(false);
+        setIsCheckedOut(false);
+        setCheckInTime(null);
+      }
+      
+      // Refresh attendance history after check-out
+      const historyResponse = await getAttendanceHistory();
+      const historyData = historyResponse.data.data || [];
+      const mappedHistory = historyData.map((record, index) => ({
+        id: index + 1,
+        date: record.date,
+        checkIn: formatTime(record.checkInTime),
+        checkOut: formatTime(record.checkOutTime),
+        status: capitalizeFirst(record.status),
+        hours: formatHours(record.totalHours),
+      }));
+      setAttendanceHistory(mappedHistory);
+      
+      // Update monthly stats
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const currentMonthData = mappedHistory.filter(record => {
+        const recordDate = new Date(record.date);
+        const recordMonth = recordDate.toISOString().slice(0, 7);
+        return recordMonth === currentMonth;
+      });
+      const stats = {
+        present: currentMonthData.filter(r => r.status?.toLowerCase() === "present").length,
+        holidays: currentMonthData.filter(r => r.status?.toLowerCase() === "holiday").length,
+        optionalHolidays: currentMonthData.filter(r => r.status?.toLowerCase() === "optional holiday").length,
+        leaves: currentMonthData.filter(r => r.status?.toLowerCase() === "leave").length,
+        workingDays: currentMonthData.length,
+      };
+      setMonthlyStats(stats);
+    } catch (error) {
+      console.error("Error checking out:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to check out. Please try again.";
+      setMessage({ type: "error", text: errorMessage });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getStatusStyle = (status) => {
-    switch (status) {
-      case "Present": return { bg: "linear-gradient(135deg, #dcfce7, #bbf7d0)", color: "#16a34a" };
-      case "Leave": return { bg: "linear-gradient(135deg, #ffedd5, #fed7aa)", color: "#ea580c" };
-      case "Holiday": return { bg: "linear-gradient(135deg, #dbeafe, #bfdbfe)", color: "#2563eb" };
-      case "Optional Holiday": return { bg: "linear-gradient(135deg, #e9d5ff, #d8b4fe)", color: "#9333ea" };
-      case "Weekend": return { bg: isDark ? "#334155" : "#f1f5f9", color: isDark ? "#94a3b8" : "#64748b" };
+    const statusLower = status?.toLowerCase() || "";
+    switch (statusLower) {
+      case "present": return { bg: "linear-gradient(135deg, #dcfce7, #bbf7d0)", color: "#16a34a" };
+      case "leave": return { bg: "linear-gradient(135deg, #ffedd5, #fed7aa)", color: "#ea580c" };
+      case "holiday": return { bg: "linear-gradient(135deg, #dbeafe, #bfdbfe)", color: "#2563eb" };
+      case "optional holiday": return { bg: "linear-gradient(135deg, #e9d5ff, #d8b4fe)", color: "#9333ea" };
+      case "weekend": return { bg: isDark ? "#334155" : "#f1f5f9", color: isDark ? "#94a3b8" : "#64748b" };
       default: return { bg: "#f1f5f9", color: "#64748b" };
     }
   };
 
-  const attendancePercentage = Math.round((monthlyStats.present / monthlyStats.workingDays) * 100);
+  const attendancePercentage = monthlyStats.workingDays > 0 
+    ? Math.round((monthlyStats.present / monthlyStats.workingDays) * 100) 
+    : 0;
 
   return (
     <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -205,29 +390,53 @@ export default function Attendance() {
           <div className="flex gap-4">
             <button
               onClick={handleCheckIn}
-              disabled={isCheckedIn}
-              className="px-8 py-4 rounded-xl font-bold transition-all text-white flex items-center gap-2"
+              disabled={isCheckedIn || isCheckedOut || isSubmitting}
+              className="px-8 py-4 rounded-xl font-bold transition-all text-white flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ 
-                background: isCheckedIn ? (isDark ? '#334155' : '#e2e8f0') : 'linear-gradient(135deg, #16a34a, #22c55e)',
-                color: isCheckedIn ? (isDark ? '#64748b' : '#94a3b8') : '#ffffff',
-                cursor: isCheckedIn ? 'not-allowed' : 'pointer',
-                boxShadow: isCheckedIn ? 'none' : '0 4px 15px rgba(22, 163, 74, 0.4)'
+                background: (isCheckedIn || isCheckedOut) ? (isDark ? '#334155' : '#e2e8f0') : 'linear-gradient(135deg, #16a34a, #22c55e)',
+                color: (isCheckedIn || isCheckedOut) ? (isDark ? '#64748b' : '#94a3b8') : '#ffffff',
+                cursor: (isCheckedIn || isCheckedOut || isSubmitting) ? 'not-allowed' : 'pointer',
+                boxShadow: (isCheckedIn || isCheckedOut) ? 'none' : '0 4px 15px rgba(22, 163, 74, 0.4)'
               }}
             >
-              <span className="text-xl">🟢</span> Check In
+              {isSubmitting && !isCheckedIn ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Checking In...
+                </>
+              ) : (
+                <>
+                  <span className="text-xl">🟢</span> Check In
+                </>
+              )}
             </button>
             <button
               onClick={handleCheckOut}
-              disabled={!isCheckedIn}
-              className="px-8 py-4 rounded-xl font-bold transition-all flex items-center gap-2"
+              disabled={!isCheckedIn || isCheckedOut || isSubmitting}
+              className="px-8 py-4 rounded-xl font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ 
-                background: !isCheckedIn ? (isDark ? '#334155' : '#e2e8f0') : 'linear-gradient(135deg, #dc2626, #ef4444)',
-                color: !isCheckedIn ? (isDark ? '#64748b' : '#94a3b8') : '#ffffff',
-                cursor: !isCheckedIn ? 'not-allowed' : 'pointer',
-                boxShadow: !isCheckedIn ? 'none' : '0 4px 15px rgba(220, 38, 38, 0.4)'
+                background: (!isCheckedIn || isCheckedOut) ? (isDark ? '#334155' : '#e2e8f0') : 'linear-gradient(135deg, #dc2626, #ef4444)',
+                color: (!isCheckedIn || isCheckedOut) ? (isDark ? '#64748b' : '#94a3b8') : '#ffffff',
+                cursor: (!isCheckedIn || isCheckedOut || isSubmitting) ? 'not-allowed' : 'pointer',
+                boxShadow: (!isCheckedIn || isCheckedOut) ? 'none' : '0 4px 15px rgba(220, 38, 38, 0.4)'
               }}
             >
-              <span className="text-xl">🔴</span> Check Out
+              {isSubmitting && isCheckedIn ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Checking Out...
+                </>
+              ) : (
+                <>
+                  <span className="text-xl">🔴</span> Check Out
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -272,7 +481,7 @@ export default function Attendance() {
             {[
               { label: "Present", value: monthlyStats.present, color: "#16a34a", bg: "#dcfce7" },
               { label: "Holidays", value: monthlyStats.holidays, color: "#2563eb", bg: "#dbeafe" },
-              { label: "Opt. Holidays", value: monthlyStats.optionalHolidays, color: "#9333ea", bg: "#e9d5ff" },
+              // { label: "Opt. Holidays", value: monthlyStats.optionalHolidays, color: "#9333ea", bg: "#e9d5ff" },
               { label: "Leaves", value: monthlyStats.leaves, color: "#ea580c", bg: "#ffedd5" },
               { label: "Total", value: monthlyStats.workingDays, color: "#1e3a5f", bg: "#f1f5f9" },
             ].map((stat, index) => (
@@ -383,7 +592,14 @@ export default function Attendance() {
               </tr>
             </thead>
             <tbody>
-              {paginatedHistory.length === 0 ? (
+              {isLoadingHistory ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center">
+                    <span className="text-4xl block mb-2 animate-pulse">⏳</span>
+                    <p style={{ color: textSecondary }}>Loading attendance history...</p>
+                  </td>
+                </tr>
+              ) : paginatedHistory.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center">
                     <span className="text-4xl block mb-2">📋</span>

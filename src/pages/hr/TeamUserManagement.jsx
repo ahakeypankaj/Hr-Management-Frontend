@@ -1,119 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
+import { getAllOnboardings, managerApproveOnboarding, bgvApproveOnboarding, bgvRejectOnboarding } from "../../services/onboardingServices";
 
 // Combined mock data from both TeamManagement and UserManagement
-const mockMembers = [
-  { 
-    id: "EMP001", 
-    name: "Asha Kumar",
-    candidateName: "Asha Kumar",
-    email: "asha@company.com",
-    personalEmail: "asha.personal@gmail.com",
-    phoneCode: "+91", 
-    phone: "9876543210", 
-    role: "employee", 
-    jobTitle: "Senior Developer",
-    dept: "Engineering",
-    department: "Engineering",
-    designation: "Senior Developer",
-    status: "Active",
-    attendance: "95%",
-    leaves: 2,
-    joinDate: "2024-08-01",
-    onboardingStatus: "completed",
-    documentStatus: { resume: "verified", offerLetter: "verified", salaryBreakup: "verified" },
-    bgvStatus: "completed",
-    managerId: "MGR002"
-  },
-  { 
-    id: "EMP002", 
-    name: "Ravi Sharma",
-    candidateName: "Ravi Sharma",
-    email: "ravi@company.com",
-    personalEmail: "ravi.personal@gmail.com",
-    phoneCode: "+91", 
-    phone: "9876500000", 
-    role: "hr_manager", 
-    jobTitle: "HR Manager",
-    dept: "HR",
-    department: "HR",
-    designation: "HR Manager",
-    status: "Active",
-    attendance: "98%",
-    leaves: 1,
-    joinDate: "2023-01-11",
-    onboardingStatus: "completed",
-    documentStatus: { resume: "verified", offerLetter: "verified", salaryBreakup: "verified" },
-    bgvStatus: "completed",
-    managerId: "MGR003"
-  },
-  { 
-    id: "EMP003", 
-    name: "Priya Patel",
-    candidateName: "Priya Patel",
-    email: "priya@company.com",
-    personalEmail: "priya.personal@gmail.com",
-    phoneCode: "+91", 
-    phone: "9876543211", 
-    role: "employee", 
-    jobTitle: "UI/UX Designer",
-    dept: "Engineering",
-    department: "Engineering",
-    designation: "UI/UX Designer",
-    status: "Active",
-    attendance: "98%",
-    leaves: 1,
-    joinDate: "2023-06-15",
-    onboardingStatus: "completed",
-    documentStatus: { resume: "verified", offerLetter: "verified", salaryBreakup: "verified" },
-    bgvStatus: "completed",
-    managerId: "MGR002"
-  },
-  { 
-    id: "EMP007", 
-    name: "Sanjay Mehta",
-    candidateName: "Sanjay Mehta",
-    email: "sanjay@company.com",
-    personalEmail: "sanjay.m@gmail.com",
-    phoneCode: "+91", 
-    phone: "9876543215", 
-    role: "employee", 
-    jobTitle: "Frontend Developer",
-    dept: "Engineering",
-    department: "Engineering",
-    designation: "Frontend Developer",
-    status: "Pending",
-    attendance: "0%",
-    leaves: 0,
-    joinDate: "2025-01-02",
-    onboardingStatus: "documents_pending",
-    documentStatus: { resume: "verified", offerLetter: "pending", salaryBreakup: "pending" },
-    bgvStatus: "in_progress",
-    managerId: "MGR002"
-  },
-  { 
-    id: "EMP004", 
-    name: "Vikram Singh",
-    candidateName: "Vikram Singh",
-    email: "vikram@company.com",
-    personalEmail: "vikram.personal@gmail.com",
-    phoneCode: "+91", 
-    phone: "9876543212", 
-    role: "employee", 
-    jobTitle: "DevOps Engineer",
-    dept: "DevOps",
-    department: "DevOps",
-    designation: "DevOps Engineer",
-    status: "Active",
-    attendance: "92%",
-    leaves: 3,
-    joinDate: "2024-02-20",
-    onboardingStatus: "completed",
-    documentStatus: { resume: "verified", offerLetter: "verified", salaryBreakup: "verified" },
-    bgvStatus: "completed",
-    managerId: "MGR002"
-  },
-];
+
 
 const departments = ["All", "Engineering", "DevOps", "QA", "Sales", "Product", "Finance", "HR", "Marketing"];
 const statusOptions = ["All", "Active", "Pending", "On Leave"];
@@ -131,7 +21,8 @@ export default function TeamUserManagement() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   
-  const [members, setMembers] = useState(mockMembers);
+  const [members, setMembers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDept, setFilterDept] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -141,6 +32,122 @@ export default function TeamUserManagement() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editError, setEditError] = useState(null);
+  const [approvalComments, setApprovalComments] = useState("");
+  
+  // BGV Modal states
+  const [showBGVModal, setShowBGVModal] = useState(false);
+  const [bgvAction, setBGVAction] = useState(""); // "approve" or "reject"
+  const [bgvRemarks, setBGVRemarks] = useState("");
+  const [isSavingBGV, setIsSavingBGV] = useState(false);
+  const [bgvError, setBGVError] = useState(null);
+
+  // Map API response to component format
+  const mapOnboardingToMember = (onboarding) => {
+    // Determine document status
+    const documentStatus = {
+      resume: onboarding.resumeUrl ? "verified" : "pending",
+      offerLetter: onboarding.offerLetterUrl ? "verified" : "pending",
+      salaryBreakup: onboarding.salaryBreakupUrl ? "verified" : "pending",
+    };
+
+    // Map onboarding status
+    let onboardingStatus = "created";
+    if (onboarding.status === "onboarded") {
+      onboardingStatus = "completed";
+    } else if (onboarding.status === "docs_pending") {
+      onboardingStatus = "documents_pending";
+    } else if (onboarding.status === "rejected") {
+      onboardingStatus = "rejected";
+    }
+
+    // Map BGV status
+    let bgvStatusDisplay = "pending";
+    if (onboarding.bgvStatus === "verified") {
+      bgvStatusDisplay = "completed";
+    } else if (onboarding.bgvStatus === "in_progress") {
+      bgvStatusDisplay = "in_progress";
+    }
+
+    // Map overall status
+    let statusDisplay = "Pending";
+    if (onboarding.managerApproval === "approved" && onboarding.status === "onboarded") {
+      statusDisplay = "Active";
+    } else if (onboarding.managerApproval === "rejected") {
+      statusDisplay = "Rejected";
+    } else if (onboarding.managerApproval === "approved") {
+      statusDisplay = "Pending";
+    }
+
+    return {
+      id: onboarding.userId || onboarding._id,
+      _id: onboarding._id,
+      name: onboarding.candidateName,
+      candidateName: onboarding.candidateName,
+      email: onboarding.personalEmail || `${onboarding.candidateName?.toLowerCase().replace(/\s+/g, '.')}@company.com`,
+      personalEmail: onboarding.personalEmail,
+      phoneCode: "+91", // Default, can be extracted if available in API
+      phone: onboarding.phone,
+      role: onboarding.userId ? "employee" : "pending",
+      jobTitle: onboarding.jobDetails?.jobTitle || "",
+      dept: onboarding.jobDetails?.department || "",
+      department: onboarding.jobDetails?.department || "",
+      designation: onboarding.jobDetails?.designation || "",
+      status: statusDisplay,
+      attendance: "0%",
+      leaves: 0,
+      joinDate: onboarding.jobDetails?.proposedJoiningDate 
+        ? new Date(onboarding.jobDetails.proposedJoiningDate).toISOString().split('T')[0]
+        : "",
+      onboardingStatus: onboardingStatus,
+      documentStatus: documentStatus,
+      bgvStatus: bgvStatusDisplay,
+      managerId: null, // Can be added if available in API
+      managerApproval: onboarding.managerApproval,
+      managerComments: onboarding.managerComments,
+      bgvRemarks: onboarding.bgvRemarks,
+      finalApproval: onboarding.finalApproval,
+      finalComments: onboarding.finalComments,
+      createdAt: onboarding.createdAt,
+      updatedAt: onboarding.updatedAt,
+      // Address info
+      addressInfo: onboarding.addressInfo,
+      // Additional fields for view/edit modals
+      dateOfBirth: onboarding.additionalInfo?.dateOfBirth || "",
+      gender: onboarding.additionalInfo?.gender || "",
+      bloodGroup: onboarding.additionalInfo?.bloodGroup || "",
+      emergencyContactName: onboarding.additionalInfo?.emergencyContact?.name || "",
+      emergencyContactRelation: onboarding.additionalInfo?.emergencyContact?.relation || "",
+      emergencyContactPhone: onboarding.additionalInfo?.emergencyContact?.phone || "",
+      emergencyPhoneCode: onboarding.additionalInfo?.emergencyContact?.phoneCode || "+91",
+    };
+  };
+
+  // Fetch onboarding data from API
+  useEffect(() => {
+    const fetchOnboardings = async () => {
+      setIsLoading(true);
+      try {
+        const response = await getAllOnboardings();
+        console.log("Onboarding API response:", response);
+        
+        if (response.onboardingList && Array.isArray(response.onboardingList)) {
+          const mappedMembers = response.onboardingList.map(mapOnboardingToMember);
+          setMembers(mappedMembers);
+        } else {
+          setMembers([]);
+        }
+      } catch (error) {
+        console.error("Error fetching onboardings:", error);
+        setMembers([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOnboardings();
+  }, []);
 
   const navyBlue = '#1e3a5f';
   const cardStyle = {
@@ -183,8 +190,115 @@ export default function TeamUserManagement() {
   };
 
   const handleEditMember = (member) => {
-    setSelectedMember(member);
+    setSelectedMember({ ...member });
+    setApprovalComments(member.managerComments || "");
     setShowEditModal(true);
+    setEditError(null);
+  };
+
+  const handleBGVAction = (member, action) => {
+    setSelectedMember({ ...member });
+    setBGVAction(action);
+    setBGVRemarks(member.bgvRemarks || "");
+    setShowBGVModal(true);
+    setBGVError(null);
+  };
+
+  const handleSaveBGV = async () => {
+    if (!selectedMember || !selectedMember._id) {
+      alert("Error: Missing employee ID.");
+      return;
+    }
+
+    if (!bgvRemarks.trim()) {
+      setBGVError("Remarks are required");
+      return;
+    }
+
+    setIsSavingBGV(true);
+    setBGVError(null);
+
+    try {
+      const bgvData = {
+        remarks: bgvRemarks.trim()
+      };
+
+      console.log("=== Saving BGV Action ===");
+      console.log("Onboarding ID:", selectedMember._id);
+      console.log("Action:", bgvAction);
+      console.log("BGV Data:", bgvData);
+
+      if (bgvAction === "approve") {
+        await bgvApproveOnboarding(selectedMember._id, bgvData);
+      } else {
+        await bgvRejectOnboarding(selectedMember._id, bgvData);
+      }
+
+      // Refresh data from API
+      const response = await getAllOnboardings();
+      if (response.onboardingList && Array.isArray(response.onboardingList)) {
+        const mappedMembers = response.onboardingList.map(mapOnboardingToMember);
+        setMembers(mappedMembers);
+      }
+
+      setShowBGVModal(false);
+      setBGVRemarks("");
+      alert(`BGV ${bgvAction === "approve" ? "approved" : "rejected"} successfully!`);
+    } catch (error) {
+      console.error("Error saving BGV action:", error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update BGV status. Please try again.';
+      setBGVError(errorMessage);
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setIsSavingBGV(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedMember || !selectedMember._id) {
+      console.error("Cannot save: Missing onboarding ID");
+      alert("Error: Cannot save changes. Missing employee ID.");
+      return;
+    }
+
+    // Determine action based on managerApproval status
+    const action = selectedMember.managerApproval === "rejected" ? "rejected" : "approved";
+
+    setIsSavingEdit(true);
+    setEditError(null);
+
+    try {
+      // Prepare approval data according to API
+      const approvalData = {
+        action: action,
+        comments: approvalComments.trim() || ""
+      };
+
+      console.log("=== Saving Manager Approval ===");
+      console.log("Onboarding ID:", selectedMember._id);
+      console.log("Approval Data:", approvalData);
+
+      // Call manager approval API
+      await managerApproveOnboarding(selectedMember._id, approvalData);
+
+      // Refresh data from API to ensure consistency
+      const response = await getAllOnboardings();
+      if (response.onboardingList && Array.isArray(response.onboardingList)) {
+        const mappedMembers = response.onboardingList.map(mapOnboardingToMember);
+        setMembers(mappedMembers);
+      }
+
+      setShowEditModal(false);
+      setApprovalComments("");
+      alert(`Employee ${action === "approved" ? "approved" : "rejected"} successfully!`);
+    } catch (error) {
+      console.error("Error saving approval:", error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update employee approval. Please try again.';
+      setEditError(errorMessage);
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
 
@@ -253,7 +367,7 @@ export default function TeamUserManagement() {
     <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
       {/* Header */}
       <div className="animate-fade-in-down">
-        <h1 className="text-xl sm:text-2xl font-bold" style={{ color: textPrimary }}>User Management</h1>
+        <h1 className="text-xl sm:text-2xl font-bold" style={{ color: textPrimary }}>Onboarding Employees</h1>
         <p className="text-sm sm:text-base" style={{ color: textSecondary }}>Manage employees and track information</p>
       </div>
 
@@ -264,7 +378,7 @@ export default function TeamUserManagement() {
             <div className="flex items-center justify-between">
               <div>
                 <p style={{ color: textSecondary }} className="text-sm font-medium">{stat.label}</p>
-                <p style={{ color: textPrimary }} className="text-3xl font-bold mt-1">{stat.value}</p>
+                <p style={{ color: textPrimary }} className="text-3xl font-bold mt-1">{isLoading ? "..." : stat.value}</p>
               </div>
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: `${stat.color}20` }}>
                 {stat.icon}
@@ -273,6 +387,14 @@ export default function TeamUserManagement() {
           </div>
         ))}
       </div>
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="p-8 text-center animate-fade-in-up" style={cardStyle}>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: navyBlue }}></div>
+          <p style={{ color: textSecondary }} className="mt-4">Loading user data...</p>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="p-4 animate-fade-in-up" style={cardStyle}>
@@ -325,10 +447,15 @@ export default function TeamUserManagement() {
             background: `linear-gradient(135deg, ${navyBlue} 0%, #2563eb 100%)`,
           }}
         >
-          <h2 className="text-lg font-bold text-white">All Team Members & Employees</h2>
+          <h2 className="text-lg font-bold text-white">Onboarding Employees</h2>
         </div>
 
-        {paginatedMembers.length === 0 ? (
+        {isLoading ? (
+          <div className="p-12 text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 mb-4" style={{ borderColor: navyBlue }}></div>
+            <p style={{ color: textSecondary }}>Loading user data...</p>
+          </div>
+        ) : paginatedMembers.length === 0 ? (
           <div className="p-12 text-center">
             <span className="text-5xl block mb-4">👥</span>
             <p className="font-semibold" style={{ color: textPrimary }}>No members found</p>
@@ -382,11 +509,11 @@ export default function TeamUserManagement() {
                         {onboardingStyle.label}
                       </span>
                     )}
-                    {member.attendance && (
+                    {/* {member.attendance && (
                       <span className="text-xs px-2 py-1 rounded-md" style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textSecondary }}>
                         📊 {member.attendance}
                       </span>
-                    )}
+                    )} */}
                   </div>
 
                   {/* Action Buttons */}
@@ -479,56 +606,107 @@ export default function TeamUserManagement() {
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 space-y-5">
-              {/* Contact Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm" style={{ color: textSecondary }}>Email</p>
-                  <p className="font-semibold" style={{ color: textPrimary }}>{selectedMember.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm" style={{ color: textSecondary }}>Phone</p>
-                  <p className="font-semibold" style={{ color: textPrimary }}>{selectedMember.phoneCode} {selectedMember.phone}</p>
-                </div>
-                <div>
-                  <p className="text-sm" style={{ color: textSecondary }}>Employee ID</p>
-                  <p className="font-semibold" style={{ color: textPrimary }}>{selectedMember.id}</p>
-                </div>
-                <div>
-                  <p className="text-sm" style={{ color: textSecondary }}>Join Date</p>
-                  <p className="font-semibold" style={{ color: textPrimary }}>{selectedMember.joinDate}</p>
+            <div className="p-6 space-y-6 max-h-[calc(90vh-120px)] overflow-y-auto">
+              {/* Personal Information Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold" style={{ color: textPrimary }}>Personal Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📧 Email</p>
+                    <p className="font-semibold text-sm" style={{ color: textPrimary }}>
+                      {selectedMember.email || selectedMember.personalEmail || "N/A"}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📞 Phone</p>
+                    <p className="font-semibold text-sm" style={{ color: textPrimary }}>
+                      {selectedMember.phoneCode ? `${selectedMember.phoneCode} ` : ""}{selectedMember.phone || "N/A"}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>🆔 Employee ID</p>
+                    <p className="font-semibold text-sm" style={{ color: textPrimary }}>
+                      {selectedMember.id || selectedMember._id || "N/A"}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📅 Join Date</p>
+                    <p className="font-semibold text-sm" style={{ color: textPrimary }}>
+                      {selectedMember.joinDate || selectedMember.joiningDate || "N/A"}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {/* Stats */}
-              {(selectedMember.attendance || selectedMember.leaves !== undefined) && (
-                <div className="grid grid-cols-3 gap-4 p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  {selectedMember.attendance && (
-                    <div className="text-center">
-                      <p className="text-xs" style={{ color: textSecondary }}>Attendance</p>
-                      <p className="text-xl font-bold" style={{ color: '#16a34a' }}>{selectedMember.attendance}</p>
-                    </div>
-                  )}
-                  {selectedMember.leaves !== undefined && (
-                    <div className="text-center">
-                      <p className="text-xs" style={{ color: textSecondary }}>Leaves</p>
-                      <p className="text-xl font-bold" style={{ color: '#ea580c' }}>{selectedMember.leaves}</p>
-                    </div>
-                  )}
+              {/* Status Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold" style={{ color: textPrimary }}>Status Overview</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Manager Approval Status */}
+                  <div className="p-4 rounded-xl text-center" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <p className="text-xs font-medium mb-2" style={{ color: textSecondary }}>👤 Manager Approval</p>
+                    <span 
+                      className="px-3 py-1.5 rounded-full text-xs font-bold inline-block"
+                      style={{ 
+                        backgroundColor: selectedMember.managerApproval === 'approved' ? '#dcfce7' : 
+                                       selectedMember.managerApproval === 'rejected' ? '#fee2e2' : '#dbeafe',
+                        color: selectedMember.managerApproval === 'approved' ? '#16a34a' : 
+                               selectedMember.managerApproval === 'rejected' ? '#dc2626' : '#2563eb'
+                      }}
+                    >
+                      {selectedMember.managerApproval === 'approved' ? '✓ Approved' : 
+                       selectedMember.managerApproval === 'rejected' ? '✗ Rejected' : '⏳ Pending'}
+                    </span>
+                  </div>
+
+                  {/* BGV Status */}
+                  <div className="p-4 rounded-xl text-center" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <p className="text-xs font-medium mb-2" style={{ color: textSecondary }}>🔍 BGV Status</p>
+                    <span 
+                      className="px-3 py-1.5 rounded-full text-xs font-bold inline-block"
+                      style={{ 
+                        backgroundColor: selectedMember.bgvStatus === 'completed' ? '#dcfce7' : '#dbeafe',
+                        color: selectedMember.bgvStatus === 'completed' ? '#16a34a' : '#2563eb'
+                      }}
+                    >
+                      {selectedMember.bgvStatus === 'completed' ? '✓ Completed' : '⏳ In Progress'}
+                    </span>
+                  </div>
+
+                  {/* Onboarding Status */}
+                  <div className="p-4 rounded-xl text-center" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <p className="text-xs font-medium mb-2" style={{ color: textSecondary }}>📋 Onboarding</p>
+                    <span 
+                      className="px-3 py-1.5 rounded-full text-xs font-bold inline-block"
+                      style={{ 
+                        backgroundColor: getOnboardingStyle(selectedMember.onboardingStatus || selectedMember.status).bg,
+                        color: getOnboardingStyle(selectedMember.onboardingStatus || selectedMember.status).color
+                      }}
+                    >
+                      {getOnboardingStyle(selectedMember.onboardingStatus || selectedMember.status).label}
+                    </span>
+                  </div>
                 </div>
-              )}
+              </div>
 
               {/* Documents Status */}
               {selectedMember.documentStatus && (
-                <div>
-                  <p className="text-sm font-semibold mb-3" style={{ color: textPrimary }}>📁 Document Status</p>
-                  <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold" style={{ color: textPrimary }}>📁 Document Status</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {Object.entries(selectedMember.documentStatus).map(([doc, status]) => {
                       const docStyle = getDocStatusStyle(status);
                       return (
-                        <div key={doc} className="p-2 rounded-lg text-center" style={{ backgroundColor: docStyle.bg }}>
+                        <div 
+                          key={doc} 
+                          className="p-3 rounded-xl text-center" 
+                          style={{ backgroundColor: docStyle.bg }}
+                        >
                           <p className="text-xs font-semibold capitalize" style={{ color: docStyle.color }}>
-                            {docStyle.icon} {doc}
+                            {docStyle.icon} {doc.replace(/([A-Z])/g, ' $1').trim()}
+                          </p>
+                          <p className="text-xs mt-1 font-medium" style={{ color: docStyle.color }}>
+                            {status === 'verified' ? 'Verified' : status === 'pending' ? 'Pending' : status}
                           </p>
                         </div>
                       );
@@ -537,35 +715,76 @@ export default function TeamUserManagement() {
                 </div>
               )}
 
-              {/* BGV Status */}
-              {selectedMember.bgvStatus && (
-                <div>
-                  <p className="text-sm font-semibold mb-2" style={{ color: textPrimary }}>🔍 BGV Status</p>
-                  <span 
-                    className="px-4 py-2 rounded-full text-sm font-bold inline-block"
-                    style={{ 
-                      backgroundColor: selectedMember.bgvStatus === 'completed' ? '#dcfce7' : '#dbeafe',
-                      color: selectedMember.bgvStatus === 'completed' ? '#16a34a' : '#2563eb'
-                    }}
-                  >
-                    {selectedMember.bgvStatus === 'completed' ? '✓ Completed' : '⏳ In Progress'}
-                  </span>
+              {/* Manager Comments / Remarks */}
+              {(selectedMember.managerComments || selectedMember.bgvRemarks) && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold" style={{ color: textPrimary }}>Remarks & Comments</h3>
+                  {selectedMember.managerComments && (
+                    <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                      <p className="text-xs font-medium mb-2" style={{ color: textSecondary }}>Manager Comments</p>
+                      <p className="text-sm" style={{ color: textPrimary }}>{selectedMember.managerComments}</p>
+                    </div>
+                  )}
+                  {selectedMember.bgvRemarks && (
+                    <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                      <p className="text-xs font-medium mb-2" style={{ color: textSecondary }}>BGV Remarks</p>
+                      <p className="text-sm" style={{ color: textPrimary }}>{selectedMember.bgvRemarks}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-4" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+              <div className="pt-4 space-y-3" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+                {/* Manager Approval Button */}
                 <button
                   onClick={() => { setShowViewModal(false); handleEditMember(selectedMember); }}
-                  className="flex-1 py-3 rounded-xl font-semibold transition-all hover:opacity-80"
-                  style={{ backgroundColor: '#f3e8ff', color: '#7c3aed' }}
+                  className="w-full py-3 rounded-xl font-semibold transition-all hover:opacity-90 hover:scale-[1.02]"
+                  style={{ 
+                    backgroundColor: '#f3e8ff', 
+                    color: '#7c3aed',
+                    boxShadow: '0 2px 8px rgba(124, 58, 237, 0.2)'
+                  }}
                 >
-                  ✏️ Edit
+                  ✏️ Manager Approval
                 </button>
+
+                {/* BGV Action Buttons */}
+                {selectedMember.bgvStatus !== "completed" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => { setShowViewModal(false); handleBGVAction(selectedMember, "approve"); }}
+                      className="py-3 rounded-xl font-semibold transition-all hover:opacity-90 hover:scale-[1.02]"
+                      style={{ 
+                        backgroundColor: '#dcfce7', 
+                        color: '#16a34a',
+                        boxShadow: '0 2px 8px rgba(22, 163, 74, 0.2)'
+                      }}
+                    >
+                      ✅ BGV Approve
+                    </button>
+                    <button
+                      onClick={() => { setShowViewModal(false); handleBGVAction(selectedMember, "reject"); }}
+                      className="py-3 rounded-xl font-semibold transition-all hover:opacity-90 hover:scale-[1.02]"
+                      style={{ 
+                        backgroundColor: '#fee2e2', 
+                        color: '#dc2626',
+                        boxShadow: '0 2px 8px rgba(220, 38, 38, 0.2)'
+                      }}
+                    >
+                      ❌ BGV Reject
+                    </button>
+                  </div>
+                )}
+
+                {/* Close Button */}
                 <button
                   onClick={() => setShowViewModal(false)}
-                  className="flex-1 py-3 rounded-xl font-semibold transition-all hover:opacity-80"
-                  style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
+                  className="w-full py-3 rounded-xl font-semibold transition-all hover:opacity-90"
+                  style={{ 
+                    backgroundColor: isDark ? '#334155' : '#f1f5f9', 
+                    color: textPrimary 
+                  }}
                 >
                   Close
                 </button>
@@ -605,8 +824,8 @@ export default function TeamUserManagement() {
                     ✏️
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Edit Employee</h2>
-                    <p className="text-purple-200 text-sm">Update employee information and status</p>
+                    <h2 className="text-xl font-bold text-white">Manager Approval</h2>
+                    <p className="text-purple-200 text-sm">Approve or reject employee onboarding</p>
                   </div>
                 </div>
               </div>
@@ -614,101 +833,211 @@ export default function TeamUserManagement() {
 
             {/* Modal Body */}
             <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
-              {/* Status Update */}
+              {/* Manager Approval Status */}
               <div>
-                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Status</label>
+                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Manager Approval</label>
                 <select
-                  value={selectedMember.status}
-                  onChange={(e) => setSelectedMember({ ...selectedMember, status: e.target.value })}
+                  value={selectedMember.managerApproval || "pending"}
+                  onChange={(e) => {
+                    const approvalValue = e.target.value;
+                    setSelectedMember({ 
+                      ...selectedMember, 
+                      managerApproval: approvalValue,
+                      status: approvalValue === "approved" ? "Approved" : approvalValue === "rejected" ? "Rejected" : "Pending"
+                    });
+                  }}
                   className="w-full px-4 py-4 rounded-xl outline-none"
                   style={inputStyle}
                 >
-                  <option value="Active">Active</option>
-                  <option value="Pending">Pending</option>
-                  <option value="On Leave">On Leave</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
                 </select>
               </div>
 
-              {/* Document Status */}
-              {selectedMember.documentStatus && (
-                <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Document Verification</label>
-                  <div className="space-y-3">
-                    {Object.keys(selectedMember.documentStatus).map((doc) => (
-                      <div key={doc} className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                        <span className="font-medium capitalize" style={{ color: textPrimary }}>{doc}</span>
-                        <select
-                          value={selectedMember.documentStatus[doc]}
-                          onChange={(e) => handleUpdateStatus(selectedMember.id, 'documentStatus', { [doc]: e.target.value })}
-                          className="px-3 py-2 rounded-lg outline-none text-sm"
-                          style={inputStyle}
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="verified">Verified</option>
-                          <option value="rejected">Rejected</option>
-                        </select>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Comments Field */}
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Comments</label>
+                <textarea
+                  value={approvalComments}
+                  onChange={(e) => setApprovalComments(e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-xl outline-none resize-none transition-all focus:ring-2 focus:ring-purple-400"
+                  style={inputStyle}
+                  placeholder="Enter comments for approval/rejection (e.g., 'Looks good, proceed.')"
+                />
+              </div>
 
-              {/* BGV Status */}
-              {selectedMember.bgvStatus && (
-                <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>BGV Status</label>
-                  <select
-                    value={selectedMember.bgvStatus}
-                    onChange={(e) => handleUpdateStatus(selectedMember.id, 'bgvStatus', e.target.value)}
-                    className="w-full px-4 py-4 rounded-xl outline-none"
-                    style={inputStyle}
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="failed">Failed</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Onboarding Status */}
-              {selectedMember.onboardingStatus && (
-                <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Onboarding Status</label>
-                  <select
-                    value={selectedMember.onboardingStatus}
-                    onChange={(e) => handleUpdateStatus(selectedMember.id, 'onboardingStatus', e.target.value)}
-                    className="w-full px-4 py-4 rounded-xl outline-none"
-                    style={inputStyle}
-                  >
-                    <option value="documents_pending">Documents Pending</option>
-                    <option value="bgv_in_progress">BGV In Progress</option>
-                    <option value="completed">Completed</option>
-                  </select>
+            
+              {/* Error Message */}
+              {editError && (
+                <div className="p-4 rounded-xl flex items-center gap-3" style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca' }}>
+                  <span className="text-xl">⚠️</span>
+                  <span className="font-medium" style={{ color: '#dc2626' }}>{editError}</span>
                 </div>
               )}
 
               <div className="flex gap-4 pt-4" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
                 <button
                   onClick={() => setShowEditModal(false)}
-                  className="flex-1 py-4 rounded-xl font-semibold transition-all hover:opacity-80"
+                  disabled={isSavingEdit}
+                  className="flex-1 py-4 rounded-xl font-semibold transition-all hover:opacity-80 disabled:opacity-50"
                   style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    setMembers(members.map(m => m.id === selectedMember.id ? selectedMember : m));
-                    setShowEditModal(false);
-                  }}
-                  className="flex-1 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90"
+                  onClick={handleSaveEdit}
+                  disabled={isSavingEdit}
+                  className="flex-1 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ 
                     background: 'linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)',
                     boxShadow: '0 4px 15px rgba(124, 58, 237, 0.4)'
                   }}
                 >
-                  💾 Save Changes
+                  {isSavingEdit ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Saving...
+                    </span>
+                  ) : (
+                    '💾 Save Changes'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BGV Approval/Rejection Modal */}
+      {showBGVModal && selectedMember && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in p-4"
+          style={{ 
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)'
+          }}
+        >
+          <div 
+            className="w-full max-w-2xl animate-scale-in"
+            style={{ 
+              backgroundColor: isDark ? '#1e293b' : '#ffffff',
+              borderRadius: '24px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Modal Header */}
+            <div 
+              className="p-6"
+              style={{ 
+                background: bgvAction === "approve" 
+                  ? 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)'
+                  : 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)'
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl">
+                    {bgvAction === "approve" ? "✅" : "❌"}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">
+                      BGV {bgvAction === "approve" ? "Approve" : "Reject"}
+                    </h2>
+                    <p className="text-white/80 text-sm">
+                      {bgvAction === "approve" 
+                        ? "Approve background verification for this employee" 
+                        : "Reject background verification for this employee"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
+              {/* Employee Info */}
+              <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                <p className="text-sm font-semibold mb-1" style={{ color: textSecondary }}>Employee</p>
+                <p className="font-bold" style={{ color: textPrimary }}>
+                  {selectedMember.candidateName || selectedMember.name}
+                </p>
+                <p className="text-sm" style={{ color: textSecondary }}>
+                  {selectedMember.personalEmail || selectedMember.email}
+                </p>
+              </div>
+
+              {/* Remarks Field */}
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
+                  Remarks <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={bgvRemarks}
+                  onChange={(e) => setBGVRemarks(e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-xl outline-none resize-none transition-all focus:ring-2"
+                  style={{ 
+                    ...inputStyle,
+                    focusRingColor: bgvAction === "approve" ? '#16a34a' : '#dc2626'
+                  }}
+                  placeholder={bgvAction === "approve" 
+                    ? "Enter remarks for BGV approval (e.g., 'Done', 'All documents verified')" 
+                    : "Enter reason for BGV rejection (e.g., 'Document verification failed', 'Background check incomplete')"}
+                />
+              </div>
+
+              {/* Error Message */}
+              {bgvError && (
+                <div className="p-4 rounded-xl flex items-center gap-3" style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca' }}>
+                  <span className="text-xl">⚠️</span>
+                  <span className="font-medium" style={{ color: '#dc2626' }}>{bgvError}</span>
+                </div>
+              )}
+
+              <div className="flex gap-4 pt-4" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+                <button
+                  onClick={() => {
+                    setShowBGVModal(false);
+                    setBGVRemarks("");
+                    setBGVError(null);
+                  }}
+                  disabled={isSavingBGV}
+                  className="flex-1 py-4 rounded-xl font-semibold transition-all hover:opacity-80 disabled:opacity-50"
+                  style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveBGV}
+                  disabled={isSavingBGV || !bgvRemarks.trim()}
+                  className="flex-1 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ 
+                    background: bgvAction === "approve"
+                      ? 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)'
+                      : 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
+                    boxShadow: bgvAction === "approve"
+                      ? '0 4px 15px rgba(22, 163, 74, 0.4)'
+                      : '0 4px 15px rgba(220, 38, 38, 0.4)'
+                  }}
+                >
+                  {isSavingBGV ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      {bgvAction === "approve" ? "Approving..." : "Rejecting..."}
+                    </span>
+                  ) : (
+                    `${bgvAction === "approve" ? "✅ Approve" : "❌ Reject"} BGV`
+                  )}
                 </button>
               </div>
             </div>
