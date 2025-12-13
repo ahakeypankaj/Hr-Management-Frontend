@@ -302,7 +302,7 @@ export default function Dashboard() {
               {[
                 { label: "Present", value: 142, color: "#16a34a" },
                 { label: "Leave", value: 8, color: "#ea580c" },
-                { label: "Absent", value: 6, color: "#dc2626" },
+                { label: "Optional Holiday", value: 6, color: "#9333ea" },
               ].map((item, i) => (
                 <div key={i} className="text-center p-2 rounded-lg" style={{ backgroundColor: `${item.color}10` }}>
                   <p className="text-lg font-bold" style={{ color: item.color }}>{item.value}</p>

@@ -14,8 +14,8 @@ const mockHistory = [
   { id: 8, date: "2024-12-05", checkIn: "09:15 AM", checkOut: "06:30 PM", status: "Present", hours: "9h 15m" },
   { id: 9, date: "2024-12-04", checkIn: "08:50 AM", checkOut: "05:45 PM", status: "Present", hours: "8h 55m" },
   { id: 10, date: "2024-12-03", checkIn: "09:05 AM", checkOut: "06:20 PM", status: "Present", hours: "9h 15m" },
-  { id: 11, date: "2024-12-02", checkIn: "-", checkOut: "-", status: "Absent", hours: "-" },
-  { id: 12, date: "2024-12-01", checkIn: "-", checkOut: "-", status: "Weekend", hours: "-" },
+  { id: 11, date: "2024-12-02", checkIn: "-", checkOut: "-", status: "Optional Holiday", hours: "-" },
+  { id: 12, date: "2024-12-01", checkIn: "-", checkOut: "-", status: "Holiday", hours: "-" },
   { id: 13, date: "2024-11-30", checkIn: "-", checkOut: "-", status: "Weekend", hours: "-" },
   { id: 14, date: "2024-11-29", checkIn: "09:10 AM", checkOut: "06:00 PM", status: "Present", hours: "8h 50m" },
   { id: 15, date: "2024-11-28", checkIn: "09:00 AM", checkOut: "06:30 PM", status: "Present", hours: "9h 30m" },
@@ -24,9 +24,9 @@ const mockHistory = [
   { id: 18, date: "2024-11-25", checkIn: "09:20 AM", checkOut: "06:00 PM", status: "Present", hours: "8h 40m" },
 ];
 
-const monthlyStats = { present: 18, absent: 1, leaves: 2, holidays: 1, workingDays: 22 };
-const statusOptions = ["All", "Present", "Absent", "Leave", "Weekend"];
-const ITEMS_PER_PAGE = 5;
+const monthlyStats = { present: 18, holidays: 1, optionalHolidays: 1, leaves: 2, workingDays: 22 };
+const statusOptions = ["All", "Present", "Holiday", "Optional Holiday", "Leave", "Weekend"];
+const ITEMS_PER_PAGE = 10;
 
 export default function Attendance() {
   const { user } = useAuth();
@@ -39,6 +39,7 @@ export default function Attendance() {
   // Filters
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterMonth, setFilterMonth] = useState("all");
+  const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0, 7)); // Current month in YYYY-MM format
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,6 +74,67 @@ export default function Attendance() {
 
   const handleFilterChange = () => setCurrentPage(1);
 
+  const handleExportAttendance = () => {
+    // Filter history for the selected month
+    const selectedMonth = exportMonth;
+    const monthData = mockHistory.filter(record => {
+      const recordDate = new Date(record.date);
+      const recordMonth = recordDate.toISOString().slice(0, 7);
+      return recordMonth === selectedMonth;
+    });
+
+    // Prepare CSV data
+    const headers = ['Date', 'Day', 'Check In', 'Check Out', 'Status', 'Working Hours'];
+    const csvRows = [headers.join(',')];
+
+    monthData.forEach(record => {
+      const date = new Date(record.date);
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+      const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      
+      const row = [
+        formattedDate,
+        dayName,
+        record.checkIn,
+        record.checkOut,
+        record.status,
+        record.hours
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    // Add summary stats
+    const presentCount = monthData.filter(r => r.status === 'Present').length;
+    const leaveCount = monthData.filter(r => r.status === 'Leave').length;
+    const holidayCount = monthData.filter(r => r.status === 'Holiday' || r.status === 'Optional Holiday').length;
+    
+    csvRows.push('');
+    csvRows.push('Summary');
+    csvRows.push(['Total Days', 'Present', 'Leave', 'Holiday'].join(','));
+    csvRows.push([monthData.length, presentCount, leaveCount, holidayCount].join(','));
+
+    // Create CSV content
+    const csvContent = csvRows.join('\n');
+    
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    
+    // Generate filename with month name
+    const monthName = new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    link.setAttribute('download', `attendance_report_${monthName.replace(' ', '_')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Show success message
+    setMessage({ type: 'success', text: `Attendance report for ${monthName} exported successfully!` });
+    setTimeout(() => setMessage(null), 3000);
+  };
+
   const handleCheckIn = () => {
     const now = new Date();
     setCheckInTime(now);
@@ -89,7 +151,8 @@ export default function Attendance() {
     switch (status) {
       case "Present": return { bg: "linear-gradient(135deg, #dcfce7, #bbf7d0)", color: "#16a34a" };
       case "Leave": return { bg: "linear-gradient(135deg, #ffedd5, #fed7aa)", color: "#ea580c" };
-      case "Absent": return { bg: "linear-gradient(135deg, #fee2e2, #fecaca)", color: "#dc2626" };
+      case "Holiday": return { bg: "linear-gradient(135deg, #dbeafe, #bfdbfe)", color: "#2563eb" };
+      case "Optional Holiday": return { bg: "linear-gradient(135deg, #e9d5ff, #d8b4fe)", color: "#9333ea" };
       case "Weekend": return { bg: isDark ? "#334155" : "#f1f5f9", color: isDark ? "#94a3b8" : "#64748b" };
       default: return { bg: "#f1f5f9", color: "#64748b" };
     }
@@ -105,14 +168,28 @@ export default function Attendance() {
           <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>Attendance</h1>
           <p style={{ color: textSecondary }}>Track your daily attendance and view history</p>
         </div>
-        <div 
-          className="text-right px-5 py-3 rounded-xl"
-          style={{ background: colors.gradient }}
-        >
-          <p className="text-sm text-blue-100">Today</p>
-          <p className="text-lg font-bold text-white">
-            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-          </p>
+        <div className="flex flex-row items-center gap-3">
+        <button
+            onClick={handleExportAttendance}
+            className="px-5 py-3 rounded-xl font-bold text-white transition-all hover:opacity-90 flex items-center gap-2 whitespace-nowrap"
+            style={{ 
+              backgroundColor: '#16a34a',
+              boxShadow: '0 4px 15px rgba(22, 163, 74, 0.4)'
+            }}
+          >
+            📥 Export Report
+          </button>
+          <div 
+            className="text-right px-5 py-3 rounded-xl"
+            style={{ background: colors.gradient }}
+          >
+            <p className="text-sm text-blue-100">Today</p>
+            <p className="text-lg font-bold text-white">
+              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+            </p>
+          </div>
+        
+        
         </div>
       </div>
 
@@ -194,9 +271,9 @@ export default function Attendance() {
           <div className="flex-1 w-full grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
             {[
               { label: "Present", value: monthlyStats.present, color: "#16a34a", bg: "#dcfce7" },
-              { label: "Absent", value: monthlyStats.absent, color: "#dc2626", bg: "#fee2e2" },
-              { label: "Leaves", value: monthlyStats.leaves, color: "#ea580c", bg: "#ffedd5" },
               { label: "Holidays", value: monthlyStats.holidays, color: "#2563eb", bg: "#dbeafe" },
+              { label: "Opt. Holidays", value: monthlyStats.optionalHolidays, color: "#9333ea", bg: "#e9d5ff" },
+              { label: "Leaves", value: monthlyStats.leaves, color: "#ea580c", bg: "#ffedd5" },
               { label: "Total", value: monthlyStats.workingDays, color: "#1e3a5f", bg: "#f1f5f9" },
             ].map((stat, index) => (
               <div 
@@ -222,6 +299,22 @@ export default function Attendance() {
         </div>
       </div>
 
+      {/* Message */}
+      {message && (
+        <div 
+          className={`p-4 rounded-xl flex items-center gap-3 animate-fade-in-up ${
+            message.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'
+          }`}
+          style={isDark ? {
+            backgroundColor: message.type === 'success' ? '#064e3b' : '#1e3a8a',
+            borderColor: message.type === 'success' ? '#10b981' : '#3b82f6'
+          } : {}}
+        >
+          <span className="text-xl">{message.type === 'success' ? '✅' : 'ℹ️'}</span>
+          <span className="font-medium" style={{ color: textPrimary }}>{message.text}</span>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl animate-fade-in-up" style={cardStyle}>
         <div className="flex items-center gap-2">
@@ -236,6 +329,16 @@ export default function Attendance() {
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium" style={{ color: textSecondary }}>Export Month:</span>
+          <input
+            type="month"
+            value={exportMonth}
+            onChange={(e) => setExportMonth(e.target.value)}
+            className="px-3 py-2 rounded-lg outline-none text-sm"
+            style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+          />
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium" style={{ color: textSecondary }}>Month:</span>

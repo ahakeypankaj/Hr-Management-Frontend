@@ -25,7 +25,7 @@ const tabs = ["Goals", "Reviews", "Team Scores"];
 const departments = ["All", "Engineering", "DevOps", "QA", "Sales", "Product"];
 const goalStatuses = ["All", "pending", "self_review_done", "reviewed"];
 const reviewStatuses = ["All", "pending", "in_progress", "completed"];
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 10;
 
 export default function PerformanceHub() {
   const { theme } = useTheme();

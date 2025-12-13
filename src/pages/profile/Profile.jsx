@@ -462,13 +462,6 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Close Button */}
-              <button 
-                onClick={() => setShowIDCardModal(false)}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all z-10"
-              >
-                ✕
-              </button>
 
               {/* Profile Section - White Background */}
               <div className="px-4 sm:px-6 py-4 sm:py-6" style={{ backgroundColor: '#ffffff' }}>
@@ -634,12 +627,6 @@ export default function Profile() {
                     <p className="text-red-200 text-sm">Update your account security</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowPasswordModal(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
             </div>
 

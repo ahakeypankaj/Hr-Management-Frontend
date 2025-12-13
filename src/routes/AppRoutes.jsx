@@ -20,9 +20,9 @@ import Performance from '../pages/performance/Performance'
 import Events from '../pages/events/Events'
 
 // HR/Manager Pages
-import TeamManagement from '../pages/hr/TeamManagement'
+import TeamUserManagement from '../pages/hr/TeamUserManagement'
+import AttendanceManagement from '../pages/hr/AttendanceManagement'
 import Approvals from '../pages/hr/Approvals'
-import UserManagement from '../pages/hr/UserManagement'
 import AddEmployee from '../pages/hr/AddEmployee'
 import PerformanceHub from '../pages/hr/PerformanceHub'
 import Reports from '../pages/hr/Reports'
@@ -110,19 +110,24 @@ export default function AppRoutes() {
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><EmployeeProfile /></ProtectedRoute>
       } />
 
-      {/* Team Management */}
+      {/* Team & User Management (Combined) */}
       <Route path="/hr/team" element={
-        <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><TeamManagement /></ProtectedRoute>
+        <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><TeamUserManagement /></ProtectedRoute>
+      } />
+      
+      {/* User Management (redirects to team) */}
+      <Route path="/hr/users" element={
+        <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><TeamUserManagement /></ProtectedRoute>
+      } />
+      
+      {/* Attendance Management */}
+      <Route path="/hr/attendance" element={
+        <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><AttendanceManagement /></ProtectedRoute>
       } />
       
       {/* Approvals */}
       <Route path="/hr/approvals" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><Approvals /></ProtectedRoute>
-      } />
-      
-      {/* User Management */}
-      <Route path="/hr/users" element={
-        <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><UserManagement /></ProtectedRoute>
       } />
       
       {/* Add Employee */}

@@ -17,7 +17,7 @@ const mockTeamMembers = [
 const departments = ["All", "Engineering", "DevOps", "QA", "Sales", "Product", "Analytics", "HR"];
 const statusOptions = ["All", "Active", "On Leave"];
 const priorities = ["Low", "Medium", "High", "Critical"];
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 10;
 
 export default function TeamManagement() {
   const { theme } = useTheme();
@@ -396,12 +396,6 @@ export default function TeamManagement() {
                     <p className="text-green-200 text-sm">Add a new member to your team</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowAddModal(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
             </div>
 
@@ -530,12 +524,6 @@ export default function TeamManagement() {
                     <p className="text-blue-200 text-sm">View team member information</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowViewModal(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
               
               {/* Profile Info */}
@@ -680,12 +668,6 @@ export default function TeamManagement() {
                     <p className="text-purple-200 text-sm">Assign a task to {selectedMember.name}</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowTaskModal(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
             </div>
 

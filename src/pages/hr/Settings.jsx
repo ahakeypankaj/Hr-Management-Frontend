@@ -3,20 +3,19 @@ import { useTheme } from "../../context/ThemeContext";
 
 // Mock audit logs
 const mockAuditLogs = [
-  { id: 1, action: "Leave Approved", user: "Ravi Sharma", target: "Asha Kumar", details: "Casual Leave (3 days)", timestamp: "2024-12-12 10:30 AM", type: "approval" },
+  { id: 1, action: "Leave Approved", user: "Ravi Sharma", target: "Asha Kumar", details: "Casual (3 days)", timestamp: "2024-12-12 10:30 AM", type: "approval" },
   { id: 2, action: "User Created", user: "HR Admin", target: "Rahul Singh", details: "New employee onboarded", timestamp: "2024-12-11 3:15 PM", type: "user" },
   { id: 3, action: "Password Reset", user: "System", target: "Priya Verma", details: "Password reset requested", timestamp: "2024-12-11 11:00 AM", type: "security" },
-  { id: 4, action: "Leave Rejected", user: "Ravi Sharma", target: "Vikram Singh", details: "Earned Leave - Project deadline", timestamp: "2024-12-10 4:45 PM", type: "approval" },
+  { id: 4, action: "Leave Rejected", user: "Ravi Sharma", target: "Vikram Singh", details: "Vacation - Project deadline", timestamp: "2024-12-10 4:45 PM", type: "approval" },
   { id: 5, action: "Role Changed", user: "HR Admin", target: "Meena Sharma", details: "Promoted to Senior Analyst", timestamp: "2024-12-10 2:00 PM", type: "user" },
   { id: 6, action: "Expense Approved", user: "Finance Team", target: "Anita Verma", details: "Travel expense ₹15,000", timestamp: "2024-12-09 5:30 PM", type: "approval" },
 ];
 
 // Mock leave policies
 const mockLeavePolicies = [
-  { id: 1, type: "Casual Leave", total: 12, carryOver: 3, maxConsecutive: 5, notice: 1 },
-  { id: 2, type: "Sick Leave", total: 8, carryOver: 0, maxConsecutive: 3, notice: 0 },
-  { id: 3, type: "Earned Leave", total: 15, carryOver: 10, maxConsecutive: 10, notice: 7 },
-  { id: 4, type: "Optional Leave", total: 4, carryOver: 0, maxConsecutive: 2, notice: 1 },
+  { id: 1, type: "Casual", total: 12, carryOver: 3, maxConsecutive: 5, notice: 1 },
+  { id: 2, type: "Sick", total: 12, carryOver: 0, maxConsecutive: 3, notice: 0 },
+  { id: 3, type: "Vacation", total: 15, carryOver: 10, maxConsecutive: 10, notice: 7 },
 ];
 
 // Mock departments
@@ -484,13 +483,6 @@ export default function Settings() {
               <h2 className="text-xl font-bold" style={{ color: textPrimary }}>
                 {editItem ? 'Edit' : 'Add'} {modalType === 'policy' ? 'Leave Policy' : modalType === 'quote' ? 'Quote' : 'Department'}
               </h2>
-              <button 
-                onClick={() => setShowModal(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9' }}
-              >
-                ✕
-              </button>
             </div>
 
             {modalType === 'policy' && (

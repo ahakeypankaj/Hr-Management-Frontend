@@ -121,7 +121,7 @@ export default function Reports() {
             {[
               { label: "Total Employees", value: 63, color: "#2563eb", icon: "👥" },
               { label: "Present Today", value: 56, color: "#16a34a", icon: "✅" },
-              { label: "Absent", value: 4, color: "#dc2626", icon: "❌" },
+              { label: "Optional Holiday", value: 4, color: "#9333ea", icon: "🎉" },
               { label: "On Leave", value: 3, color: "#ea580c", icon: "🏖️" },
             ].map((stat, i) => (
               <div key={i} className="p-5 hover-lift" style={cardStyle}>
@@ -152,7 +152,7 @@ export default function Reports() {
                   {[
                     { label: "Present", value: 56, color: "#16a34a" },
                     { label: "On Leave", value: 3, color: "#ea580c" },
-                    { label: "Absent", value: 4, color: "#dc2626" },
+                    { label: "Optional Holiday", value: 4, color: "#9333ea" },
                   ].map((item, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div className="w-4 h-4 rounded-full" style={{ backgroundColor: item.color }}></div>

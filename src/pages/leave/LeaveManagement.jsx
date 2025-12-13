@@ -1,28 +1,33 @@
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import { applyLeave } from "../../services/leaveService";
 
-// Mock leave balances (changed Work From Home to Optional Leave)
+// Leave types: casual, sick, annual, unpaid, maternity, paternity, bereavement, vacation
 const leaveBalances = [
-  { type: "Casual Leave", total: 12, used: 4, pending: 1, color: "#2563eb", icon: "🏖️" },
-  { type: "Sick Leave", total: 8, used: 2, pending: 0, color: "#dc2626", icon: "🏥" },
-  { type: "Earned Leave", total: 15, used: 5, pending: 0, color: "#16a34a", icon: "💼" },
-  { type: "Optional Leave", total: 4, used: 1, pending: 0, color: "#7c3aed", icon: "📅" },
+  { type: "casual", total: 12, used: 4, pending: 1, color: "#2563eb", icon: "🏖️" },
+  { type: "sick", total: 12, used: 2, pending: 0, color: "#dc2626", icon: "🏥" },
+  { type: "annual", total: 15, used: 5, pending: 0, color: "#16a34a", icon: "📅" },
+  { type: "vacation", total: 10, used: 2, pending: 0, color: "#7c3aed", icon: "✈️" },
+  { type: "maternity", total: 90, used: 0, pending: 0, color: "#ec4899", icon: "🤱" },
+  { type: "paternity", total: 15, used: 0, pending: 0, color: "#0ea5e9", icon: "👨‍👶" },
+  { type: "bereavement", total: 5, used: 0, pending: 0, color: "#64748b", icon: "🕊️" },
+  { type: "unpaid", total: -1, used: 0, pending: 0, color: "#f59e0b", icon: "💰" },
 ];
 
 // Mock leave history with reject reasons
 const allLeaveHistory = [
-  { id: 1, type: "Casual Leave", startDate: "2024-12-20", endDate: "2024-12-22", days: 3, reason: "Family function", status: "pending", appliedOn: "2024-12-10", managerComment: "", rejectReason: "" },
-  { id: 2, type: "Optional Leave", startDate: "2024-12-16", endDate: "2024-12-16", days: 1, reason: "Personal work", status: "approved", appliedOn: "2024-12-08", managerComment: "Approved.", rejectReason: "" },
-  { id: 3, type: "Sick Leave", startDate: "2024-11-25", endDate: "2024-11-26", days: 2, reason: "Fever and cold", status: "approved", appliedOn: "2024-11-24", managerComment: "Take care and rest well.", rejectReason: "" },
-  { id: 4, type: "Casual Leave", startDate: "2024-11-15", endDate: "2024-11-15", days: 1, reason: "Personal work", status: "rejected", appliedOn: "2024-11-10", managerComment: "", rejectReason: "Critical project deadline on Nov 16. Your presence is required for the client demo. Please reschedule to next week." },
-  { id: 5, type: "Earned Leave", startDate: "2024-10-10", endDate: "2024-10-15", days: 5, reason: "Annual vacation", status: "approved", appliedOn: "2024-09-20", managerComment: "Enjoy your vacation!", rejectReason: "" },
-  { id: 6, type: "Optional Leave", startDate: "2024-09-15", endDate: "2024-09-15", days: 1, reason: "Festival", status: "approved", appliedOn: "2024-09-10", managerComment: "Approved.", rejectReason: "" },
-  { id: 7, type: "Sick Leave", startDate: "2024-08-20", endDate: "2024-08-20", days: 1, reason: "Doctor appointment", status: "approved", appliedOn: "2024-08-18", managerComment: "", rejectReason: "" },
-  { id: 8, type: "Casual Leave", startDate: "2024-07-05", endDate: "2024-07-07", days: 3, reason: "Family event", status: "rejected", appliedOn: "2024-06-25", managerComment: "", rejectReason: "Insufficient leave balance at the time of request. You had only 2 casual leaves remaining." },
+  { id: 1, type: "casual", startDate: "2024-12-20", endDate: "2024-12-22", days: 3, reason: "Family function", status: "pending", appliedOn: "2024-12-10", managerComment: "", rejectReason: "" },
+  { id: 2, type: "casual", startDate: "2024-12-16", endDate: "2024-12-16", days: 1, reason: "Personal work", status: "approved", appliedOn: "2024-12-08", managerComment: "Approved.", rejectReason: "" },
+  { id: 3, type: "sick", startDate: "2024-11-25", endDate: "2024-11-26", days: 2, reason: "Fever and cold", status: "approved", appliedOn: "2024-11-24", managerComment: "Take care and rest well.", rejectReason: "" },
+  { id: 4, type: "casual", startDate: "2024-11-15", endDate: "2024-11-15", days: 1, reason: "Personal work", status: "rejected", appliedOn: "2024-11-10", managerComment: "", rejectReason: "Critical project deadline on Nov 16. Your presence is required for the client demo. Please reschedule to next week." },
+  { id: 5, type: "annual", startDate: "2024-10-10", endDate: "2024-10-15", days: 5, reason: "Annual vacation", status: "approved", appliedOn: "2024-09-20", managerComment: "Enjoy your vacation!", rejectReason: "" },
+  { id: 6, type: "vacation", startDate: "2024-09-15", endDate: "2024-09-17", days: 3, reason: "Festival", status: "approved", appliedOn: "2024-09-10", managerComment: "Approved.", rejectReason: "" },
+  { id: 7, type: "sick", startDate: "2024-08-20", endDate: "2024-08-20", days: 1, reason: "Doctor appointment", status: "approved", appliedOn: "2024-08-18", managerComment: "", rejectReason: "" },
+  { id: 8, type: "casual", startDate: "2024-07-05", endDate: "2024-07-07", days: 3, reason: "Family event", status: "rejected", appliedOn: "2024-06-25", managerComment: "", rejectReason: "Insufficient leave balance at the time of request. You had only 2 casual leaves remaining." },
 ];
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 10;
 
 export default function LeaveManagement() {
   const { user } = useAuth();
@@ -32,12 +37,14 @@ export default function LeaveManagement() {
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [leaveForm, setLeaveForm] = useState({
-    type: "",
+    leaveType: "",
     startDate: "",
     endDate: "",
     reason: "",
     attachment: null,
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   // Filters
   const [filterType, setFilterType] = useState("all");
@@ -78,9 +85,65 @@ export default function LeaveManagement() {
     }
   };
 
-  const handleApply = () => {
-    setShowApplyModal(false);
-    setLeaveForm({ type: "", startDate: "", endDate: "", reason: "", attachment: null });
+  // Format date from YYYY-MM-DD to DD-MM-YYYY
+  const formatDateForAPI = (dateString) => {
+    if (!dateString) return "";
+    const [year, month, day] = dateString.split("-");
+    return `${day}-${month}-${year}`;
+  };
+
+  const handleApply = async () => {
+    // Validation
+    if (!leaveForm.leaveType) {
+      setSubmitError("Please select a leave type");
+      return;
+    }
+    if (!leaveForm.startDate) {
+      setSubmitError("Please select a start date");
+      return;
+    }
+    if (!leaveForm.endDate) {
+      setSubmitError("Please select an end date");
+      return;
+    }
+    if (!leaveForm.reason.trim()) {
+      setSubmitError("Please provide a reason");
+      return;
+    }
+
+    if (new Date(leaveForm.startDate) > new Date(leaveForm.endDate)) {
+      setSubmitError("End date must be after start date");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const leaveData = {
+        leaveType: leaveForm.leaveType,
+        startDate: formatDateForAPI(leaveForm.startDate),
+        endDate: formatDateForAPI(leaveForm.endDate),
+        reason: leaveForm.reason,
+        attachment: leaveForm.attachment,
+      };
+
+      const response = await applyLeave(leaveData);
+      
+      // Success
+      alert("Leave applied successfully!");
+      setShowApplyModal(false);
+      setLeaveForm({ leaveType: "", startDate: "", endDate: "", reason: "", attachment: null });
+      setSubmitError(null);
+      
+      // Optionally refresh leave history here
+    } catch (error) {
+      console.error("Error applying leave:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to apply leave. Please try again.";
+      setSubmitError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCancel = (id) => {
@@ -111,8 +174,9 @@ export default function LeaveManagement() {
       {/* Leave Balances */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-up">
         {leaveBalances.map((leave, i) => {
-          const available = leave.total - leave.used - leave.pending;
-          const percentage = ((leave.used + leave.pending) / leave.total) * 100;
+          const available = leave.total === -1 ? "Unlimited" : (leave.total - leave.used - leave.pending);
+          const percentage = leave.total === -1 ? 0 : ((leave.used + leave.pending) / leave.total) * 100;
+          const displayName = leave.type.charAt(0).toUpperCase() + leave.type.slice(1);
           return (
             <div key={i} className="p-5 hover:scale-[1.02] transition-all" style={{ ...cardStyle, animationDelay: `${i * 0.1}s` }}>
               <div className="flex items-center justify-between mb-3">
@@ -121,25 +185,27 @@ export default function LeaveManagement() {
                   className="px-3 py-1 rounded-full text-xs font-bold"
                   style={{ backgroundColor: `${leave.color}20`, color: leave.color }}
                 >
-                  {available} left
+                  {available} {leave.total === -1 ? "" : "left"}
                 </span>
               </div>
-              <h3 className="font-bold" style={{ color: textPrimary }}>{leave.type}</h3>
+              <h3 className="font-bold" style={{ color: textPrimary }}>{displayName}</h3>
               
               {/* Progress Bar */}
-              <div className="mt-3 mb-2">
-                <div className="w-full h-2 rounded-full" style={{ backgroundColor: isDark ? '#334155' : '#e2e8f0' }}>
-                  <div 
-                    className="h-2 rounded-full transition-all duration-1000"
-                    style={{ width: `${percentage}%`, backgroundColor: leave.color }}
-                  />
+              {leave.total !== -1 && (
+                <div className="mt-3 mb-2">
+                  <div className="w-full h-2 rounded-full" style={{ backgroundColor: isDark ? '#334155' : '#e2e8f0' }}>
+                    <div 
+                      className="h-2 rounded-full transition-all duration-1000"
+                      style={{ width: `${percentage}%`, backgroundColor: leave.color }}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
               
               <div className="flex justify-between text-xs" style={{ color: textSecondary }}>
                 <span>Used: {leave.used}</span>
                 <span>Pending: {leave.pending}</span>
-                <span>Total: {leave.total}</span>
+                <span>Total: {leave.total === -1 ? "∞" : leave.total}</span>
               </div>
             </div>
           );
@@ -157,9 +223,12 @@ export default function LeaveManagement() {
             style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
           >
             <option value="all">All Types</option>
-            {leaveBalances.map((l, i) => (
-              <option key={i} value={l.type}>{l.type}</option>
-            ))}
+            {leaveBalances.map((l, i) => {
+              const displayName = l.type.charAt(0).toUpperCase() + l.type.slice(1);
+              return (
+                <option key={i} value={l.type}>{displayName}</option>
+              );
+            })}
           </select>
         </div>
         <div className="flex items-center gap-2">
@@ -212,7 +281,9 @@ export default function LeaveManagement() {
                         {leaveBalances.find(l => l.type === leave.type)?.icon || "📅"}
                       </div>
                       <div>
-                        <h3 className="font-bold" style={{ color: textPrimary }}>{leave.type}</h3>
+                        <h3 className="font-bold" style={{ color: textPrimary }}>
+                          {leave.type.charAt(0).toUpperCase() + leave.type.slice(1)}
+                        </h3>
                         <p className="text-sm" style={{ color: textSecondary }}>
                           {leave.startDate} {leave.startDate !== leave.endDate && `to ${leave.endDate}`} • {leave.days} day{leave.days > 1 ? 's' : ''}
                         </p>
@@ -361,12 +432,6 @@ export default function LeaveManagement() {
                     <p className="text-blue-200 text-sm">Submit your leave request for approval</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowApplyModal(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
             </div>
 
@@ -376,15 +441,21 @@ export default function LeaveManagement() {
               <div>
                 <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>📋 Leave Type</label>
                 <select
-                  value={leaveForm.type}
-                  onChange={(e) => setLeaveForm({ ...leaveForm, type: e.target.value })}
+                  value={leaveForm.leaveType}
+                  onChange={(e) => setLeaveForm({ ...leaveForm, leaveType: e.target.value })}
                   className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
                   style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
                 >
                   <option value="">Select leave type</option>
-                  {leaveBalances.map((l, i) => (
-                    <option key={i} value={l.type}>{l.icon} {l.type} ({l.total - l.used - l.pending} available)</option>
-                  ))}
+                  {leaveBalances.map((l, i) => {
+                    const available = l.total === -1 ? "Unlimited" : (l.total - l.used - l.pending);
+                    const displayName = l.type.charAt(0).toUpperCase() + l.type.slice(1);
+                    return (
+                      <option key={i} value={l.type}>
+                        {l.icon} {displayName} {l.total !== -1 && `(${available} available)`}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -435,15 +506,36 @@ export default function LeaveManagement() {
                   <span className="text-3xl">📤</span>
                   <span className="font-medium" style={{ color: textPrimary }}>Click to upload document</span>
                   <span className="text-xs" style={{ color: textSecondary }}>PDF, DOC, DOCX, JPG, PNG (Max 5MB)</span>
-                  <input type="file" className="hidden" onChange={(e) => setLeaveForm({ ...leaveForm, attachment: e.target.files[0] })} />
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    onChange={(e) => setLeaveForm({ ...leaveForm, attachment: e.target.files[0] })} 
+                  />
                 </label>
                 {leaveForm.attachment && (
-                  <div className="mt-3 p-3 rounded-lg flex items-center gap-2" style={{ backgroundColor: `${navyBlue}15` }}>
-                    <span>📄</span>
-                    <span className="font-medium" style={{ color: navyBlue }}>{leaveForm.attachment.name}</span>
+                  <div className="mt-3 p-3 rounded-lg flex items-center justify-between" style={{ backgroundColor: `${navyBlue}15` }}>
+                    <div className="flex items-center gap-2">
+                      <span>📄</span>
+                      <span className="font-medium" style={{ color: navyBlue }}>{leaveForm.attachment.name}</span>
+                    </div>
+                    <button
+                      onClick={() => setLeaveForm({ ...leaveForm, attachment: null })}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      ✕
+                    </button>
                   </div>
                 )}
               </div>
+
+              {/* Error Message */}
+              {submitError && (
+                <div className="p-4 rounded-xl flex items-center gap-3" style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca' }}>
+                  <span className="text-xl">⚠️</span>
+                  <span className="font-medium" style={{ color: '#dc2626' }}>{submitError}</span>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex gap-4 pt-4" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
@@ -456,13 +548,14 @@ export default function LeaveManagement() {
                 </button>
                 <button
                   onClick={handleApply}
-                  className="flex-1 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90"
+                  disabled={isSubmitting}
+                  className="flex-1 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
                   style={{ 
                     background: `linear-gradient(135deg, ${navyBlue} 0%, #2563eb 100%)`,
                     boxShadow: '0 4px 15px rgba(30, 58, 95, 0.4)'
                   }}
                 >
-                  🚀 Submit Request
+                  {isSubmitting ? "⏳ Submitting..." : "🚀 Submit Request"}
                 </button>
               </div>
             </div>

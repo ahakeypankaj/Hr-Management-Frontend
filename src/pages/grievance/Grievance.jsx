@@ -15,7 +15,7 @@ const categories = ["HR", "Admin", "Finance", "IT", "Other"];
 const priorities = ["high", "medium", "low"];
 const statusOptions = ["Submitted", "In Progress", "Resolved"];
 
-const ITEMS_PER_PAGE = 4;
+const ITEMS_PER_PAGE = 10;
 
 export default function Grievance() {
   const { user } = useAuth();
@@ -147,12 +147,6 @@ export default function Grievance() {
                     <p className="text-orange-200 text-sm">Report an issue or concern</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowForm(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
             </div>
 

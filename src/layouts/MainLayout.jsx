@@ -43,9 +43,10 @@ export default function MainLayout({ children }) {
   const hrMenu = [
     { name: "Dashboard", path: "/dashboard", icon: "📊" },
     { name: "Approvals", path: "/hr/approvals", icon: "✅", highlight: true },
-    { name: "Team Management", path: "/hr/team", icon: "👔" },
-    { name: "User Management", path: "/hr/users", icon: "⚙️" },
-    { name: "Directory", path: "/directory", icon: "👥" },
+    { name: "User Management", path: "/hr/team", icon: "👥" },
+    { name: "Add Employee", path: "/hr/users/add", icon: "➕" },
+    { name: "Attendance Mgmt", path: "/hr/attendance", icon: "⏰" },
+    { name: "Directory", path: "/directory", icon: "📖" },
     { name: "Performance Hub", path: "/hr/performance", icon: "📈" },
     { name: "Events & Kudos", path: "/events", icon: "🎉" },
     { name: "Reports", path: "/hr/reports", icon: "📑" },
@@ -61,10 +62,11 @@ export default function MainLayout({ children }) {
   const adminMenu = [
     { name: "Dashboard", path: "/dashboard", icon: "📊" },
     { divider: true, label: "User Administration" },
-    { name: "User Management", path: "/hr/users", icon: "👥" },
+    { name: "User Management", path: "/hr/team", icon: "👥" },
+    { name: "Add Employee", path: "/hr/users/add", icon: "➕" },
     { name: "Approvals", path: "/hr/approvals", icon: "✅", highlight: true },
     { divider: true, label: "Organization" },
-    { name: "Team Management", path: "/hr/team", icon: "👔" },
+    { name: "Attendance Mgmt", path: "/hr/attendance", icon: "⏰" },
     { name: "Directory", path: "/directory", icon: "📖" },
     { name: "Performance Hub", path: "/hr/performance", icon: "📈" },
     { name: "Events & Kudos", path: "/events", icon: "🎉" },
@@ -291,7 +293,7 @@ export default function MainLayout({ children }) {
 
       {/* LEFT SIDEBAR */}
       <aside
-        className="fixed top-16 left-0 bottom-0 w-64 z-50 overflow-y-auto transition-transform duration-300 animate-fade-in-left"
+        className="fixed top-16 left-0 bottom-0 w-64 z-50 flex flex-col transition-transform duration-300 animate-fade-in-left"
         style={{ 
           backgroundColor: isDark ? '#1e293b' : '#ffffff',
           borderRight: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
@@ -300,7 +302,7 @@ export default function MainLayout({ children }) {
         }}
       >
         {/* Role Badge */}
-        <div className="p-4">
+        <div className="p-4 flex-shrink-0">
           <div
             className="px-4 py-3 rounded-xl text-center font-semibold text-sm text-white"
             style={{ 
@@ -312,8 +314,8 @@ export default function MainLayout({ children }) {
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="px-3 pb-20">
+        {/* Navigation - Scrollable */}
+        <nav className="px-3 flex-1 overflow-y-auto">
           {menu.map((item, index) => {
             if (item.divider) {
               return (
@@ -359,12 +361,16 @@ export default function MainLayout({ children }) {
               </button>
             );
           })}
+          <div className="pb-4"></div>
         </nav>
 
-        {/* Sidebar Footer */}
+        {/* Sidebar Footer - Fixed at bottom */}
         <div 
-          className="absolute bottom-0 left-0 right-0 p-4"
-          style={{ backgroundColor: isDark ? '#1e293b' : '#ffffff' }}
+          className="p-4 flex-shrink-0"
+          style={{ 
+            backgroundColor: isDark ? '#1e293b' : '#ffffff',
+            borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`
+          }}
         >
           <div 
             className="p-4 rounded-xl text-center"

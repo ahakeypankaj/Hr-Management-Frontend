@@ -145,7 +145,7 @@ const roles = ["All", "employee", "hr_manager"];
 const jobLevels = ["L1", "L2", "L3", "L4", "L5", "L6"];
 const jobTypes = ["Full-time", "Part-time", "Contract", "Intern"];
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 10;
 
 export default function UserManagement() {
   const navigate = useNavigate();
@@ -563,12 +563,6 @@ export default function UserManagement() {
                     <p className="text-green-200 text-sm">Create a new employee record</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowAddModal(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
             </div>
 
@@ -825,12 +819,6 @@ export default function UserManagement() {
                     <p className="text-blue-200 text-sm">View employee information</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowViewModal(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
               
               {/* Profile Info in Header */}
@@ -969,12 +957,6 @@ export default function UserManagement() {
                     <p className="text-purple-200 text-sm">Update employee information & status</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowEditModal(false)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all"
-                >
-                  ✕
-                </button>
               </div>
             </div>
 

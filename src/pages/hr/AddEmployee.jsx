@@ -359,20 +359,9 @@ export default function AddEmployee() {
   return (
     <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
       {/* Header */}
-      <div className="flex items-center justify-between animate-fade-in-down">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <button
-              onClick={() => navigate("/hr/users")}
-              className="p-2 rounded-lg transition-all hover:opacity-80"
-              style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9' }}
-            >
-              ← Back
-            </button>
-            <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>Add New Employee</h1>
-          </div>
-          <p style={{ color: textSecondary }}>Complete the form to onboard a new team member</p>
-        </div>
+      <div className="animate-fade-in-down">
+        <h1 className="text-xl sm:text-2xl font-bold mb-2" style={{ color: textPrimary }}>Add New Employee</h1>
+        <p className="text-sm sm:text-base" style={{ color: textSecondary }}>Complete the form to onboard a new team member</p>
       </div>
 
       {/* Progress Steps */}
