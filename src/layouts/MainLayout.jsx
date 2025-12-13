@@ -43,8 +43,8 @@ export default function MainLayout({ children }) {
   const hrMenu = [
     { name: "Dashboard", path: "/dashboard", icon: "📊" },
     { name: "Approvals", path: "/hr/approvals", icon: "✅", highlight: true },
-    { name: "User Management", path: "/hr/team", icon: "👥" },
-    { name: "Add Employee", path: "/hr/users/add", icon: "➕" },
+    { name: "Onboarding Employees", path: "/hr/team", icon: "👥" },
+    { name: "Add Onboarding Employee", path: "/hr/users/add", icon: "➕" },
     { name: "Attendance Mgmt", path: "/hr/attendance", icon: "⏰" },
     { name: "Grievance Mgmt", path: "/hr/grievances", icon: "📝" },
     { name: "Directory", path: "/directory", icon: "📖" },
@@ -63,8 +63,8 @@ export default function MainLayout({ children }) {
   const adminMenu = [
     { name: "Dashboard", path: "/dashboard", icon: "📊" },
     { divider: true, label: "User Administration" },
-    { name: "User Management", path: "/hr/team", icon: "👥" },
-    { name: "Add Employee", path: "/hr/users/add", icon: "➕" },
+    { name: "Onboarding Employees", path: "/hr/team", icon: "👥" },
+    { name: "Add Onboarding Employee", path: "/hr/users/add", icon: "➕" },
     { name: "Approvals", path: "/hr/approvals", icon: "✅", highlight: true },
     { divider: true, label: "Organization" },
     { name: "Attendance Mgmt", path: "/hr/attendance", icon: "⏰" },

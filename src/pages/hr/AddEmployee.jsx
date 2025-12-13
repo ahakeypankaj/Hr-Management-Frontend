@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
-import { createOnboarding } from "../../services/onboardingServices";
+import { createOnboardingEmployee } from "../../services/onboardingServices";
 
 // Country codes for phone
 const countryCodes = [
@@ -17,9 +17,18 @@ const countryCodes = [
   { code: "+86", country: "China", flag: "🇨🇳" },
 ];
 
-const departments = ["Engineering", "HR", "DevOps", "QA", "Sales", "Product", "Finance", "Marketing", "Operations"];
-const jobLevels = ["L1 - Entry", "L2 - Junior", "L3 - Mid", "L4 - Senior", "L5 - Lead", "L6 - Manager", "L7 - Director"];
-const jobTypes = ["Full-time", "Part-time", "Contract", "Intern", "Consultant"];
+const departments = ["Engineering", "HR", "DevOps", "QA", "Sales", "Product", "Finance", "Marketing", "Operations", "IT"];
+const jobLevels = ["Junior", "Mid", "Senior", "Lead", "Manager", "Director"];
+const jobTypes = ["Full-Time", "Part-Time", "Contract", "Intern", "Consultant"];
+
+const states = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+  "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand",
+  "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
+  "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
+  "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
+  "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Puducherry"
+];
 const managers = [
   { id: "MGR001", name: "Ravi Sharma", dept: "HR" },
   { id: "MGR002", name: "Priya Verma", dept: "Engineering" },
@@ -29,20 +38,6 @@ const managers = [
 ];
 
 // Document types
-const documentTypes = [
-  { id: "resume", label: "Resume / CV", icon: "📄", required: true, description: "Latest resume in PDF/DOC format" },
-  { id: "offerLetter", label: "Offer Letter", icon: "📋", required: true, description: "Signed offer letter" },
-  { id: "salaryBreakup", label: "Salary Breakup", icon: "💰", required: true, description: "CTC and salary structure" },
-  { id: "idProof", label: "ID Proof (Aadhar/Passport)", icon: "🪪", required: true, description: "Government issued ID" },
-  { id: "panCard", label: "PAN Card", icon: "💳", required: true, description: "PAN card copy" },
-  { id: "addressProof", label: "Address Proof", icon: "🏠", required: false, description: "Utility bill or bank statement" },
-  { id: "educationCert", label: "Education Certificates", icon: "🎓", required: true, description: "Degree/diploma certificates" },
-  { id: "experienceLetter", label: "Experience Letters", icon: "📜", required: false, description: "Previous employment letters" },
-  { id: "relievingLetter", label: "Relieving Letter", icon: "📃", required: false, description: "From previous employer" },
-  { id: "payslips", label: "Last 3 Payslips", icon: "🧾", required: false, description: "Recent salary slips" },
-  { id: "bankDetails", label: "Bank Account Details", icon: "🏦", required: false, description: "Cancelled cheque or passbook" },
-  { id: "photo", label: "Passport Photo", icon: "📷", required: true, description: "Recent passport size photo" },
-];
 
 export default function AddEmployee() {
   const navigate = useNavigate();
@@ -51,38 +46,29 @@ export default function AddEmployee() {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
-    // Personal Information
+    // Personal Information (Top level)
     candidateName: "",
     personalEmail: "",
-    phoneCode: "",
     phone: "",
-    dateOfBirth: "",
-    gender: "",
-    bloodGroup: "",
     
-    // Address
-    currentAddress: "",
-    permanentAddress: "",
-    sameAsCurrentAddress: false,
+    // Address Info (simplified)
+    currentAddressLine1: "",
+    currentCity: "",
+    currentState: "",
+    currentPincode: "",
+    isPermanentSameAsCurrent: true,
     
     // Job Details
     jobTitle: "",
     department: "",
     designation: "",
-    jobLevel: "L3 - Mid",
-    jobType: "Full-time",
+    jobLevel: "Junior",
+    jobType: "Full-Time",
     proposedJoiningDate: "",
-    workLocation: "",
+    
     
     // Assignment
     managerId: "",
-    role: "employee",
-    
-    // Emergency Contact
-    emergencyContactName: "",
-    emergencyContactRelation: "",
-    emergencyContactPhone: "",
-    emergencyPhoneCode: "",
   });
 
   const [documents, setDocuments] = useState({});
@@ -105,10 +91,9 @@ export default function AddEmployee() {
   };
 
   const steps = [
-    { id: 1, title: "Personal Info", icon: "👤" },
+    { id: 1, title: "Personal & Address", icon: "👤" },
     { id: 2, title: "Job Details", icon: "💼" },
-    { id: 3, title: "Documents", icon: "📁" },
-    { id: 4, title: "Review", icon: "✅" },
+    { id: 3, title: "Review", icon: "✅" },
   ];
 
   // Validation helpers
@@ -146,13 +131,8 @@ export default function AddEmployee() {
         setErrors({ ...errors, phone: 'Phone number must be exactly 10 digits' });
       }
     }
-    
-    if (field === 'emergencyContactPhone' && value) {
-      if (!validatePhone(value)) {
-        setErrors({ ...errors, emergencyContactPhone: 'Phone number must be exactly 10 digits' });
-      }
-    }
   };
+
 
   const handleDocumentUpload = (docId, file) => {
     setDocuments({ ...documents, [docId]: file });
@@ -182,11 +162,6 @@ export default function AddEmployee() {
         newErrors.personalEmail = "Please enter a valid email address";
       }
       
-      // Phone code validation
-      if (!validatePhoneCode(formData.phoneCode)) {
-        newErrors.phoneCode = "Please select a country code";
-      }
-      
       // Phone number validation
       if (!formData.phone || formData.phone.trim() === '') {
         newErrors.phone = "Phone number is required";
@@ -194,100 +169,40 @@ export default function AddEmployee() {
         newErrors.phone = "Phone number must be exactly 10 digits";
       }
       
-      // Date of birth validation (optional but if provided, should be valid)
-      if (formData.dateOfBirth) {
-        const dob = new Date(formData.dateOfBirth);
-        const today = new Date();
-        if (dob > today) {
-          newErrors.dateOfBirth = "Date of birth cannot be in the future";
-        }
-        const age = today.getFullYear() - dob.getFullYear();
-        if (age < 18 || age > 100) {
-          newErrors.dateOfBirth = "Age must be between 18 and 100 years";
-        }
+      // Current Address validation (simplified)
+      if (!formData.currentAddressLine1 || formData.currentAddressLine1.trim() === '') {
+        newErrors.currentAddressLine1 = "Address is required";
       }
-      
-      // Address validation
-      if (!formData.currentAddress || formData.currentAddress.trim() === '') {
-        newErrors.currentAddress = "Current address is required";
-      } else if (formData.currentAddress.trim().length < 10) {
-        newErrors.currentAddress = "Please provide a complete address (at least 10 characters)";
+      if (!formData.currentCity || formData.currentCity.trim() === '') {
+        newErrors.currentCity = "City is required";
       }
-      
-      if (!formData.sameAsCurrentAddress) {
-        if (!formData.permanentAddress || formData.permanentAddress.trim() === '') {
-          newErrors.permanentAddress = "Permanent address is required";
-        } else if (formData.permanentAddress.trim().length < 10) {
-          newErrors.permanentAddress = "Please provide a complete address (at least 10 characters)";
-        }
+      if (!formData.currentState || formData.currentState.trim() === '') {
+        newErrors.currentState = "State is required";
       }
-      
-      // Emergency contact validation
-      if (!formData.emergencyContactName || formData.emergencyContactName.trim() === '') {
-        newErrors.emergencyContactName = "Emergency contact name is required";
-      }
-      
-      if (!formData.emergencyContactRelation || formData.emergencyContactRelation.trim() === '') {
-        newErrors.emergencyContactRelation = "Relationship is required";
-      }
-      
-      if (!validatePhoneCode(formData.emergencyPhoneCode)) {
-        newErrors.emergencyPhoneCode = "Please select a country code";
-      }
-      
-      if (!formData.emergencyContactPhone || formData.emergencyContactPhone.trim() === '') {
-        newErrors.emergencyContactPhone = "Emergency contact phone is required";
-      } else if (!validatePhone(formData.emergencyContactPhone)) {
-        newErrors.emergencyContactPhone = "Phone number must be exactly 10 digits";
+      if (!formData.currentPincode || formData.currentPincode.trim() === '') {
+        newErrors.currentPincode = "Pincode is required";
+      } else if (!/^\d{6}$/.test(formData.currentPincode.trim())) {
+        newErrors.currentPincode = "Pincode must be 6 digits";
       }
       
     } else if (step === 2) {
-      // Job title validation
+      // Job Details validation
       if (!formData.jobTitle || formData.jobTitle.trim() === '') {
         newErrors.jobTitle = "Job title is required";
-      } else if (formData.jobTitle.trim().length < 2) {
-        newErrors.jobTitle = "Job title must be at least 2 characters";
       }
-      
-      // Department validation
       if (!formData.department || formData.department.trim() === '') {
         newErrors.department = "Department is required";
       }
-      
-      // Designation validation (optional but if provided should be valid)
-      if (formData.designation && formData.designation.trim().length < 2) {
-        newErrors.designation = "Designation must be at least 2 characters";
+      if (!formData.designation || formData.designation.trim() === '') {
+        newErrors.designation = "Designation is required";
       }
-      
-      // Joining date validation
-      if (!formData.proposedJoiningDate) {
-        newErrors.proposedJoiningDate = "Joining date is required";
-      } else {
-        const joiningDate = new Date(formData.proposedJoiningDate);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (joiningDate < today) {
-          newErrors.proposedJoiningDate = "Joining date cannot be in the past";
-        }
+      if (!formData.proposedJoiningDate || formData.proposedJoiningDate.trim() === '') {
+        newErrors.proposedJoiningDate = "Proposed joining date is required";
       }
-      
-      // Manager validation
-      if (!formData.managerId || formData.managerId.trim() === '') {
-        newErrors.managerId = "Reporting manager is required";
+      // Resume validation in job details
+      if (!documents.resume) {
+        newErrors.resume = "Resume is required";
       }
-      
-      // Work location validation (optional but if provided should be valid)
-      if (formData.workLocation && formData.workLocation.trim().length < 2) {
-        newErrors.workLocation = "Work location must be at least 2 characters";
-      }
-      
-    } else if (step === 3) {
-      // Document validation
-      documentTypes.filter(d => d.required).forEach(doc => {
-        if (!documents[doc.id]) {
-          newErrors[doc.id] = `${doc.label} is required`;
-        }
-      });
     }
     
     setErrors(newErrors);
@@ -308,45 +223,77 @@ export default function AddEmployee() {
     if (validateStep(currentStep)) {
       setIsSubmitting(true);
       try {
-        // Split candidateName into firstName and lastName
-        const nameParts = formData.candidateName.trim().split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
+        // Prepare FormData for file uploads
+        const formDataToSend = new FormData();
+        
+        // Basic fields
+        formDataToSend.append('candidateName', formData.candidateName.trim());
+        formDataToSend.append('personalEmail', formData.personalEmail.trim());
+        formDataToSend.append('phone', formData.phone.trim());
 
-        // Prepare API payload
-        const onboardingPayload = {
-          personalInfo: {
-            firstName: firstName,
-            lastName: lastName,
-            email: formData.personalEmail,
-            phone: `${formData.phoneCode}${formData.phone}`,
-            department: formData.department,
-            designation: formData.designation || formData.jobTitle,
-            joiningDate: formData.proposedJoiningDate
-          },
-          bankDetails: {
-            accountNumber: "", // Not in form, can be added later
-            ifscCode: "" // Not in form, can be added later
-          },
-          documents: Object.keys(documents).map(docId => ({
-            type: docId,
-            name: documents[docId]?.name || docId
-          })),
-          emergencyContact: {
-            name: formData.emergencyContactName,
-            relationship: formData.emergencyContactRelation,
-            phone: `${formData.emergencyPhoneCode}${formData.emergencyContactPhone}`
-          }
+        // Job Details as JSON string
+        const jobDetailsObj = {
+          jobTitle: formData.jobTitle.trim(),
+          department: formData.department.trim(),
+          designation: formData.designation.trim(),
+          jobLevel: formData.jobLevel,
+          jobType: formData.jobType,
+          proposedJoiningDate: formData.proposedJoiningDate
         };
+        formDataToSend.append('jobDetails', JSON.stringify(jobDetailsObj));
 
-        // Call API
-        const response = await createOnboarding(onboardingPayload);
+        // Address Info as JSON string
+        const addressInfoObj = {
+          currentAddress: {
+            addressLine1: formData.currentAddressLine1.trim(),
+            city: formData.currentCity.trim(),
+            state: formData.currentState.trim(),
+            pincode: formData.currentPincode.trim()
+          },
+          isPermanentSameAsCurrent: formData.isPermanentSameAsCurrent
+        };
+        formDataToSend.append('addressInfo', JSON.stringify(addressInfoObj));
+
+        // Resume file
+        if (documents.resume) {
+          formDataToSend.append('resume', documents.resume);
+        }
+
+        // Log FormData contents for debugging
+        console.log("=== FormData Contents ===");
+        console.log("candidateName:", formData.candidateName);
+        console.log("personalEmail:", formData.personalEmail);
+        console.log("phone:", formData.phone);
+        console.log("jobDetails:", JSON.stringify(jobDetailsObj));
+        console.log("addressInfo:", JSON.stringify(addressInfoObj));
+        console.log("resume:", documents.resume ? documents.resume.name : "No resume");
+        
+        // Log all FormData entries
+        console.log("=== FormData Entries ===");
+        for (let pair of formDataToSend.entries()) {
+          if (pair[1] instanceof File) {
+            console.log(pair[0] + ":", `File - ${pair[1].name} (${pair[1].size} bytes)`);
+          } else {
+            console.log(pair[0] + ":", pair[1]);
+          }
+        }
+        
+        // Call API using service
+        console.log("=== Calling API ===");
+        await createOnboardingEmployee(formDataToSend);
+        console.log("=== API Call Successful ===");
         
         alert("Employee added successfully!");
         navigate("/hr/users");
       } catch (error) {
-        console.error('Error submitting onboarding:', error);
-        const errorMessage = error.response?.data?.message || error.message || 'Failed to add employee. Please try again.';
+        console.error('=== Error in handleSubmit ===');
+        console.error('Full error object:', error);
+        console.error('Error response:', error.response);
+        console.error('Error response data:', error.response?.data);
+        console.error('Error response status:', error.response?.status);
+        console.error('Error message:', error.message);
+        
+        const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to add employee. Please try again.';
         alert(`Error: ${errorMessage}`);
       } finally {
         setIsSubmitting(false);
@@ -360,7 +307,7 @@ export default function AddEmployee() {
     <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
       {/* Header */}
       <div className="animate-fade-in-down">
-        <h1 className="text-xl sm:text-2xl font-bold mb-2" style={{ color: textPrimary }}>Add New Employee</h1>
+        <h1 className="text-xl sm:text-2xl font-bold mb-2" style={{ color: textPrimary }}>Add Onboarding Employee</h1>
         <p className="text-sm sm:text-base" style={{ color: textSecondary }}>Complete the form to onboard a new team member</p>
       </div>
 
@@ -397,9 +344,10 @@ export default function AddEmployee() {
 
       {/* Form Content */}
       <div className="p-4 sm:p-8 animate-fade-in-up" style={cardStyle}>
+        <>
         {/* Step 1: Personal Information */}
         {currentStep === 1 && (
-          <div className="space-y-6">
+          <div className="space-y-8">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: `${navyBlue}15` }}>
                 👤
@@ -410,7 +358,15 @@ export default function AddEmployee() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Personal Details Section */}
+            <div className="p-6 rounded-xl border-2" style={{ 
+              backgroundColor: isDark ? '#1e293b' : '#ffffff',
+              borderColor: isDark ? '#334155' : '#e2e8f0'
+            }}>
+              <h3 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: textPrimary }}>
+                <span>👤</span> Personal Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
                   Full Name <span className="text-red-500">*</span>
@@ -445,47 +401,30 @@ export default function AddEmployee() {
                 <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
                   Phone Number <span className="text-red-500">*</span>
                 </label>
-                <div className="flex gap-2">
-                  <select
-                    value={formData.phoneCode}
-                    onChange={(e) => handleInputChange("phoneCode", e.target.value)}
-                    className="px-3 py-4 rounded-xl outline-none transition-all"
-                    style={{
-                      ...inputStyle,
-                      borderColor: errors.phoneCode ? '#dc2626' : defaultBorderColor
-                    }}
-                  >
-                    <option value="">Select Code</option>
-                    {countryCodes.map((c) => (
-                      <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => {
-                      // Only allow digits and limit to 10 digits
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      handleInputChange("phone", value);
-                    }}
-                    onKeyPress={(e) => {
-                      // Only allow digits
-                      if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab') {
-                        e.preventDefault();
-                      }
-                    }}
-                    maxLength={10}
-                    pattern="[0-9]{10}"
-                    inputMode="numeric"
-                    className="flex-1 px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
-                    style={{
-                      ...inputStyle,
-                      borderColor: errors.phone ? '#dc2626' : inputStyle.border.split(' ')[2]
-                    }}
-                    placeholder="9876543210"
-                  />
-                </div>
-                {errors.phoneCode && <p className="text-red-500 text-xs mt-1">{errors.phoneCode}</p>}
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => {
+                    // Only allow digits and limit to 10 digits
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    handleInputChange("phone", value);
+                  }}
+                  onKeyPress={(e) => {
+                    // Only allow digits
+                    if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab') {
+                      e.preventDefault();
+                    }
+                  }}
+                  maxLength={10}
+                  pattern="[0-9]{10}"
+                  inputMode="numeric"
+                  className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+                  style={{
+                    ...inputStyle,
+                    borderColor: errors.phone ? '#dc2626' : defaultBorderColor
+                  }}
+                  placeholder="9876543210"
+                />
                 {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                 {!errors.phone && formData.phone && (
                   <p className="text-xs mt-1" style={{ color: textSecondary }}>
@@ -493,211 +432,119 @@ export default function AddEmployee() {
                   </p>
                 )}
               </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Date of Birth</label>
-                <input
-                  type="date"
-                  value={formData.dateOfBirth}
-                  onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
-                  className="w-full px-4 py-4 rounded-xl outline-none transition-all"
-                  style={{
-                    ...inputStyle,
-                    borderColor: errors.dateOfBirth ? '#dc2626' : defaultBorderColor
-                  }}
-                />
-                {errors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{errors.dateOfBirth}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Gender</label>
-                <select
-                  value={formData.gender}
-                  onChange={(e) => handleInputChange("gender", e.target.value)}
-                  className="w-full px-4 py-4 rounded-xl outline-none"
-                  style={inputStyle}
-                >
-                  <option value="">Select Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                  <option value="prefer_not">Prefer not to say</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Blood Group</label>
-                <select
-                  value={formData.bloodGroup}
-                  onChange={(e) => handleInputChange("bloodGroup", e.target.value)}
-                  className="w-full px-4 py-4 rounded-xl outline-none"
-                  style={inputStyle}
-                >
-                  <option value="">Select Blood Group</option>
-                  {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(bg => (
-                    <option key={bg} value={bg}>{bg}</option>
-                  ))}
-                </select>
               </div>
             </div>
 
             {/* Address Section */}
-            <div className="pt-6 mt-6" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-              <h3 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>📍 Address Details</h3>
+            <div className="p-6 rounded-xl border-2" style={{ 
+              backgroundColor: isDark ? '#1e293b' : '#ffffff',
+              borderColor: isDark ? '#334155' : '#e2e8f0'
+            }}>
+              <h3 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: textPrimary }}>
+                <span>📍</span> Current Address
+              </h3>
               
-              <div className="space-y-4">
-                <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
                   <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
-                    Current Address <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={formData.currentAddress}
-                    onChange={(e) => handleInputChange("currentAddress", e.target.value)}
-                    rows={3}
-                    className="w-full px-4 py-4 rounded-xl outline-none resize-none transition-all focus:ring-2 focus:ring-blue-400"
-                    style={{
-                      ...inputStyle,
-                      borderColor: errors.currentAddress ? '#dc2626' : defaultBorderColor
-                    }}
-                    placeholder="Enter current address..."
-                  />
-                  {errors.currentAddress && <p className="text-red-500 text-xs mt-1">{errors.currentAddress}</p>}
-                </div>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.sameAsCurrentAddress}
-                    onChange={(e) => handleInputChange("sameAsCurrentAddress", e.target.checked)}
-                    className="w-5 h-5 rounded"
-                  />
-                  <span className="text-sm" style={{ color: textPrimary }}>Permanent address same as current address</span>
-                </label>
-
-                {!formData.sameAsCurrentAddress && (
-                  <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
-                      Permanent Address <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      value={formData.permanentAddress}
-                      onChange={(e) => handleInputChange("permanentAddress", e.target.value)}
-                      rows={3}
-                      className="w-full px-4 py-4 rounded-xl outline-none resize-none transition-all focus:ring-2 focus:ring-blue-400"
-                      style={{
-                        ...inputStyle,
-                        borderColor: errors.permanentAddress ? '#dc2626' : defaultBorderColor
-                      }}
-                      placeholder="Enter permanent address..."
-                    />
-                    {errors.permanentAddress && <p className="text-red-500 text-xs mt-1">{errors.permanentAddress}</p>}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Emergency Contact */}
-            <div className="pt-6 mt-6" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-              <h3 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>🚨 Emergency Contact</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
-                    Contact Name <span className="text-red-500">*</span>
+                    Address <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    value={formData.emergencyContactName}
-                    onChange={(e) => handleInputChange("emergencyContactName", e.target.value)}
+                    value={formData.currentAddressLine1}
+                    onChange={(e) => handleInputChange("currentAddressLine1", e.target.value)}
                     className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
                     style={{
                       ...inputStyle,
-                      borderColor: errors.emergencyContactName ? '#dc2626' : defaultBorderColor
+                      borderColor: errors.currentAddressLine1 ? '#dc2626' : defaultBorderColor
                     }}
-                    placeholder="Full name"
+                    placeholder="Street, Building, Apartment"
                   />
-                  {errors.emergencyContactName && <p className="text-red-500 text-xs mt-1">{errors.emergencyContactName}</p>}
+                  {errors.currentAddressLine1 && <p className="text-red-500 text-xs mt-1">{errors.currentAddressLine1}</p>}
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
-                    Relationship <span className="text-red-500">*</span>
+                    City <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.currentCity}
+                    onChange={(e) => handleInputChange("currentCity", e.target.value)}
+                    className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+                    style={{
+                      ...inputStyle,
+                      borderColor: errors.currentCity ? '#dc2626' : defaultBorderColor
+                    }}
+                    placeholder="City"
+                  />
+                  {errors.currentCity && <p className="text-red-500 text-xs mt-1">{errors.currentCity}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
+                    State <span className="text-red-500">*</span>
                   </label>
                   <select
-                    value={formData.emergencyContactRelation}
-                    onChange={(e) => handleInputChange("emergencyContactRelation", e.target.value)}
+                    value={formData.currentState}
+                    onChange={(e) => handleInputChange("currentState", e.target.value)}
                     className="w-full px-4 py-4 rounded-xl outline-none transition-all"
                     style={{
                       ...inputStyle,
-                      borderColor: errors.emergencyContactRelation ? '#dc2626' : defaultBorderColor
+                      borderColor: errors.currentState ? '#dc2626' : defaultBorderColor
                     }}
                   >
-                    <option value="">Select Relation</option>
-                    {["Spouse", "Parent", "Sibling", "Friend", "Other"].map(r => (
-                      <option key={r} value={r}>{r}</option>
+                    <option value="">Select State</option>
+                    {states.map(state => (
+                      <option key={state} value={state}>{state}</option>
                     ))}
                   </select>
-                  {errors.emergencyContactRelation && <p className="text-red-500 text-xs mt-1">{errors.emergencyContactRelation}</p>}
+                  {errors.currentState && <p className="text-red-500 text-xs mt-1">{errors.currentState}</p>}
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
-                    Phone Number <span className="text-red-500">*</span>
+                    Pincode <span className="text-red-500">*</span>
                   </label>
-                  <div className="flex gap-2">
-                    <select
-                      value={formData.emergencyPhoneCode}
-                      onChange={(e) => handleInputChange("emergencyPhoneCode", e.target.value)}
-                      className="px-2 py-4 rounded-xl outline-none text-sm transition-all"
-                      style={{
-                        ...inputStyle,
-                        borderColor: errors.emergencyPhoneCode ? '#dc2626' : inputStyle.border.split(' ')[2]
-                      }}
-                    >
-                      <option value="">Code</option>
-                      {countryCodes.map((c) => (
-                        <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-                      ))}
-                    </select>
+                  <input
+                    type="text"
+                    value={formData.currentPincode}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      handleInputChange("currentPincode", value);
+                    }}
+                    maxLength={6}
+                    className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+                    style={{
+                      ...inputStyle,
+                      borderColor: errors.currentPincode ? '#dc2626' : defaultBorderColor
+                    }}
+                    placeholder="123456"
+                  />
+                  {errors.currentPincode && <p className="text-red-500 text-xs mt-1">{errors.currentPincode}</p>}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input
-                      type="tel"
-                      value={formData.emergencyContactPhone}
-                      onChange={(e) => {
-                        // Only allow digits and limit to 10 digits
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                        handleInputChange("emergencyContactPhone", value);
-                      }}
-                      onKeyPress={(e) => {
-                        // Only allow digits
-                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab') {
-                          e.preventDefault();
-                        }
-                      }}
-                      maxLength={10}
-                      pattern="[0-9]{10}"
-                      inputMode="numeric"
-                      className="flex-1 px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
-                      style={{
-                        ...inputStyle,
-                        borderColor: errors.emergencyContactPhone ? '#dc2626' : defaultBorderColor
-                      }}
-                      placeholder="9876543210"
+                      type="checkbox"
+                      checked={formData.isPermanentSameAsCurrent}
+                      onChange={(e) => handleInputChange("isPermanentSameAsCurrent", e.target.checked)}
+                      className="w-5 h-5 rounded"
                     />
-                  </div>
-                  {errors.emergencyPhoneCode && <p className="text-red-500 text-xs mt-1">{errors.emergencyPhoneCode}</p>}
-                  {errors.emergencyContactPhone && <p className="text-red-500 text-xs mt-1">{errors.emergencyContactPhone}</p>}
-                  {!errors.emergencyContactPhone && formData.emergencyContactPhone && (
-                    <p className="text-xs mt-1" style={{ color: textSecondary }}>
-                      {formData.emergencyContactPhone.length}/10 digits
-                    </p>
-                  )}
+                    <span className="text-sm font-semibold" style={{ color: textPrimary }}>Permanent address same as current address</span>
+                  </label>
                 </div>
               </div>
+
             </div>
+
           </div>
         )}
 
         {/* Step 2: Job Details */}
         {currentStep === 2 && (
-          <div className="space-y-6">
+          <div className="space-y-8">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: `${navyBlue}15` }}>
                 💼
@@ -708,7 +555,15 @@ export default function AddEmployee() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Job Details Section */}
+            <div className="p-6 rounded-xl border-2" style={{ 
+              backgroundColor: isDark ? '#1e293b' : '#ffffff',
+              borderColor: isDark ? '#334155' : '#e2e8f0'
+            }}>
+              <h3 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: textPrimary }}>
+                <span>💼</span> Employment Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
                   Job Title <span className="text-red-500">*</span>
@@ -804,24 +659,51 @@ export default function AddEmployee() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Work Location</label>
-                <input
-                  type="text"
-                  value={formData.workLocation}
-                  onChange={(e) => handleInputChange("workLocation", e.target.value)}
-                  className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
+                  Resume Upload <span className="text-red-500">*</span>
+                </label>
+                <label className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl cursor-pointer transition-all hover:opacity-80 border-2 border-dashed"
                   style={{
-                    ...inputStyle,
-                    borderColor: errors.workLocation ? '#dc2626' : defaultBorderColor
+                    backgroundColor: documents.resume ? (isDark ? '#1e293b' : '#dcfce7') : (isDark ? '#334155' : '#f8fafc'),
+                    borderColor: documents.resume ? '#16a34a' : (errors.resume ? '#dc2626' : defaultBorderColor),
+                    color: textPrimary
                   }}
-                  placeholder="e.g., Bangalore Office"
-                />
-                {errors.workLocation && <p className="text-red-500 text-xs mt-1">{errors.workLocation}</p>}
+                >
+                  {documents.resume ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600">✓</span>
+                      <span className="font-medium text-sm">{documents.resume.name}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeDocument('resume');
+                        }}
+                        className="text-red-500 hover:text-red-700 text-xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-3xl">📄</span>
+                      <span className="font-medium text-sm">Click to upload Resume</span>
+                      <span className="text-xs" style={{ color: textSecondary }}>PDF, DOC, DOCX (Max 5MB)</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => handleDocumentUpload('resume', e.target.files[0])}
+                  />
+                </label>
+                {errors.resume && <p className="text-red-500 text-xs mt-1">{errors.resume}</p>}
               </div>
 
               <div>
                 <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
-                  Reporting Manager <span className="text-red-500">*</span>
+                  Reporting Manager (Optional)
                 </label>
                 <select
                   value={formData.managerId}
@@ -837,189 +719,14 @@ export default function AddEmployee() {
                 </select>
                 {errors.managerId && <p className="text-red-500 text-xs mt-1">{errors.managerId}</p>}
               </div>
-            </div>
-
-            {/* Role Selection */}
-            <div className="pt-6 mt-6" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-              <h3 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>🔐 System Role</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { id: "employee", label: "Employee", desc: "Standard employee access", icon: "👤" },
-                  { id: "hr_manager", label: "HR/Manager", desc: "HR and team management access", icon: "👔" },
-                ].map(role => (
-                  <div
-                    key={role.id}
-                    onClick={() => handleInputChange("role", role.id)}
-                    className="p-5 rounded-xl cursor-pointer transition-all hover:scale-[1.02]"
-                    style={{
-                      backgroundColor: formData.role === role.id ? `${navyBlue}15` : (isDark ? '#334155' : '#f8fafc'),
-                      border: `2px solid ${formData.role === role.id ? navyBlue : 'transparent'}`,
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl">{role.icon}</span>
-                      <div>
-                        <p className="font-bold" style={{ color: textPrimary }}>{role.label}</p>
-                        <p className="text-sm" style={{ color: textSecondary }}>{role.desc}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
+
           </div>
         )}
 
-        {/* Step 3: Documents */}
+        {/* Step 3: Review */}
         {currentStep === 3 && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: `${navyBlue}15` }}>
-                📁
-              </div>
-              <div>
-                <h2 className="text-xl font-bold" style={{ color: textPrimary }}>Documents Upload</h2>
-                <p className="text-sm" style={{ color: textSecondary }}>Upload required documents for onboarding</p>
-              </div>
-            </div>
-
-            {/* Required Documents */}
-            <div>
-              <h3 className="text-sm font-bold uppercase mb-4" style={{ color: navyBlue }}>📌 Required Documents</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {documentTypes.filter(d => d.required).map(doc => (
-                  <div
-                    key={doc.id}
-                    className="p-4 rounded-xl transition-all"
-                    style={{
-                      backgroundColor: documents[doc.id] ? '#dcfce7' : (isDark ? '#334155' : '#f8fafc'),
-                      border: `2px ${documents[doc.id] ? 'solid' : 'dashed'} ${documents[doc.id] ? '#16a34a' : (errors[doc.id] ? '#dc2626' : (isDark ? '#475569' : '#e2e8f0'))}`,
-                    }}
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="text-2xl">{doc.icon}</span>
-                      <div className="flex-1">
-                        <p className="font-semibold text-sm" style={{ color: documents[doc.id] ? '#16a34a' : textPrimary }}>
-                          {doc.label} <span className="text-red-500">*</span>
-                        </p>
-                        <p className="text-xs mb-3" style={{ color: textSecondary }}>{doc.description}</p>
-                        
-                        {documents[doc.id] ? (
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-green-600 truncate max-w-[120px]">
-                              ✓ {documents[doc.id].name}
-                            </span>
-                            <button
-                              onClick={() => removeDocument(doc.id)}
-                              className="text-xs text-red-500 hover:underline"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg cursor-pointer transition-all hover:opacity-80"
-                            style={{ backgroundColor: navyBlue, color: '#ffffff' }}
-                          >
-                            <span className="text-xs font-semibold">📤 Upload</span>
-                            <input
-                              type="file"
-                              className="hidden"
-                              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                              onChange={(e) => handleDocumentUpload(doc.id, e.target.files[0])}
-                            />
-                          </label>
-                        )}
-                      </div>
-                    </div>
-                    {errors[doc.id] && <p className="text-red-500 text-xs mt-2">{errors[doc.id]}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Optional Documents */}
-            <div className="pt-6 mt-6" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-              <h3 className="text-sm font-bold uppercase mb-4" style={{ color: textSecondary }}>📎 Optional Documents</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {documentTypes.filter(d => !d.required).map(doc => (
-                  <div
-                    key={doc.id}
-                    className="p-4 rounded-xl transition-all"
-                    style={{
-                      backgroundColor: documents[doc.id] ? '#dcfce7' : (isDark ? '#334155' : '#f8fafc'),
-                      border: `2px ${documents[doc.id] ? 'solid' : 'dashed'} ${documents[doc.id] ? '#16a34a' : (isDark ? '#475569' : '#e2e8f0')}`,
-                    }}
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="text-2xl">{doc.icon}</span>
-                      <div className="flex-1">
-                        <p className="font-semibold text-sm" style={{ color: documents[doc.id] ? '#16a34a' : textPrimary }}>
-                          {doc.label}
-                        </p>
-                        <p className="text-xs mb-3" style={{ color: textSecondary }}>{doc.description}</p>
-                        
-                        {documents[doc.id] ? (
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-green-600 truncate max-w-[120px]">
-                              ✓ {documents[doc.id].name}
-                            </span>
-                            <button
-                              onClick={() => removeDocument(doc.id)}
-                              className="text-xs text-red-500 hover:underline"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg cursor-pointer transition-all hover:opacity-80"
-                            style={{ backgroundColor: isDark ? '#1e293b' : '#e2e8f0', color: textPrimary }}
-                          >
-                            <span className="text-xs font-semibold">📤 Upload</span>
-                            <input
-                              type="file"
-                              className="hidden"
-                              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                              onChange={(e) => handleDocumentUpload(doc.id, e.target.files[0])}
-                            />
-                          </label>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Upload Summary */}
-            <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold" style={{ color: textPrimary }}>Upload Progress</p>
-                  <p className="text-sm" style={{ color: textSecondary }}>
-                    {Object.keys(documents).length} of {documentTypes.filter(d => d.required).length} required documents uploaded
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold" style={{ color: navyBlue }}>
-                    {Math.round((Object.keys(documents).filter(id => documentTypes.find(d => d.id === id)?.required).length / documentTypes.filter(d => d.required).length) * 100)}%
-                  </p>
-                </div>
-              </div>
-              <div className="mt-3 h-2 rounded-full" style={{ backgroundColor: isDark ? '#1e293b' : '#e2e8f0' }}>
-                <div
-                  className="h-2 rounded-full transition-all"
-                  style={{
-                    width: `${(Object.keys(documents).filter(id => documentTypes.find(d => d.id === id)?.required).length / documentTypes.filter(d => d.required).length) * 100}%`,
-                    backgroundColor: navyBlue
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 4: Review */}
-        {currentStep === 4 && (
           <div className="space-y-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: `${navyBlue}15` }}>
@@ -1047,22 +754,34 @@ export default function AddEmployee() {
                 </div>
                 <div>
                   <p style={{ color: textSecondary }}>Phone</p>
-                  <p className="font-semibold" style={{ color: textPrimary }}>{formData.phoneCode} {formData.phone || "-"}</p>
-                </div>
-                <div>
-                  <p style={{ color: textSecondary }}>Date of Birth</p>
-                  <p className="font-semibold" style={{ color: textPrimary }}>{formData.dateOfBirth || "-"}</p>
-                </div>
-                <div>
-                  <p style={{ color: textSecondary }}>Gender</p>
-                  <p className="font-semibold capitalize" style={{ color: textPrimary }}>{formData.gender || "-"}</p>
-                </div>
-                <div>
-                  <p style={{ color: textSecondary }}>Blood Group</p>
-                  <p className="font-semibold" style={{ color: textPrimary }}>{formData.bloodGroup || "-"}</p>
+                  <p className="font-semibold" style={{ color: textPrimary }}>{formData.phone || "-"}</p>
                 </div>
               </div>
             </div>
+
+            {/* Address Summary */}
+            <div className="p-6 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+              <h3 className="text-sm font-bold uppercase mb-4 flex items-center gap-2" style={{ color: navyBlue }}>
+                📍 Address Details
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Current Address */}
+                <div>
+                  <h4 className="text-sm font-semibold mb-2" style={{ color: textPrimary }}>Current Address</h4>
+                  <div className="space-y-1 text-sm" style={{ color: textSecondary }}>
+                    <p className="font-medium" style={{ color: textPrimary }}>{formData.currentAddressLine1}</p>
+                    <p>
+                      {formData.currentCity}, {formData.currentState} - {formData.currentPincode}
+                    </p>
+                    {formData.isPermanentSameAsCurrent && (
+                      <p className="text-xs italic mt-2" style={{ color: '#16a34a' }}>✓ Permanent address same as current</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
 
             {/* Job Details Summary */}
             <div className="p-6 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
@@ -1098,33 +817,21 @@ export default function AddEmployee() {
                   <p style={{ color: textSecondary }}>Manager</p>
                   <p className="font-semibold" style={{ color: textPrimary }}>{getManagerName(formData.managerId) || "-"}</p>
                 </div>
-                <div>
-                  <p style={{ color: textSecondary }}>System Role</p>
-                  <p className="font-semibold capitalize" style={{ color: textPrimary }}>{formData.role.replace("_", " ")}</p>
-                </div>
               </div>
             </div>
 
-            {/* Documents Summary */}
+            {/* Resume Summary */}
             <div className="p-6 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
               <h3 className="text-sm font-bold uppercase mb-4 flex items-center gap-2" style={{ color: navyBlue }}>
-                📁 Documents ({Object.keys(documents).length} uploaded)
+                📄 Resume
               </h3>
-              <div className="flex flex-wrap gap-2">
-                {Object.keys(documents).map(docId => {
-                  const doc = documentTypes.find(d => d.id === docId);
-                  return (
-                    <span
-                      key={docId}
-                      className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
-                      style={{ backgroundColor: '#dcfce7', color: '#16a34a' }}
-                    >
-                      {doc?.icon} {doc?.label} ✓
-                    </span>
-                  );
-                })}
-                {Object.keys(documents).length === 0 && (
-                  <p style={{ color: textSecondary }}>No documents uploaded</p>
+              <div className="flex items-center gap-3">
+                {documents.resume ? (
+                  <span className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2" style={{ backgroundColor: '#dcfce7', color: '#16a34a' }}>
+                    📄 {documents.resume.name} ✓
+                  </span>
+                ) : (
+                  <p style={{ color: textSecondary }}>No resume uploaded</p>
                 )}
               </div>
             </div>
@@ -1154,7 +861,7 @@ export default function AddEmployee() {
             </button>
           )}
           <div className="flex-1" />
-          {currentStep < 4 ? (
+          {currentStep < 3 ? (
             <button
               onClick={handleNext}
               className="px-8 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90"
@@ -1184,11 +891,12 @@ export default function AddEmployee() {
                   Submitting...
                 </span>
               ) : (
-                '✅ Submit & Add Employee'
+                '✅ Submit & Add Onboarding Employee'
               )}
             </button>
           )}
         </div>
+        </>
       </div>
     </div>
   );

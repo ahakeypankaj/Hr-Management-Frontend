@@ -17,11 +17,28 @@ export async function applyLeave(leaveData) {
   formData.append('endDate', leaveData.endDate);
   formData.append('reason', leaveData.reason);
   
+  console.log("leaveData", leaveData);
   if (leaveData.attachment) {
     formData.append('attachment', leaveData.attachment);
   }
 
   // The api interceptor will handle Authorization header
   // For FormData, browser will automatically set Content-Type with boundary
-  return api.post('/api/leave/apply-leave', formData);
+  return api.post('/leave/apply-leave', formData);
+}
+
+/**
+ * Get leave details summary for the current user
+ * @returns {Promise} API response with leave balances
+ */
+export async function getLeaveSummary() {
+  return api.get('/leave/details/summary');
+}
+
+/**
+ * Get leave applications/history for the current user
+ * @returns {Promise} API response with leave applications
+ */
+export async function getMyLeaveApplications() {
+  return api.get('/leave/my-applications');
 }

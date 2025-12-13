@@ -1,17 +1,25 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
+import { fetchEmployee, fetchEmployees } from "../../services/directoryService";
 
-const mockEmployees = [
-  { id: "EMP001", name: "Asha Kumar", dept: "Engineering", role: "Senior Developer", joiningDate: "2024-08-01", email: "asha@company.com", phone: "+91 98765 43210", status: "Active", manager: "Ravi Sharma", location: "Mumbai", skills: ["React", "Node.js", "TypeScript"] },
-  { id: "EMP002", name: "Ravi Sharma", dept: "HR", role: "HR Manager", joiningDate: "2023-01-11", email: "ravi@company.com", phone: "+91 98765 43211", status: "Active", manager: "CEO", location: "Mumbai", skills: ["HR Management", "Recruitment", "Training"] },
-  { id: "EMP003", name: "Priya Patel", dept: "Engineering", role: "UI/UX Designer", joiningDate: "2023-06-15", email: "priya@company.com", phone: "+91 98765 43212", status: "Active", manager: "Asha Kumar", location: "Bangalore", skills: ["Figma", "Sketch", "Adobe XD"] },
-  { id: "EMP004", name: "Vikram Singh", dept: "DevOps", role: "DevOps Engineer", joiningDate: "2024-02-20", email: "vikram@company.com", phone: "+91 98765 43213", status: "Active", manager: "Ravi Sharma", location: "Delhi", skills: ["AWS", "Docker", "Kubernetes"] },
-  { id: "EMP005", name: "Anita Verma", dept: "QA", role: "QA Lead", joiningDate: "2022-11-05", email: "anita@company.com", phone: "+91 98765 43214", status: "Active", manager: "Ravi Sharma", location: "Mumbai", skills: ["Testing", "Automation", "Selenium"] },
-  { id: "EMP006", name: "Rahul Gupta", dept: "Sales", role: "Sales Executive", joiningDate: "2024-01-10", email: "rahul@company.com", phone: "+91 98765 43215", status: "On Leave", manager: "Ravi Sharma", location: "Chennai", skills: ["Sales", "Negotiation", "CRM"] },
-  { id: "EMP007", name: "Sneha Reddy", dept: "Finance", role: "Accountant", joiningDate: "2023-09-01", email: "sneha@company.com", phone: "+91 98765 43216", status: "Active", manager: "Ravi Sharma", location: "Hyderabad", skills: ["Accounting", "Tally", "Excel"] },
-  { id: "EMP008", name: "Amit Kumar", dept: "Engineering", role: "Backend Developer", joiningDate: "2024-03-15", email: "amit@company.com", phone: "+91 98765 43217", status: "Active", manager: "Asha Kumar", location: "Pune", skills: ["Java", "Spring Boot", "PostgreSQL"] },
-];
+// Map API user data to UI format
+const mapUserToEmployee = (user) => {
+  return {
+    id: user.employeeId || user._id,
+    _id: user._id,
+    name: user.name || "",
+    dept: user.department || "",
+    role: user.designation || user.role || "",
+    joiningDate: user.joiningDate ? new Date(user.joiningDate).toISOString().split('T')[0] : "",
+    email: user.companyEmail || user.personalEmail || "",
+    phone: user.phoneNumber || "",
+    status: user.isActive ? "Active" : "Inactive",
+    manager: user.reportingManager || "N/A",
+    location: user.location || "N/A",
+    skills: user.skills || [], // API might not have skills, default to empty array
+  };
+};
 
 const avatarColors = [
   "linear-gradient(135deg, #2563eb, #7c3aed)",
@@ -24,7 +32,44 @@ export default function EmployeeProfile() {
   const { id } = useParams();
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const emp = mockEmployees.find((x) => x.id === id);
+  const [emp, setEmp] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch employee data
+  useEffect(() => {
+    const loadEmployee = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        // First, try to fetch all employees and find by ID (since API might need _id)
+        const response = await fetchEmployees();
+        if (response.success && Array.isArray(response.users)) {
+          // Try to find by _id first, then by employeeId
+          const foundEmployee = response.users.find(
+            (user) => user._id === id || user.employeeId === id
+          );
+          
+          if (foundEmployee) {
+            setEmp(mapUserToEmployee(foundEmployee));
+          } else {
+            setError("Employee not found");
+          }
+        } else {
+          setError("Failed to load employee data");
+        }
+      } catch (err) {
+        console.error("Error loading employee:", err);
+        setError(err.response?.data?.message || err.message || "Failed to load employee");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (id) {
+      loadEmployee();
+    }
+  }, [id]);
 
   const cardStyle = {
     backgroundColor: isDark ? '#1e293b' : '#ffffff',
@@ -52,119 +97,311 @@ export default function EmployeeProfile() {
     );
   }
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      {/* Back Button */}
-      <Link to="/directory" className="inline-flex items-center gap-2 font-medium" style={{ color: textSecondary }}>
-        <span>←</span> Back to Directory
-      </Link>
+  const navyBlue = '#1e3a5f';
 
-      {/* Profile Header Card */}
-      <div style={cardStyle} className="overflow-hidden">
-        <div className="h-32" style={{ background: 'linear-gradient(135deg, #1e3a5f, #2563eb, #7c3aed)' }}></div>
-        <div className="px-6 pb-6">
-          <div className="flex flex-col md:flex-row md:items-end gap-4 -mt-12">
-            <div
-              className="w-24 h-24 rounded-2xl flex items-center justify-center text-white text-3xl font-bold border-4 shadow-lg"
-              style={{ background: getAvatarColor(emp.name), borderColor: isDark ? '#1e293b' : '#ffffff' }}
-            >
-              {emp.name.charAt(0)}
-            </div>
-            <div className="flex-1 pt-2 md:pt-0">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>{emp.name}</h1>
-                <span
-                  className="px-3 py-1 rounded-full text-xs font-bold"
+  return (
+    <div className="min-h-screen w-full" style={{ fontFamily: "'Outfit', sans-serif", backgroundColor: isDark ? '#0f172a' : '#f8fafc' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Back Button */}
+        <Link 
+          to="/directory" 
+          className="inline-flex items-center gap-2 font-medium transition-all hover:opacity-80"
+          style={{ color: textSecondary }}
+        >
+          <span className="text-xl">←</span> 
+          <span>Back to Directory</span>
+        </Link>
+
+        {/* Profile Header Section - Full Width */}
+        <div style={cardStyle} className="overflow-hidden shadow-xl">
+          <div 
+            className="h-48 relative"
+            style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 50%, #7c3aed 100%)' }}
+          >
+            <div className="absolute inset-0 bg-black/10"></div>
+          </div>
+          <div className="px-6 sm:px-8 pb-8">
+            <div className="flex flex-col lg:flex-row lg:items-end gap-6 -mt-16">
+              {/* Avatar */}
+              <div
+                className="w-32 h-32 rounded-2xl flex items-center justify-center text-white text-4xl font-bold border-4 shadow-2xl transition-transform hover:scale-105"
+                style={{ 
+                  background: getAvatarColor(emp.name), 
+                  borderColor: isDark ? '#1e293b' : '#ffffff' 
+                }}
+              >
+                {emp.name.charAt(0).toUpperCase()}
+              </div>
+
+              {/* Profile Info */}
+              <div className="flex-1 pt-4 lg:pt-0">
+                <div className="flex flex-wrap items-center gap-3 mb-2">
+                  <h1 className="text-3xl font-bold" style={{ color: textPrimary }}>{emp.name}</h1>
+                  <span
+                    className="px-4 py-1.5 rounded-full text-sm font-bold"
+                    style={{ 
+                      backgroundColor: emp.status === "Active" ? "#dcfce7" : "#ffedd5",
+                      color: emp.status === "Active" ? "#16a34a" : "#ea580c"
+                    }}
+                  >
+                    {emp.status === "Active" ? "✓ Active" : "○ Inactive"}
+                  </span>
+                </div>
+                <p className="text-xl font-semibold mb-1" style={{ color: '#2563eb' }}>{emp.role || "N/A"}</p>
+                <p className="text-base" style={{ color: textSecondary }}>
+                  {emp.dept || "N/A"} Department
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="text-sm px-3 py-1 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textSecondary }}>
+                    🆔 ID: {emp.id || emp._id || "N/A"}
+                  </span>
+                  {emp.joiningDate && (
+                    <span className="text-sm px-3 py-1 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textSecondary }}>
+                      📅 Joined: {emp.joiningDate}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-3">
+                <a 
+                  href={`mailto:${emp.email}`} 
+                  className="px-6 py-3 rounded-xl font-semibold text-white transition-all hover:opacity-90 hover:scale-105 shadow-lg"
                   style={{ 
-                    backgroundColor: emp.status === "Active" ? "#dcfce7" : "#ffedd5",
-                    color: emp.status === "Active" ? "#16a34a" : "#ea580c"
+                    backgroundColor: '#2563eb',
+                    boxShadow: '0 4px 15px rgba(37, 99, 235, 0.4)'
                   }}
                 >
-                  {emp.status}
-                </span>
+                  📧 Email
+                </a>
+                <a 
+                  href={`tel:${emp.phone}`} 
+                  className="px-6 py-3 rounded-xl font-semibold transition-all hover:opacity-90 hover:scale-105"
+                  style={{ 
+                    backgroundColor: isDark ? '#334155' : '#f1f5f9', 
+                    color: textPrimary 
+                  }}
+                >
+                  📞 Call
+                </a>
               </div>
-              <p className="font-semibold" style={{ color: '#2563eb' }}>{emp.role}</p>
-              <p style={{ color: textSecondary }}>{emp.dept} Department</p>
             </div>
-            <div className="flex gap-2">
-              <a href={`mailto:${emp.email}`} className="px-4 py-2 rounded-lg font-semibold text-white" style={{ backgroundColor: '#2563eb' }}>
-                📧 Email
-              </a>
-              <a href={`tel:${emp.phone}`} className="px-4 py-2 rounded-lg font-semibold" style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}>
-                📞 Call
-              </a>
+          </div>
+        </div>
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Contact & Work Info */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Contact Information */}
+            <div className="p-6" style={cardStyle}>
+              <h2 className="text-xl font-bold mb-6 pb-4 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0', color: textPrimary }}>
+                📞 Contact Information
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl transition-all hover:scale-[1.02]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: '#dbeafe' }}>
+                      📧
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: textSecondary }}>Email Address</p>
+                      <p className="font-semibold text-sm break-all" style={{ color: textPrimary }}>
+                        {emp.email || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl transition-all hover:scale-[1.02]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: '#dcfce7' }}>
+                      📱
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: textSecondary }}>Phone Number</p>
+                      <p className="font-semibold text-sm" style={{ color: textPrimary }}>
+                        {emp.phone || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl transition-all hover:scale-[1.02]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: '#ffedd5' }}>
+                      📍
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: textSecondary }}>Location</p>
+                      <p className="font-semibold text-sm" style={{ color: textPrimary }}>
+                        {emp.location || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Work Information */}
+            <div className="p-6" style={cardStyle}>
+              <h2 className="text-xl font-bold mb-6 pb-4 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0', color: textPrimary }}>
+                💼 Work Information
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl transition-all hover:scale-[1.02]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: '#f3e8ff' }}>
+                      🏢
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: textSecondary }}>Department</p>
+                      <p className="font-semibold text-sm" style={{ color: textPrimary }}>
+                        {emp.dept || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl transition-all hover:scale-[1.02]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: '#dbeafe' }}>
+                      💼
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: textSecondary }}>Designation</p>
+                      <p className="font-semibold text-sm" style={{ color: textPrimary }}>
+                        {emp.role || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl transition-all hover:scale-[1.02]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: '#fce7f3' }}>
+                      👤
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: textSecondary }}>Reporting Manager</p>
+                      <p className="font-semibold text-sm" style={{ color: textPrimary }}>
+                        {emp.manager || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl transition-all hover:scale-[1.02]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: '#fef9c3' }}>
+                      📅
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: textSecondary }}>Joining Date</p>
+                      <p className="font-semibold text-sm" style={{ color: textPrimary }}>
+                        {emp.joiningDate || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Skills Section */}
+            {emp.skills && emp.skills.length > 0 && (
+              <div className="p-6" style={cardStyle}>
+                <h2 className="text-xl font-bold mb-6 pb-4 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0', color: textPrimary }}>
+                  🎯 Skills & Expertise
+                </h2>
+                <div className="flex flex-wrap gap-3">
+                  {emp.skills.map((skill, index) => (
+                    <span
+                      key={index}
+                      className="px-4 py-2 rounded-xl font-semibold text-sm transition-all hover:scale-105"
+                      style={{ 
+                        backgroundColor: isDark ? '#334155' : '#eff6ff', 
+                        color: '#2563eb',
+                        border: `1px solid ${isDark ? '#475569' : '#bfdbfe'}`
+                      }}
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Quick Stats / Additional Info */}
+          <div className="space-y-6">
+            {/* Quick Stats Card */}
+            <div className="p-6" style={cardStyle}>
+              <h2 className="text-xl font-bold mb-6 pb-4 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0', color: textPrimary }}>
+                📊 Quick Overview
+              </h2>
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <p className="text-xs font-medium mb-2" style={{ color: textSecondary }}>Employee Status</p>
+                  <span
+                    className="px-4 py-2 rounded-full text-sm font-bold inline-block"
+                    style={{ 
+                      backgroundColor: emp.status === "Active" ? "#dcfce7" : "#ffedd5",
+                      color: emp.status === "Active" ? "#16a34a" : "#ea580c"
+                    }}
+                  >
+                    {emp.status === "Active" ? "✓ Active Employee" : "○ Inactive"}
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <p className="text-xs font-medium mb-2" style={{ color: textSecondary }}>Employee ID</p>
+                  <p className="font-bold text-base font-mono" style={{ color: textPrimary }}>
+                    {emp.id || emp._id || "N/A"}
+                  </p>
+                </div>
+
+                {emp.joiningDate && (
+                  <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <p className="text-xs font-medium mb-2" style={{ color: textSecondary }}>Date of Joining</p>
+                    <p className="font-semibold text-base" style={{ color: textPrimary }}>
+                      {emp.joiningDate}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Additional Actions */}
+            <div className="p-6" style={cardStyle}>
+              <h2 className="text-xl font-bold mb-6 pb-4 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0', color: textPrimary }}>
+                ⚡ Quick Actions
+              </h2>
+              <div className="space-y-3">
+                <a 
+                  href={`mailto:${emp.email}`}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-white transition-all hover:opacity-90 hover:scale-[1.02]"
+                  style={{ 
+                    backgroundColor: '#2563eb',
+                    boxShadow: '0 4px 15px rgba(37, 99, 235, 0.3)'
+                  }}
+                >
+                  📧 Send Email
+                </a>
+                <a 
+                  href={`tel:${emp.phone}`}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all hover:opacity-90 hover:scale-[1.02]"
+                  style={{ 
+                    backgroundColor: isDark ? '#334155' : '#f1f5f9', 
+                    color: textPrimary 
+                  }}
+                >
+                  📞 Make Call
+                </a>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Details Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Contact Information */}
-        <div className="p-6" style={cardStyle}>
-          <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Contact Information</h2>
-          <div className="space-y-4">
-            {[
-              { icon: "📧", label: "Email", value: emp.email, bg: "#dbeafe" },
-              { icon: "📱", label: "Phone", value: emp.phone, bg: "#dcfce7" },
-              { icon: "📍", label: "Location", value: emp.location, bg: "#ffedd5" },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: item.bg }}>
-                  <span>{item.icon}</span>
-                </div>
-                <div>
-                  <p className="text-sm" style={{ color: textSecondary }}>{item.label}</p>
-                  <p className="font-semibold" style={{ color: textPrimary }}>{item.value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Work Information */}
-        <div className="p-6" style={cardStyle}>
-          <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Work Information</h2>
-          <div className="space-y-4">
-            {[
-              { icon: "🏢", label: "Department", value: emp.dept, bg: "#f3e8ff" },
-              { icon: "💼", label: "Role", value: emp.role, bg: "#dbeafe" },
-              { icon: "👤", label: "Reports To", value: emp.manager, bg: "#fce7f3" },
-              { icon: "📅", label: "Joining Date", value: emp.joiningDate, bg: "#fef9c3" },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: item.bg }}>
-                  <span>{item.icon}</span>
-                </div>
-                <div>
-                  <p className="text-sm" style={{ color: textSecondary }}>{item.label}</p>
-                  <p className="font-semibold" style={{ color: textPrimary }}>{item.value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Skills */}
-      <div className="p-6" style={cardStyle}>
-        <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Skills</h2>
-        <div className="flex flex-wrap gap-2">
-          {emp.skills?.map((skill, index) => (
-            <span
-              key={index}
-              className="px-4 py-2 rounded-lg font-semibold text-sm"
-              style={{ backgroundColor: isDark ? '#334155' : '#eff6ff', color: '#2563eb' }}
-            >
-              {skill}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Employee ID */}
-      <div className="text-center text-sm" style={{ color: textSecondary }}>
-        Employee ID: {emp.id}
       </div>
     </div>
   );

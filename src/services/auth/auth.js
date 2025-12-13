@@ -9,10 +9,14 @@ export const loginWithCredentials = async (email, password) => {
     // Assuming the response contains token and user data
     if (response.data.token) {
       localStorage.setItem('authToken', response.data.token);
+      localStorage.setItem('userRole', response.data.user.role);
     }
+
+    console.log("response login with credentials", response.data);
     return {
       token: response.data.token,
-      user: response.data.user
+      user: response.data.user,
+      role: response.data.user.role
     };
   } catch (error) {
     throw error;
