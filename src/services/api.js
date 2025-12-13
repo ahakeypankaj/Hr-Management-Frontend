@@ -1,8 +1,9 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'https://hrm-backend-caza.onrender.com/api',
-  // timeout: 10000,
+  baseURL: 'http://localhost:5000/api',
+  // baseURL: 'https://hr-management-backend-2.onrender.com/api',
+  timeout: 10000,
 })
 
 api.interceptors.request.use((config) => {
