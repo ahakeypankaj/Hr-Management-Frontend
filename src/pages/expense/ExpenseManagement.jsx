@@ -143,6 +143,12 @@ export default function ExpenseManagement() {
     }
   };
 
+  const formatDateToDDMMYYYY = (date) => {
+    if (!date) return "";
+    const [year, month, day] = date.split("-");
+    return `${day}-${month}-${year}`;
+  };
+
   const handleCreateExpense = async () => {
     if (!expenseForm.title || !expenseForm.amount || !expenseForm.date) {
       alert("Please fill all required fields");
@@ -152,17 +158,28 @@ export default function ExpenseManagement() {
     try {
       setCreatingExpense(true);
 
-      await createExpense(expenseForm);
+      const payload = {
+        ...expenseForm,
+        date: formatDateToDDMMYYYY(expenseForm.date),
+      };
+
+      await createExpense(payload);
 
       setShowCreateModal(false);
-      setExpenseForm({ title: "", category: "travel", amount: "", date: "", description: "", receipt: null });
-      
-      // Refresh the expenses list and summary data
+      setExpenseForm({
+        title: "",
+        category: "travel",
+        amount: "",
+        date: "",
+        description: "",
+        receipt: null,
+      });
+
       await Promise.all([fetchExpenses(), fetchExpenseSummary()]);
-      
+
       alert("Expense created successfully!");
     } catch (error) {
-      console.error('Error creating expense:', error);
+      console.error("Error creating expense:", error);
       alert("Failed to create expense. Please try again.");
     } finally {
       setCreatingExpense(false);

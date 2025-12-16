@@ -5,7 +5,7 @@ import { fetchGrievances, submitGrievance, addGrievanceComment } from "../../ser
 
 const categories = ["HR", "Admin", "Finance", "IT", "Workplace", "Other"];
 const priorities = ["high", "medium", "low", "critical"];
-const statusOptions = ["Submitted", "In Progress", "Resolved"];
+const statusOptions = ["submitted", "in-review", "resolved", "closed"];
 
 const ITEMS_PER_PAGE = 10;
 
@@ -45,7 +45,7 @@ export default function Grievance() {
           category: grievance.category,
           subject: grievance.subject,
           description: grievance.description,
-          status: grievance.status.charAt(0).toUpperCase() + grievance.status.slice(1), // "submitted" -> "Submitted"
+          status: grievance.status,
           createdAt: new Date(grievance.createdAt).toISOString().split("T")[0], // Format date
           assignedTo: `${grievance.assignedDepartment} Team`,
           priority: grievance.priority,
@@ -115,7 +115,7 @@ export default function Grievance() {
         category: response.grievance.category,
         subject: response.grievance.subject,
         description: response.grievance.description,
-        status: response.grievance.status.charAt(0).toUpperCase() + response.grievance.status.slice(1),
+        status: response.grievance.status,
         createdAt: new Date(response.grievance.createdAt).toISOString().split("T")[0],
         assignedTo: `${response.grievance.assignedDepartment} Team`,
         priority: response.grievance.priority,
@@ -177,9 +177,10 @@ export default function Grievance() {
 
   const getStatusStyle = (status) => {
     switch (status) {
-      case "Submitted": return { bg: "#dbeafe", color: "#2563eb" };
-      case "In Progress": return { bg: "#ffedd5", color: "#ea580c" };
-      case "Resolved": return { bg: "#dcfce7", color: "#16a34a" };
+      case "submitted": return { bg: "#dbeafe", color: "#2563eb" };
+      case "in-review": return { bg: "#ffedd5", color: "#ea580c" };
+      case "resolved": return { bg: "#dcfce7", color: "#16a34a" };
+      case "closed": return { bg: "#f1f5f9", color: "#64748b" };
       default: return { bg: "#f1f5f9", color: "#64748b" };
     }
   };
@@ -471,10 +472,10 @@ export default function Grievance() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-up">
         {[
-          { label: "Submitted", value: grievances.filter(g => g.status === "Submitted").length, color: "#2563eb", icon: "📩" },
-          { label: "In Progress", value: grievances.filter(g => g.status === "In Progress").length, color: "#ea580c", icon: "⏳" },
-          { label: "Resolved", value: grievances.filter(g => g.status === "Resolved").length, color: "#16a34a", icon: "✅" },
-          { label: "Total", value: grievances.length, color: navyBlue, icon: "📋" },
+          { label: "Submitted", value: grievances.filter(g => g.status === "submitted").length, color: "#2563eb", icon: "📩" },
+          { label: "In Review", value: grievances.filter(g => g.status === "in-review").length, color: "#ea580c", icon: "⏳" },
+          { label: "Resolved", value: grievances.filter(g => g.status === "resolved").length, color: "#16a34a", icon: "✅" },
+          { label: "Closed", value: grievances.filter(g => g.status === "closed").length, color: navyBlue, icon: "🔒" },
         ].map((stat, index) => (
           <div key={index} className="p-4 text-center hover-lift" style={cardStyle}>
             <div className="text-2xl mb-2">{stat.icon}</div>
@@ -507,7 +508,7 @@ export default function Grievance() {
             style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
           >
             <option value="All">All Status</option>
-            {statusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+            {statusOptions.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('-', ' ')}</option>)}
           </select>
         </div>
         <div className="flex items-center gap-2">
@@ -594,7 +595,7 @@ export default function Grievance() {
                         className="px-3 py-1 rounded-full text-xs font-bold"
                         style={{ backgroundColor: statusStyle.bg, color: statusStyle.color }}
                       >
-                        {grievance.status}
+                        {grievance.status.charAt(0).toUpperCase() + grievance.status.slice(1).replace('-', ' ')}
                       </span>
                     </div>
                   </div>
