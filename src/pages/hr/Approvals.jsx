@@ -1,28 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
 import { getPendingExpenses, approveExpense, rejectExpense } from "../../services/expenseService";
+import { getPendingLeaveApprovals, approveLeave, rejectLeave } from "../../services/leaveService";
+import { fetchEmployees } from "../../services/directoryService";
+import * as onboardingServices from "../../services/onboardingServices";
 
-// Mock approval data
+// Mock approval data - onboarding will be fetched from API
 const mockApprovals = {
-  onboarding: [
-    { id: 1, name: "Rahul Singh", email: "rahul.singh@company.com", department: "Engineering", designation: "Software Engineer", submittedOn: "2024-12-10", documents: 5, status: "pending" },
-    { id: 2, name: "Priya Patel", email: "priya.patel@company.com", department: "Sales", designation: "Sales Executive", submittedOn: "2024-12-09", documents: 4, status: "pending" },
-    { id: 3, name: "Amit Kumar", email: "amit.kumar@company.com", department: "Finance", designation: "Analyst", submittedOn: "2024-12-08", documents: 5, status: "pending" },
-    { id: 4, name: "Neha Sharma", email: "neha.sharma@company.com", department: "HR", designation: "HR Executive", submittedOn: "2024-12-07", documents: 5, status: "pending" },
-    { id: 5, name: "Kiran Reddy", email: "kiran.reddy@company.com", department: "Engineering", designation: "QA Engineer", submittedOn: "2024-12-06", documents: 4, status: "pending" },
-  ],
-  leave: [
-    { id: 1, name: "Asha Kumar", type: "Casual", startDate: "2024-12-20", endDate: "2024-12-22", days: 3, reason: "Family function", status: "pending", department: "Engineering" },
-    { id: 2, name: "Vikram Singh", type: "Casual", startDate: "2024-12-16", endDate: "2024-12-17", days: 2, reason: "Internet installation", status: "pending", department: "DevOps" },
-    { id: 3, name: "Meena Sharma", type: "Sick", startDate: "2024-12-15", endDate: "2024-12-15", days: 1, reason: "Medical appointment", status: "pending", department: "Sales" },
-    { id: 4, name: "Suresh Reddy", type: "Vacation", startDate: "2025-01-02", endDate: "2025-01-10", days: 7, reason: "Vacation", status: "pending", department: "Finance" },
-    { id: 5, name: "Deepa Nair", type: "Casual", startDate: "2024-12-18", endDate: "2024-12-18", days: 1, reason: "Personal work", status: "pending", department: "HR" },
-    { id: 6, name: "Rajesh Kumar", type: "Sick", startDate: "2024-12-19", endDate: "2024-12-20", days: 2, reason: "Flu", status: "pending", department: "Engineering" },
-  ],
-  // expense data will be fetched from API
+  onboarding: [], // Will be populated from API
 };
 
-const leaveTypes = ["All", "Casual", "Sick", "Vacation"];
+const leaveTypes = ["All", "Casual", "Sick", "Vacation", "Annual", "Unpaid", "Maternity", "Paternity", "Bereavement"];
 const expenseCategories = ["All", "travel", "food", "accommodation", "office", "fuel", "internet", "other"];
 const departments = ["All", "Engineering", "Sales", "Finance", "HR", "DevOps"];
 const ITEMS_PER_PAGE = 10;
@@ -31,7 +19,7 @@ export default function Approvals() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   
-  const [activeTab, setActiveTab] = useState("onboarding");
+  const [activeTab, setActiveTab] = useState("leave");
   const [selectedItems, setSelectedItems] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalAction, setModalAction] = useState("");
@@ -47,11 +35,30 @@ export default function Approvals() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
+  const [leavePagination, setLeavePagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+    limit: 10
+  });
 
   // Expense data state
   const [expenseData, setExpenseData] = useState([]);
   const [expenseLoading, setExpenseLoading] = useState(false);
   const [expenseTotal, setExpenseTotal] = useState(0);
+
+  // Leave data state
+  const [leaveData, setLeaveData] = useState([]);
+  const [leaveLoading, setLeaveLoading] = useState(false);
+  const [leaveTotal, setLeaveTotal] = useState(0);
+  
+  // Directory users for matching
+  const [allUsers, setAllUsers] = useState([]);
+  
+  // Onboarding data state
+  const [onboardingData, setOnboardingData] = useState([]);
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const [onboardingTotal, setOnboardingTotal] = useState(0);
 
   const navyBlue = '#1e3a5f';
   const cardStyle = {
@@ -63,9 +70,9 @@ export default function Approvals() {
   const textSecondary = isDark ? '#94a3b8' : '#64748b';
 
   const tabs = [
-    { id: "onboarding", label: "Onboarding", count: mockApprovals.onboarding.length, icon: "📋" },
-    { id: "leave", label: "Leave Requests", count: mockApprovals.leave.length, icon: "🏖️" },
+    { id: "leave", label: "Leave Requests", count: leaveTotal, icon: "🏖️" },
     { id: "expense", label: "Expenses", count: expenseTotal, icon: "💰" },
+    { id: "onboarding", label: "Onboarding", count: onboardingTotal, icon: "📋" },
   ];
 
   // Fetch pending expenses
@@ -99,9 +106,157 @@ export default function Approvals() {
     }
   };
 
+  // Fetch pending leave approvals
+  const fetchPendingLeaves = async (page = 1) => {
+    try {
+      setLeaveLoading(true);
+      const response = await getPendingLeaveApprovals(page, ITEMS_PER_PAGE);
+      
+      // Transform API response to match component expectations
+      const transformedLeaves = (response.data || []).map(leave => {
+        // Match user from directory API by userId._id
+        // Ensure allUsers is an array before using find
+        const usersArray = Array.isArray(allUsers) ? allUsers : [];
+        const matchedUser = usersArray.find(user => user._id === leave.userId?._id);
+        
+        // Use matched user data if available, otherwise fallback to leave.userId
+        const userData = matchedUser || leave.userId;
+        
+        return {
+          id: leave._id,
+          name: userData?.name || leave.userId?.name || 'Unknown User',
+          type: leave.leaveType ? leave.leaveType.charAt(0).toUpperCase() + leave.leaveType.slice(1) : 'Unknown',
+          startDate: leave.startDate ? new Date(leave.startDate).toISOString().split('T')[0] : '',
+          endDate: leave.endDate ? new Date(leave.endDate).toISOString().split('T')[0] : '',
+          days: leave.totalDays || 0,
+          reason: leave.reason || '',
+          status: leave.status || 'pending',
+          department: userData?.department || leave.userId?.department || 'Unknown',
+          designation: userData?.designation || leave.userId?.designation || '',
+          attachment: leave.attachment,
+          createdAt: leave.createdAt,
+          userId: leave.userId, // Keep original userId for reference
+          matchedUser: matchedUser, // Keep matched user for additional data
+        };
+      });
+      
+      setLeaveData(transformedLeaves);
+      setLeaveTotal(response.pagination?.totalCount || transformedLeaves.length);
+      
+      // Update pagination state
+      if (response.pagination) {
+        setLeavePagination({
+          currentPage: response.pagination.currentPage || page,
+          totalPages: response.pagination.totalPages || 1,
+          totalCount: response.pagination.totalCount || 0,
+          limit: response.pagination.limit || 10
+        });
+        setCurrentPage(response.pagination.currentPage || page);
+      }
+    } catch (error) {
+      console.error('Error fetching pending leave approvals:', error);
+      setLeaveData([]);
+      setLeaveTotal(0);
+      setLeavePagination({
+        currentPage: 1,
+        totalPages: 1,
+        totalCount: 0,
+        limit: 10
+      });
+    } finally {
+      setLeaveLoading(false);
+    }
+  };
+
+  // Fetch all users from directory for name matching
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const response = await fetchEmployees();
+        // Handle different response formats - API might return { success: true, users: [...] } or just array
+        let users = [];
+        if (Array.isArray(response)) {
+          users = response;
+        } else if (response?.users && Array.isArray(response.users)) {
+          users = response.users;
+        } else if (response?.data && Array.isArray(response.data)) {
+          users = response.data;
+        }
+        setAllUsers(users);
+      } catch (error) {
+        console.error('Error fetching users for matching:', error);
+        setAllUsers([]);
+      }
+    };
+    loadUsers();
+  }, []);
+
+  // Map onboarding API response to UI format
+  const mapOnboardingToApproval = (onboarding) => {
+    // Count documents
+    const documentCount = [
+      onboarding.resumeUrl,
+      onboarding.offerLetterUrl,
+      onboarding.salaryBreakupUrl,
+    ].filter(Boolean).length;
+
+    console.log("onboarding", onboarding);
+
+    return {
+      id: onboarding._id,
+      _id: onboarding._id,
+      name: onboarding.candidateName || 'Unknown',
+      email: onboarding.personalEmail || '',
+      department: onboarding.jobDetails?.department || 'Unknown',
+      designation: onboarding.jobDetails?.designation || onboarding.jobDetails?.jobTitle || '',
+      submittedOn: onboarding.createdAt ? new Date(onboarding.createdAt).toISOString().split('T')[0] : '',
+      documents: documentCount,
+      status: onboarding.managerApproval || 'pending',
+      managerApproval: onboarding.managerApproval,
+      managerComments: onboarding.managerComments,
+      onboardingStatus: onboarding.status,
+      jobDetails: onboarding.jobDetails,
+      personalEmail: onboarding.personalEmail,
+      phone: onboarding.phone,
+      resumeUrl: onboarding.resumeUrl,
+      offerLetterUrl: onboarding.offerLetterUrl,
+      salaryBreakupUrl: onboarding.salaryBreakupUrl,
+    };
+  };
+
+  // Fetch pending onboarding employees
+  const fetchPendingOnboardings = async () => {
+    try {
+      setOnboardingLoading(true);
+      const response = await onboardingServices.getAllOnboardings();
+      
+      if (response.onboardingList && Array.isArray(response.onboardingList)) {
+        // Filter for pending manager approval (not approved, not rejected)
+        const pendingOnboardings = response.onboardingList.filter(
+          onboarding => !onboarding.managerApproval || onboarding.managerApproval === 'pending'
+        );
+        
+        const transformed = pendingOnboardings.map(mapOnboardingToApproval);
+        setOnboardingData(transformed);
+        setOnboardingTotal(transformed.length);
+      } else {
+        setOnboardingData([]);
+        setOnboardingTotal(0);
+      }
+    } catch (error) {
+      console.error('Error fetching pending onboardings:', error);
+      setOnboardingData([]);
+      setOnboardingTotal(0);
+    } finally {
+      setOnboardingLoading(false);
+    }
+  };
+
   // Fetch expense data on mount
   useEffect(() => {
     fetchPendingExpenses();
+    fetchPendingLeaves();
+    fetchPendingOnboardings();
   }, []);
 
   // Refetch expenses when category filter changes
@@ -112,12 +267,32 @@ export default function Approvals() {
     }
   }, [filterExpenseCategory, activeTab]);
 
+  // Refetch leaves when tab changes to leave or page changes, or when users are loaded
+  useEffect(() => {
+    if (activeTab === "leave") {
+      fetchPendingLeaves(currentPage);
+    }
+  }, [activeTab, currentPage, allUsers.length]);
+
+  // Refetch onboarding when tab changes to onboarding
+  useEffect(() => {
+    if (activeTab === "onboarding") {
+      fetchPendingOnboardings();
+    }
+  }, [activeTab]);
+
   // Get and filter current data
   const getRawData = () => {
     if (activeTab === "expense") {
       return expenseData;
     }
-    return mockApprovals[activeTab] || [];
+    if (activeTab === "leave") {
+      return leaveData;
+    }
+    if (activeTab === "onboarding") {
+      return onboardingData;
+    }
+    return [];
   };
 
   const rawData = getRawData();
@@ -126,7 +301,7 @@ export default function Approvals() {
     const matchesDept = filterDept === "All" || item.department === filterDept;
     
     if (activeTab === "leave") {
-      const matchesType = filterLeaveType === "All" || item.type === filterLeaveType;
+      const matchesType = filterLeaveType === "All" || item.type.toLowerCase() === filterLeaveType.toLowerCase();
       return matchesSearch && matchesDept && matchesType;
     }
     if (activeTab === "expense") {
@@ -136,19 +311,36 @@ export default function Approvals() {
     return matchesSearch && matchesDept;
   });
 
-  // Pagination
-  const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
-  const paginatedData = filteredData.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  // Pagination - Use API pagination for leave, client-side for others
+  const getTotalPages = () => {
+    if (activeTab === "leave" && leavePagination.totalPages > 0) {
+      return leavePagination.totalPages;
+    }
+    return Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+  };
+
+  const totalPages = getTotalPages();
+  
+  // For leave tab, use API data directly (already paginated)
+  // For other tabs, use client-side pagination
+  const paginatedData = activeTab === "leave" 
+    ? leaveData.filter(item => {
+        const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesDept = filterDept === "All" || item.department === filterDept;
+        const matchesType = filterLeaveType === "All" || item.type.toLowerCase() === filterLeaveType.toLowerCase();
+        return matchesSearch && matchesDept && matchesType;
+      })
+    : filteredData.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+      );
 
   const handleFilterChange = () => {
     setCurrentPage(1);
     setSelectedItems([]);
   };
 
-  const totalPending = Object.values(mockApprovals).flat().length + expenseTotal;
+  const totalPending = onboardingTotal + leaveTotal + expenseTotal;
 
   const handleSelectAll = () => {
     if (selectedItems.length === paginatedData.length) {
@@ -211,9 +403,63 @@ export default function Approvals() {
           setExpenseData(prev => prev.filter(item => !selectedItems.includes(item.id)));
           setExpenseTotal(prev => prev - selectedItems.length);
         }
-      } else {
-        // Handle other tabs (onboarding, leave) - placeholder for now
-        alert(`${modalAction} action for ${activeTab} is not yet implemented`);
+      } else if (activeTab === 'leave') {
+        if (modalItem) {
+          // Single item action
+          if (modalAction === 'approve') {
+            await approveLeave(modalItem.id, comment);
+            alert('Leave request approved successfully!');
+          } else if (modalAction === 'reject') {
+            if (!comment.trim()) {
+              alert('Please provide a reason for rejection');
+              return;
+            }
+            await rejectLeave(modalItem.id, comment);
+            alert('Leave request rejected successfully!');
+          }
+          
+          // Remove the processed item from the list
+          setLeaveData(prev => prev.filter(item => item.id !== modalItem.id));
+          setLeaveTotal(prev => prev - 1);
+        } else if (selectedItems.length > 0) {
+          // Bulk action - process all selected items
+          if (modalAction === 'reject' && !comment.trim()) {
+            alert('Please provide a reason for rejection');
+            return;
+          }
+          
+          const promises = selectedItems.map(itemId => {
+            if (modalAction === 'approve') {
+              return approveLeave(itemId, comment);
+            } else if (modalAction === 'reject') {
+              return rejectLeave(itemId, comment);
+            }
+            return Promise.resolve();
+          });
+          
+          await Promise.all(promises);
+          alert(`${selectedItems.length} leave requests ${modalAction}d successfully!`);
+          
+          // Remove all processed items from the list
+          setLeaveData(prev => prev.filter(item => !selectedItems.includes(item.id)));
+          setLeaveTotal(prev => prev - selectedItems.length);
+        }
+      } else if (activeTab === 'onboarding') {
+        if (modalItem) {
+          // Single item action for onboarding
+          const action = modalAction === 'approve' ? 'approved' : 'rejected';
+          const approvalData = {
+            action: action,
+            comments: comment.trim() || ''
+          };
+          
+          await onboardingServices.managerApproveOnboarding(modalItem._id || modalItem.id, approvalData);
+          alert(`Onboarding employee ${action} successfully!`);
+          
+          // Remove the processed item from the list
+          setOnboardingData(prev => prev.filter(item => item.id !== modalItem.id));
+          setOnboardingTotal(prev => prev - 1);
+        }
       }
       
       setShowModal(false);
@@ -236,6 +482,24 @@ export default function Approvals() {
     setFilterDept("All");
     setFilterLeaveType("All");
     setFilterExpenseCategory("All");
+    // Reset leave pagination when switching tabs
+    if (tabId === "leave") {
+      setLeavePagination({
+        currentPage: 1,
+        totalPages: 1,
+        totalCount: 0,
+        limit: 10
+      });
+    }
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    setSelectedItems([]);
+    // For leave tab, fetch new page from API
+    if (activeTab === "leave") {
+      fetchPendingLeaves(newPage);
+    }
   };
 
   return (
@@ -347,8 +611,8 @@ export default function Approvals() {
         </div>
       </div>
 
-      {/* Bulk Actions */}
-      {selectedItems.length > 0 && (
+      {/* Bulk Actions - Hide for leave and onboarding tabs since no checkboxes */}
+      {selectedItems.length > 0 && activeTab !== "leave" && activeTab !== "onboarding" && (
         <div 
           className="p-4 rounded-xl flex items-center justify-between animate-fade-in-up"
           style={{ backgroundColor: `${navyBlue}10`, border: `1px solid ${navyBlue}` }}
@@ -402,10 +666,10 @@ export default function Approvals() {
 
         {/* Items */}
         <div className="divide-y" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
-          {activeTab === "expense" && expenseLoading ? (
+          {((activeTab === "expense" && expenseLoading) || (activeTab === "leave" && leaveLoading) || (activeTab === "onboarding" && onboardingLoading)) ? (
             <div className="p-12 text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-              <p className="font-semibold" style={{ color: textPrimary }}>Loading expense requests...</p>
+              <p className="font-semibold" style={{ color: textPrimary }}>Loading {activeTab} requests...</p>
             </div>
           ) : paginatedData.length === 0 ? (
             <div className="p-12 text-center">
@@ -421,12 +685,14 @@ export default function Approvals() {
                 style={{ backgroundColor: selectedItems.includes(item.id) ? `${navyBlue}05` : 'transparent' }}
               >
                 <div className="flex items-start gap-4">
-                  <input 
-                    type="checkbox"
-                    checked={selectedItems.includes(item.id)}
-                    onChange={() => handleSelectItem(item.id)}
-                    className="w-5 h-5 rounded mt-1"
-                  />
+                  {/* {activeTab !== "leave" && activeTab !== "onboarding" && (
+                    <input 
+                      type="checkbox"
+                      checked={selectedItems.includes(item.id)}
+                      onChange={() => handleSelectItem(item.id)}
+                      className="w-5 h-5 rounded mt-1"
+                    />
+                  )} */}
                   
                   <div 
                     className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
@@ -455,12 +721,24 @@ export default function Approvals() {
                     
                     {activeTab === "leave" && (
                       <div className="text-sm" style={{ color: textSecondary }}>
-                        <p className="flex items-center gap-2">
+                        <p className="flex items-center gap-2 flex-wrap">
                           <span className="px-2 py-0.5 rounded-full" style={{ backgroundColor: '#fef3c7', color: '#d97706' }}>{item.type}</span>
                           <span>{item.startDate} → {item.endDate}</span>
                           <span className="font-medium">({item.days} day{item.days > 1 ? 's' : ''})</span>
                         </p>
                         <p className="mt-1">📝 {item.reason}</p>
+                        {item.attachment && (
+                          <p className="mt-1">
+                            <a 
+                              href={item.attachment} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-500 hover:underline"
+                            >
+                              📎 View Attachment
+                            </a>
+                          </p>
+                        )}
                       </div>
                     )}
                     
@@ -491,14 +769,6 @@ export default function Approvals() {
                     >
                       ✗ Reject
                     </button>
-                    {activeTab === "onboarding" && (
-                      <button
-                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-                        style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
-                      >
-                        📄 View Docs
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -513,7 +783,7 @@ export default function Approvals() {
             style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}
           >
             <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
               className="px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50"
               style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
@@ -524,7 +794,7 @@ export default function Approvals() {
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                 <button
                   key={page}
-                  onClick={() => setCurrentPage(page)}
+                  onClick={() => handlePageChange(page)}
                   className="w-10 h-10 rounded-lg font-medium transition-all"
                   style={{ 
                     backgroundColor: currentPage === page ? navyBlue : (isDark ? '#334155' : '#f1f5f9'),
@@ -536,7 +806,7 @@ export default function Approvals() {
               ))}
             </div>
             <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
               className="px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50"
               style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
@@ -561,7 +831,7 @@ export default function Approvals() {
               <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                 <p className="font-bold" style={{ color: textPrimary }}>{modalItem.name}</p>
                 <p className="text-sm" style={{ color: textSecondary }}>
-                  {activeTab === "onboarding" && `${modalItem.department} - ${modalItem.designation}`}
+                  {activeTab === "onboarding" && `${modalItem.department || 'Unknown'} - ${modalItem.designation || 'N/A'}`}
                   {activeTab === "leave" && `${modalItem.type} (${modalItem.days} days)`}
                   {activeTab === "expense" && `${modalItem.category} - ₹${modalItem.amount.toLocaleString()}`}
                 </p>
@@ -569,22 +839,9 @@ export default function Approvals() {
             )}
 
             <div className="space-y-4">
-              {activeTab === "onboarding" && modalAction === "approve" && (
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Effective Date</label>
-                  <input
-                    type="date"
-                    value={effectiveDate}
-                    onChange={(e) => setEffectiveDate(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl outline-none"
-                    style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                  />
-                </div>
-              )}
-              
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>
-                  Comment {modalAction === 'reject' && <span style={{ color: '#dc2626' }}>*</span>}
+                  {activeTab === "onboarding" ? "Comments" : "Comment"} {modalAction === 'reject' && <span style={{ color: '#dc2626' }}>*</span>}
                 </label>
                 <textarea
                   value={comment}
@@ -592,7 +849,7 @@ export default function Approvals() {
                   rows={3}
                   className="w-full px-4 py-3 rounded-xl outline-none resize-none"
                   style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                  placeholder={modalAction === 'approve' ? 'Add a note (optional)...' : 'Please provide a reason for rejection...'}
+                  placeholder={modalAction === 'approve' ? (activeTab === "onboarding" ? 'Add approval comments (optional)...' : 'Add a note (optional)...') : 'Please provide a reason for rejection...'}
                 />
               </div>
 

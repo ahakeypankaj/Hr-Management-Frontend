@@ -1,28 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
+import { getTeamPerformance } from "../../services/performanceService";
+import { fetchEmployees } from "../../services/directoryService";
 
-const mockGoals = [
-  { id: 1, empId: "EMP001", empName: "Asha Kumar", goal: "Complete React migration", weight: 30, selfScore: 4.5, managerScore: 4.2, status: "reviewed", deadline: "2024-12-31", department: "Engineering" },
-  { id: 2, empId: "EMP001", empName: "Asha Kumar", goal: "Mentor 2 junior developers", weight: 20, selfScore: 4.0, managerScore: 4.5, status: "reviewed", deadline: "2024-12-31", department: "Engineering" },
-  { id: 3, empId: "EMP003", empName: "Priya Patel", goal: "Redesign dashboard UI", weight: 40, selfScore: 4.8, managerScore: null, status: "self_review_done", deadline: "2024-12-31", department: "Engineering" },
-  { id: 4, empId: "EMP004", empName: "Vikram Singh", goal: "Setup CI/CD pipeline", weight: 35, selfScore: null, managerScore: null, status: "pending", deadline: "2024-12-31", department: "DevOps" },
-  { id: 5, empId: "EMP008", empName: "Amit Kumar", goal: "API optimization", weight: 25, selfScore: 4.2, managerScore: 4.0, status: "reviewed", deadline: "2024-12-31", department: "Engineering" },
-  { id: 6, empId: "EMP005", empName: "Anita Verma", goal: "Implement test automation", weight: 30, selfScore: 4.3, managerScore: 4.1, status: "reviewed", deadline: "2024-12-31", department: "QA" },
-  { id: 7, empId: "EMP006", empName: "Rahul Gupta", goal: "Close 10 enterprise deals", weight: 50, selfScore: 3.8, managerScore: null, status: "self_review_done", deadline: "2024-12-31", department: "Sales" },
-  { id: 8, empId: "EMP009", empName: "Neha Sharma", goal: "Launch new product feature", weight: 45, selfScore: null, managerScore: null, status: "pending", deadline: "2024-12-31", department: "Product" },
-];
-
-const mockReviews = [
-  { id: 1, empId: "EMP001", empName: "Asha Kumar", dept: "Engineering", cycle: "Q4 2024", selfReview: true, managerReview: true, peerFeedback: 3, finalScore: 4.3, status: "completed" },
-  { id: 2, empId: "EMP003", empName: "Priya Patel", dept: "Engineering", cycle: "Q4 2024", selfReview: true, managerReview: false, peerFeedback: 2, finalScore: null, status: "in_progress" },
-  { id: 3, empId: "EMP004", empName: "Vikram Singh", dept: "DevOps", cycle: "Q4 2024", selfReview: false, managerReview: false, peerFeedback: 0, finalScore: null, status: "pending" },
-  { id: 4, empId: "EMP005", empName: "Anita Verma", dept: "QA", cycle: "Q4 2024", selfReview: true, managerReview: true, peerFeedback: 4, finalScore: 4.1, status: "completed" },
-  { id: 5, empId: "EMP006", empName: "Rahul Gupta", dept: "Sales", cycle: "Q4 2024", selfReview: true, managerReview: false, peerFeedback: 1, finalScore: null, status: "in_progress" },
-  { id: 6, empId: "EMP008", empName: "Amit Kumar", dept: "Engineering", cycle: "Q4 2024", selfReview: true, managerReview: true, peerFeedback: 3, finalScore: 4.0, status: "completed" },
-];
+// Data will be fetched from API
 
 const tabs = ["Goals", "Reviews", "Team Scores"];
-const departments = ["All", "Engineering", "DevOps", "QA", "Sales", "Product"];
 const goalStatuses = ["All", "pending", "self_review_done", "reviewed"];
 const reviewStatuses = ["All", "pending", "in_progress", "completed"];
 const ITEMS_PER_PAGE = 10;
@@ -32,6 +15,12 @@ export default function PerformanceHub() {
   const isDark = theme === "dark";
   const [activeTab, setActiveTab] = useState("Goals");
 
+  // API Data States
+  const [teamPerformance, setTeamPerformance] = useState([]);
+  const [allEmployees, setAllEmployees] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   // Filters
   const [filterDept, setFilterDept] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -39,6 +28,125 @@ export default function PerformanceHub() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Map API response to goals format
+  const mapToGoals = (teamData) => {
+    const goals = [];
+    teamData.forEach((performance) => {
+      if (performance.goals && performance.goals.length > 0) {
+        performance.goals.forEach((goal, index) => {
+          goals.push({
+            id: `${performance._id}-${index}`,
+            performanceId: performance._id,
+            empId: performance.userId?.employeeId || 'N/A',
+            empName: performance.userId?.name || 'Unknown',
+            goal: goal.title || '',
+            description: goal.description || '',
+            weight: goal.weightage || 0,
+            selfScore: goal.selfRating || null,
+            managerScore: goal.managerRating || null,
+            status: getGoalStatus(performance.status, goal),
+            deadline: performance.cycleId ? 'TBD' : 'N/A',
+            department: performance.userId?.department || 'Unknown',
+            comments: goal.comments || '',
+          });
+        });
+      }
+    });
+    return goals;
+  };
+
+  // Map API response to reviews format
+  const mapToReviews = (teamData) => {
+    return teamData.map((performance) => {
+      const hasSelfReview = performance.goals?.some(g => g.selfRating) || false;
+      const hasManagerReview = performance.goals?.some(g => g.managerRating) || false;
+      
+      return {
+        id: performance._id,
+        performanceId: performance._id,
+        empId: performance.userId?.employeeId || 'N/A',
+        empName: performance.userId?.name || 'Unknown',
+        dept: performance.userId?.department || 'Unknown',
+        cycle: performance.cycleId || 'N/A',
+        selfReview: hasSelfReview,
+        managerReview: hasManagerReview,
+        peerFeedback: 0, // Not in API response
+        finalScore: performance.overallRating || null,
+        status: mapPerformanceStatus(performance.status),
+      };
+    });
+  };
+
+  // Map performance status to UI status
+  const mapPerformanceStatus = (status) => {
+    const statusMap = {
+      'goal-setting': 'pending',
+      'self-review': 'in_progress',
+      'manager-review': 'in_progress',
+      'manager-submitted': 'in_progress',
+      'completed': 'completed',
+    };
+    return statusMap[status] || 'pending';
+  };
+
+  // Get goal status based on performance status and goal data
+  const getGoalStatus = (performanceStatus, goal) => {
+    if (performanceStatus === 'completed' || (goal.managerRating && goal.selfRating)) {
+      return 'reviewed';
+    }
+    if (goal.selfRating && !goal.managerRating) {
+      return 'self_review_done';
+    }
+    return 'pending';
+  };
+
+  // Fetch team performance data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // Fetch team performance
+        const performanceResponse = await getTeamPerformance();
+        const teamData = performanceResponse.team || performanceResponse || [];
+        setTeamPerformance(teamData);
+
+        // Fetch all employees for dropdowns
+        const employeesResponse = await fetchEmployees();
+        let employees = [];
+        if (Array.isArray(employeesResponse)) {
+          employees = employeesResponse;
+        } else if (employeesResponse?.users && Array.isArray(employeesResponse.users)) {
+          employees = employeesResponse.users;
+        } else if (employeesResponse?.data && Array.isArray(employeesResponse.data)) {
+          employees = employeesResponse.data;
+        }
+        setAllEmployees(employees);
+      } catch (err) {
+        console.error('Error fetching performance data:', err);
+        setError('Failed to load performance data');
+        setTeamPerformance([]);
+        setAllEmployees([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Get unique departments from employees
+  const getDepartments = () => {
+    const depts = new Set(['All']);
+    allEmployees.forEach(emp => {
+      if (emp.department) depts.add(emp.department);
+    });
+    return Array.from(depts);
+  };
+
+  const departments = getDepartments();
 
   const navyBlue = '#1e3a5f';
   const cardStyle = {
@@ -71,10 +179,18 @@ export default function PerformanceHub() {
 
   // Filter data based on active tab
   const getFilteredData = () => {
-    let data = activeTab === "Goals" ? mockGoals : mockReviews;
+    let data = [];
+    
+    if (activeTab === "Goals") {
+      data = mapToGoals(teamPerformance);
+    } else if (activeTab === "Reviews") {
+      data = mapToReviews(teamPerformance);
+    }
     
     // Search filter
-    data = data.filter(item => item.empName.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (searchQuery) {
+      data = data.filter(item => item.empName.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
     
     // Department filter
     if (filterDept !== "All") {
@@ -106,14 +222,21 @@ export default function PerformanceHub() {
     setSearchQuery("");
   };
 
-  const stats = [
-    { label: "Total Goals", value: mockGoals.length, color: "#2563eb", icon: "🎯" },
-    { label: "Pending Reviews", value: mockReviews.filter(r => r.status !== "completed").length, color: "#ea580c", icon: "📝" },
-    { label: "Completed Reviews", value: mockReviews.filter(r => r.status === "completed").length, color: "#16a34a", icon: "✅" },
-    { label: "Avg Team Score", value: "4.2", color: "#7c3aed", icon: "📊" },
-  ];
+  // Calculate stats from API data
+  const goals = mapToGoals(teamPerformance);
+  const reviews = mapToReviews(teamPerformance);
+  const completedReviews = reviews.filter(r => r.finalScore);
+  
+  const avgScore = completedReviews.length > 0
+    ? (completedReviews.reduce((sum, r) => sum + r.finalScore, 0) / completedReviews.length).toFixed(1)
+    : "0.0";
 
-  const completedReviews = mockReviews.filter(r => r.finalScore);
+  const stats = [
+    { label: "Total Goals", value: goals.length, color: "#2563eb", icon: "🎯" },
+    { label: "Pending Reviews", value: reviews.filter(r => r.status !== "completed").length, color: "#ea580c", icon: "📝" },
+    { label: "Completed Reviews", value: completedReviews.length, color: "#16a34a", icon: "✅" },
+    { label: "Avg Team Score", value: avgScore, color: "#7c3aed", icon: "📊" },
+  ];
 
   return (
     <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -212,11 +335,26 @@ export default function PerformanceHub() {
         </div>
       )}
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="p-12 text-center" style={cardStyle}>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="font-semibold" style={{ color: textPrimary }}>Loading performance data...</p>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !isLoading && (
+        <div className="p-6 rounded-xl" style={{ backgroundColor: '#fee2e2', border: '1px solid #dc2626' }}>
+          <p className="font-semibold text-red-600">Error: {error}</p>
+        </div>
+      )}
+
       {/* Goals Tab */}
-      {activeTab === "Goals" && (
+      {!isLoading && !error && activeTab === "Goals" && (
         <div style={cardStyle} className="overflow-hidden animate-fade-in-up stagger-2">
           <div className="p-6" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-            <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Employee Goals - Q4 2024</h2>
+            <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Employee Goals</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -319,10 +457,10 @@ export default function PerformanceHub() {
       )}
 
       {/* Reviews Tab */}
-      {activeTab === "Reviews" && (
+      {!isLoading && !error && activeTab === "Reviews" && (
         <div style={cardStyle} className="overflow-hidden animate-fade-in-up stagger-2">
           <div className="p-6" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-            <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Performance Reviews - Q4 2024</h2>
+            <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Performance Reviews</h2>
           </div>
           <div className="divide-y" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
             {paginatedData.length === 0 ? (
@@ -426,9 +564,15 @@ export default function PerformanceHub() {
       )}
 
       {/* Team Scores Tab */}
-      {activeTab === "Team Scores" && (
+      {!isLoading && !error && activeTab === "Team Scores" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up stagger-2">
-          {completedReviews.map((review) => (
+          {completedReviews.length === 0 ? (
+            <div className="col-span-2 p-12 text-center" style={cardStyle}>
+              <span className="text-4xl block mb-2">📊</span>
+              <p style={{ color: textSecondary }}>No completed reviews yet</p>
+            </div>
+          ) : (
+            completedReviews.map((review) => (
             <div key={review.id} className="p-6 hover-lift" style={cardStyle}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-4">
@@ -473,7 +617,8 @@ export default function PerformanceHub() {
                 </div>
               </div>
             </div>
-          ))}
+            ))
+          )}
         </div>
       )}
     </div>

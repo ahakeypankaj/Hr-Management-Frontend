@@ -65,10 +65,6 @@ export default function AddEmployee() {
     jobLevel: "Junior",
     jobType: "Full-Time",
     proposedJoiningDate: "",
-    
-    
-    // Assignment
-    managerId: "",
   });
 
   const [documents, setDocuments] = useState({});
@@ -300,8 +296,6 @@ export default function AddEmployee() {
       }
     }
   };
-
-  const getManagerName = (id) => managers.find(m => m.id === id)?.name || "";
 
   return (
     <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -701,24 +695,7 @@ export default function AddEmployee() {
                 {errors.resume && <p className="text-red-500 text-xs mt-1">{errors.resume}</p>}
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
-                  Reporting Manager (Optional)
-                </label>
-                <select
-                  value={formData.managerId}
-                  onChange={(e) => handleInputChange("managerId", e.target.value)}
-                  className="w-full px-4 py-4 rounded-xl outline-none transition-all"
-                  style={{
-                    ...inputStyle,
-                    borderColor: errors.managerId ? '#dc2626' : defaultBorderColor
-                  }}
-                >
-                  <option value="">Select Manager</option>
-                  {managers.map(m => <option key={m.id} value={m.id}>{m.name} ({m.dept})</option>)}
-                </select>
-                {errors.managerId && <p className="text-red-500 text-xs mt-1">{errors.managerId}</p>}
-              </div>
+            
               </div>
             </div>
 
@@ -813,10 +790,6 @@ export default function AddEmployee() {
                   <p style={{ color: textSecondary }}>Joining Date</p>
                   <p className="font-semibold" style={{ color: textPrimary }}>{formData.proposedJoiningDate || "-"}</p>
                 </div>
-                <div>
-                  <p style={{ color: textSecondary }}>Manager</p>
-                  <p className="font-semibold" style={{ color: textPrimary }}>{getManagerName(formData.managerId) || "-"}</p>
-                </div>
               </div>
             </div>
 
@@ -891,7 +864,7 @@ export default function AddEmployee() {
                   Submitting...
                 </span>
               ) : (
-                '✅ Submit & Add Onboarding Employee'
+                '✅ Add Employee'
               )}
             </button>
           )}

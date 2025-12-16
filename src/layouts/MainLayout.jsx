@@ -1,13 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { fetchNotifications, getUnreadCount, markAsRead } from "../services/notificationService";
 
 export default function MainLayout({ children }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -17,15 +21,139 @@ export default function MainLayout({ children }) {
 
   const navyBlue = '#1e3a5f';
 
-  // Mock notifications
-  const notifications = [
-    { id: 1, title: "Leave Approved", message: "Your casual leave has been approved", time: "2 min ago", read: false, type: "success" },
-    { id: 2, title: "New Announcement", message: "Holiday notice for Christmas", time: "1 hour ago", read: false, type: "info" },
-    { id: 3, title: "Performance Review", message: "Submit your self-review by Dec 31", time: "3 hours ago", read: true, type: "warning" },
-    { id: 4, title: "Attendance Reminder", message: "You haven't checked in today", time: "5 hours ago", read: true, type: "alert" },
-  ];
+  // Fetch unread count on mount and periodically
+  useEffect(() => {
+    const loadUnreadCount = async () => {
+      try {
+        const data = await getUnreadCount();
+        setUnreadCount(data.unreadCount || 0);
+      } catch (error) {
+        console.error('Failed to load unread count:', error);
+      }
+    };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+    if (user?.isLoggedIn) {
+      loadUnreadCount();
+      // Refresh unread count every 30 seconds
+      const interval = setInterval(loadUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user?.isLoggedIn]);
+
+  // Fetch notifications when dropdown opens
+  useEffect(() => {
+    if (showNotifications && user?.isLoggedIn) {
+      const loadNotifications = async () => {
+        setIsLoadingNotifications(true);
+        try {
+          const data = await fetchNotifications();
+          // Map API notifications to UI format
+          const mappedNotifications = (data || []).map((notif) => {
+            const date = new Date(notif.createdAt);
+            const now = new Date();
+            const diffTime = Math.abs(now - date);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            let timeStr = "";
+            if (diffDays === 0) {
+              const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+              if (diffHours === 0) {
+                const diffMins = Math.floor(diffTime / (1000 * 60));
+                timeStr = diffMins <= 1 ? "Just now" : `${diffMins} minutes ago`;
+              } else {
+                timeStr = diffHours === 1 ? "1 hour ago" : `${diffHours} hours ago`;
+              }
+            } else if (diffDays === 1) {
+              timeStr = "Yesterday, " + date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            } else if (diffDays < 7) {
+              timeStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            } else {
+              timeStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            }
+
+            // Check if notification is read
+            const isRead = notif.readBy && notif.readBy.some(
+              readEntry => readEntry.userId === user._id || readEntry.userId === user.id
+            );
+
+            // Map notification type to icon type
+            let iconType = "info";
+            if (notif.type === "leave") iconType = "success";
+            else if (notif.type === "grievance") iconType = "warning";
+            else if (notif.type === "attendance") iconType = "alert";
+
+            return {
+              id: notif._id,
+              title: notif.title || "Notification",
+              message: notif.message || "",
+              time: timeStr,
+              read: isRead,
+              type: iconType,
+              actionUrl: notif.actionUrl,
+              notificationType: notif.type,
+            };
+          });
+          setNotifications(mappedNotifications);
+        } catch (error) {
+          console.error('Failed to load notifications:', error);
+          setNotifications([]);
+        } finally {
+          setIsLoadingNotifications(false);
+        }
+      };
+      loadNotifications();
+    }
+  }, [showNotifications, user?.isLoggedIn, user?._id, user?.id]);
+
+  // Handle notification click
+  const handleNotificationClick = async (notification) => {
+    // Mark as read if not already read
+    if (!notification.read) {
+      try {
+        await markAsRead(notification.id);
+        // Update local state
+        setNotifications(prev => prev.map(n => 
+          n.id === notification.id ? { ...n, read: true } : n
+        ));
+        // Update unread count
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      } catch (error) {
+        console.error('Failed to mark notification as read:', error);
+      }
+    }
+
+    // Navigate to action URL if available
+    if (notification.actionUrl) {
+      // Normalize the action URL - ensure it starts with /
+      let url = notification.actionUrl.trim();
+      if (!url.startsWith('/')) {
+        url = '/' + url;
+      }
+      
+      // Extract base path (e.g., /hr/grievances from /hr/grievances/123)
+      // This handles routes like /hr/grievances/:id or /hr/leaves/:id
+      const urlParts = url.split('/').filter(part => part);
+      
+      // Map notification types to base routes
+      let basePath = url;
+      if (notification.notificationType === 'grievance') {
+        // For grievances, navigate to /hr/grievances (HR) or /grievance (Employee)
+        basePath = isHRManager || isAdmin ? '/hr/grievances' : '/grievance';
+      } else if (notification.notificationType === 'leave') {
+        // For leaves, navigate to /hr/approvals (HR) or /leave (Employee)
+        basePath = isHRManager || isAdmin ? '/hr/approvals' : '/leave';
+      } else {
+        // For other types, try to extract base path (first 2-3 segments)
+        if (urlParts.length >= 2) {
+          basePath = '/' + urlParts.slice(0, 2).join('/');
+        }
+      }
+      
+      console.log('Navigating to:', basePath, 'from actionUrl:', notification.actionUrl);
+      navigate(basePath);
+      setShowNotifications(false);
+    }
+  };
 
   // Employee Menu Items (removed Directory and Onboarding)
   const employeeMenu = [
@@ -221,37 +349,51 @@ export default function MainLayout({ children }) {
                   )}
                 </div>
                 <div className="max-h-80 overflow-y-auto">
-                  {notifications.map((notif) => (
-                    <div 
-                      key={notif.id}
-                      className="p-4 flex gap-3 cursor-pointer transition-all hover:bg-opacity-50"
-                      style={{ 
-                        backgroundColor: !notif.read ? (isDark ? '#334155' : '#f8fafc') : 'transparent',
-                        borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`
-                      }}
-                    >
-                      <span className="text-xl">{getNotificationIcon(notif.type)}</span>
-                      <div className="flex-1">
-                        <p className="font-semibold text-sm" style={{ color: isDark ? '#f8fafc' : '#0f172a' }}>
-                          {notif.title}
-                        </p>
-                        <p className="text-xs" style={{ color: isDark ? '#94a3b8' : '#64748b' }}>
-                          {notif.message}
-                        </p>
-                        <p className="text-xs mt-1" style={{ color: navyBlue }}>{notif.time}</p>
-                      </div>
-                      {!notif.read && (
-                        <div className="w-2 h-2 rounded-full mt-2" style={{ backgroundColor: navyBlue }}></div>
-                      )}
+                  {isLoadingNotifications ? (
+                    <div className="p-8 text-center">
+                      <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 mb-2" style={{ borderColor: navyBlue }}></div>
+                      <p className="text-xs" style={{ color: isDark ? '#94a3b8' : '#64748b' }}>Loading notifications...</p>
                     </div>
-                  ))}
+                  ) : notifications.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <span className="text-4xl block mb-2">🔔</span>
+                      <p className="text-sm font-medium" style={{ color: isDark ? '#f8fafc' : '#0f172a' }}>No notifications</p>
+                      <p className="text-xs mt-1" style={{ color: isDark ? '#94a3b8' : '#64748b' }}>You're all caught up!</p>
+                    </div>
+                  ) : (
+                    notifications.map((notif) => (
+                      <div 
+                        key={notif.id}
+                        onClick={() => handleNotificationClick(notif)}
+                        className="p-4 flex gap-3 cursor-pointer transition-all hover:bg-opacity-50"
+                        style={{ 
+                          backgroundColor: !notif.read ? (isDark ? '#334155' : '#f8fafc') : 'transparent',
+                          borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`
+                        }}
+                      >
+                        <span className="text-xl">{getNotificationIcon(notif.type)}</span>
+                        <div className="flex-1">
+                          <p className="font-semibold text-sm" style={{ color: isDark ? '#f8fafc' : '#0f172a' }}>
+                            {notif.title}
+                          </p>
+                          <p className="text-xs" style={{ color: isDark ? '#94a3b8' : '#64748b' }}>
+                            {notif.message}
+                          </p>
+                          <p className="text-xs mt-1" style={{ color: navyBlue }}>{notif.time}</p>
+                        </div>
+                        {!notif.read && (
+                          <div className="w-2 h-2 rounded-full mt-2" style={{ backgroundColor: navyBlue }}></div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
-                <div 
+                {/* <div 
                   className="p-3 text-center text-sm font-semibold cursor-pointer transition-all hover:opacity-80"
                   style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: navyBlue }}
                 >
                   View All Notifications
-                </div>
+                </div> */}
               </div>
             )}
           </div>

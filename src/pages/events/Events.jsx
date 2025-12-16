@@ -2,13 +2,219 @@ import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 
-// Mock events data
+// Mock events data - 2026 Holidays Calendar
 const initialEvents = [
-  { id: 1, title: "Christmas Party 🎄", date: "2024-12-25", time: "6:00 PM", location: "Office Cafeteria", type: "holiday", description: "Annual Christmas celebration with games, music, and dinner", rsvp: true, attending: 45, createdBy: "HR Team" },
-  { id: 2, title: "Year End Review", date: "2024-12-20", time: "10:00 AM", location: "Conference Room A", type: "meeting", description: "Annual performance review and goal setting for 2025", rsvp: false, attending: 12, createdBy: "Admin" },
-  { id: 3, title: "Tech Talk: AI in HR", date: "2024-12-18", time: "3:00 PM", location: "Virtual (Teams)", type: "webinar", description: "Learn how AI is transforming HR processes", rsvp: true, attending: 28, createdBy: "HR Team" },
-  { id: 4, title: "Team Building Activity", date: "2025-01-10", time: "2:00 PM", location: "Adventure Park", type: "team", description: "Outdoor team building activities and games", rsvp: true, attending: 32, createdBy: "HR Team" },
-  { id: 5, title: "New Year Kickoff", date: "2025-01-02", time: "9:00 AM", location: "Main Auditorium", type: "company", description: "Welcome 2025 with company goals and vision presentation", rsvp: false, attending: 150, createdBy: "Admin" },
+  // 2026 Holidays
+  { 
+    id: 1, 
+    title: "New Year's Day", 
+    date: "2026-01-01", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "New Year's Day will be observed as a holiday; however, all employees are required to log in for a 2-hour session for celebration and annual planning from 4:00 PM to 6:00 PM IST.", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: false,
+    specialNote: "2-hour session required: 4:00 PM - 6:00 PM IST"
+  },
+  { 
+    id: 2, 
+    title: "Pongal", 
+    date: "2026-01-14", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Pongal - Optional holiday", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: true
+  },
+  { 
+    id: 3, 
+    title: "Founders Day", 
+    date: "2026-01-20", 
+    time: "Half Day (Second Half)", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Founders Day will be a half-day holiday (second half). Employees must sign in and work during the first half of the day.", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: false,
+    specialNote: "Half-day holiday - Work required in first half"
+  },
+  { 
+    id: 4, 
+    title: "Republic Day", 
+    date: "2026-01-26", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Republic Day - National holiday", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: false
+  },
+  { 
+    id: 5, 
+    title: "Maha Shivaratri", 
+    date: "2026-02-16", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Maha Shivaratri - Optional holiday", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: true
+  },
+  { 
+    id: 6, 
+    title: "Holi", 
+    date: "2026-03-04", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Holi - Optional holiday", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: true
+  },
+  { 
+    id: 7, 
+    title: "Ramzan Id / Eid-ul-Fitr", 
+    date: "2026-03-20", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Ramzan Id / Eid-ul-Fitr - Optional holiday", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: true
+  },
+  { 
+    id: 8, 
+    title: "Good Friday", 
+    date: "2026-04-03", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Good Friday - Public holiday", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: false
+  },
+  { 
+    id: 9, 
+    title: "Buddha Purnima", 
+    date: "2026-05-01", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Buddha Purnima - Public holiday", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: false
+  },
+  { 
+    id: 10, 
+    title: "Independence Day", 
+    date: "2026-08-15", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Independence Day - National holiday", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: false
+  },
+  { 
+    id: 11, 
+    title: "Ganesh Chaturthi", 
+    date: "2026-09-14", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Ganesh Chaturthi - Optional holiday", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: true
+  },
+  { 
+    id: 12, 
+    title: "Mahatma Gandhi Jayanti", 
+    date: "2026-10-02", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Mahatma Gandhi Jayanti - National holiday", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: false
+  },
+  { 
+    id: 13, 
+    title: "Dussehra", 
+    date: "2026-10-20", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Dussehra - Public holiday", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: false
+  },
+  { 
+    id: 14, 
+    title: "Diwali", 
+    date: "2026-11-08", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Diwali - Festival of Lights", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: false
+  },
+  { 
+    id: 15, 
+    title: "Diwali", 
+    date: "2026-11-09", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Diwali - Festival of Lights (Day 2)", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: false
+  },
+  { 
+    id: 16, 
+    title: "Christmas Day", 
+    date: "2026-12-25", 
+    time: "All Day", 
+    location: "Office", 
+    type: "holiday", 
+    description: "Christmas Day - Optional holiday", 
+    rsvp: false, 
+    attending: 0, 
+    createdBy: "HR Team",
+    isOptional: true
+  },
 ];
 
 // Mock kudos feed
@@ -44,7 +250,9 @@ export default function Events() {
   const isDark = theme === "dark";
   
   const [activeTab, setActiveTab] = useState("events");
-  const [events, setEvents] = useState(initialEvents);
+  // Sort events by date (earliest first)
+  const sortedEvents = [...initialEvents].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const [events, setEvents] = useState(sortedEvents);
   const [showKudosModal, setShowKudosModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
@@ -260,8 +468,23 @@ export default function Events() {
                           {typeStyle.icon}
                         </div>
                         <div>
-                          <h3 className="font-bold" style={{ color: textPrimary }}>{event.title}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold" style={{ color: textPrimary }}>{event.title}</h3>
+                            {event.isOptional && (
+                              <span 
+                                className="px-2 py-0.5 rounded-full text-xs font-medium"
+                                style={{ backgroundColor: '#fef3c7', color: '#d97706' }}
+                              >
+                                Optional
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm" style={{ color: textSecondary }}>{event.date} • {event.time}</p>
+                          {event.specialNote && (
+                            <p className="text-xs mt-1 font-medium" style={{ color: '#dc2626' }}>
+                              ⚠️ {event.specialNote}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
