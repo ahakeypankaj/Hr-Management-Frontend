@@ -7,8 +7,8 @@ import { addGrievanceComment } from "../../services/grievanceService";
 const statusOptions = [
   { value: "submitted", label: "Submitted", color: "#f59e0b", bgColor: "#fef3c7" },
   { value: "in-review", label: "In Review", color: "#3b82f6", bgColor: "#dbeafe" },
-  { value: "resolved", label: "Resolved", color: "#10b981", bgColor: "#d1fae5" },
-  { value: "reopen", label: "Reopen", color: "#ef4444", bgColor: "#fee2e2" }
+  { value: "resolved", label: "Resolved", color: "#10b981", bgColor: "#d1fae5", disabled: true  },
+  { value: "closed", label: "Closed", color: "#6b7280", bgColor: "#f3f4f6" }
 ];
 
 export default function HRGrievances() {
@@ -26,6 +26,10 @@ export default function HRGrievances() {
   const [newComment, setNewComment] = useState("");
   const [commentingOn, setCommentingOn] = useState(null);
   const [commentInputs, setCommentInputs] = useState({});
+  const [selectedGrievance, setSelectedGrievance] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [resolutionMessage, setResolutionMessage] = useState("");
+  const [resolving, setResolving] = useState(false);
 
   const navyBlue = '#1e3a5f';
   const cardStyle = {
@@ -78,6 +82,34 @@ export default function HRGrievances() {
       setTimeout(() => setError(''), 3000);
     } finally {
       setUpdating(null);
+    }
+  };
+
+  const resolveGrievance = async (grievanceId) => {
+    if (!resolutionMessage.trim()) return;
+    try {
+      setResolving(true);
+      const response = await api.put(`/employee/grievance/${grievanceId}/status`, {
+        status: "resolved",
+        resolutionMessage: resolutionMessage
+      });
+
+      // Update local state
+      setGrievances(prev => prev.map(g =>
+        g._id === grievanceId ? { ...g, status: "resolved" } : g
+      ));
+
+      setSuccess('Grievance resolved successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+      setShowModal(false);
+      setResolutionMessage("");
+      setSelectedGrievance(null);
+    } catch (error) {
+      console.error('Error resolving grievance:', error);
+      setError('Failed to resolve grievance');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setResolving(false);
     }
   };
 
@@ -231,10 +263,14 @@ export default function HRGrievances() {
           filteredGrievances.map((grievance, index) => {
             const statusInfo = getStatusInfo(grievance.status);
             return (
-              <div key={grievance._id} className="p-6" style={{ ...cardStyle, animationDelay: `${index * 100}ms` }}>
+              <div 
+                key={grievance._id} 
+                className="p-6  hover:opacity-90 transition-opacity" 
+                style={{ ...cardStyle, animationDelay: `${index * 100}ms` }}
+              >
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="flex-1">
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-4 cursor-pointer" onClick={() => { setSelectedGrievance(grievance); setShowModal(true); }}>
                       <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold flex-shrink-0"
                            style={{ backgroundColor: `${navyBlue}20`, color: navyBlue }}>
                         {grievance.employeeName ? grievance.employeeName.charAt(0) : '👤'}
@@ -265,7 +301,7 @@ export default function HRGrievances() {
                       <select
                         value={grievance.status}
                         onChange={(e) => updateGrievanceStatus(grievance._id, e.target.value)}
-                        disabled={updating === grievance._id}
+                        disabled={updating === grievance._id || grievance.status === "resolved"}
                         className="px-4 py-2 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
                         style={{
                           backgroundColor: statusInfo.bgColor,
@@ -275,7 +311,7 @@ export default function HRGrievances() {
                         }}
                       >
                         {statusOptions.map(option => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
+                          <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>
                         ))}
                       </select>
                       {updating === grievance._id && (
@@ -353,6 +389,146 @@ export default function HRGrievances() {
           })
         )}
       </div>
+
+      {/* Grievance Detail Modal */}
+      {showModal && selectedGrievance && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in p-4"
+          style={{ 
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)'
+          }}
+        >
+          <div 
+            className="w-full max-w-4xl animate-scale-in"
+            style={{ 
+              backgroundColor: isDark ? '#1e293b' : '#ffffff',
+              borderRadius: '24px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              maxHeight: '90vh',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Modal Header */}
+            <div 
+              className="p-6"
+              style={{ 
+                background: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)',
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl">
+                    📋
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">{selectedGrievance.subject}</h2>
+                    <p className="text-blue-200 text-sm">
+                      {selectedGrievance.employeeName || 'Anonymous'} • {new Date(selectedGrievance.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowModal(false); setSelectedGrievance(null); setResolutionMessage(""); }}
+                  className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 100px)' }}>
+              {/* Grievance Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="font-semibold mb-3" style={{ color: textPrimary }}>📝 Description</h3>
+                  <p style={{ color: textSecondary }}>{selectedGrievance.description}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-3" style={{ color: textPrimary }}>📊 Details</h3>
+                  <div className="space-y-2 text-sm">
+                    <p><span className="font-medium" style={{ color: textPrimary }}>Category:</span> <span style={{ color: textSecondary }}>{selectedGrievance.category}</span></p>
+                    <p><span className="font-medium" style={{ color: textPrimary }}>Priority:</span> <span style={{ color: textSecondary }}>{selectedGrievance.priority}</span></p>
+                    <p><span className="font-medium" style={{ color: textPrimary }}>Status:</span> 
+                      <span className="ml-2 px-2 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: getStatusInfo(selectedGrievance.status).bgColor, color: getStatusInfo(selectedGrievance.status).color }}>
+                        {getStatusInfo(selectedGrievance.status).label}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Resolve Form - Only show if not resolved */}
+              {selectedGrievance.status !== "resolved" && (
+                <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}>
+                  <h3 className="font-semibold mb-3" style={{ color: textPrimary }}>✅ Resolve Grievance</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Resolution Message</label>
+                      <textarea
+                        value={resolutionMessage}
+                        onChange={(e) => setResolutionMessage(e.target.value)}
+                        placeholder="Enter the resolution details..."
+                        rows={4}
+                        className="w-full px-4 py-3 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+                        style={{ backgroundColor: isDark ? '#1e293b' : '#ffffff', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                      />
+                    </div>
+                    <button
+                      onClick={() => resolveGrievance(selectedGrievance._id)}
+                      disabled={!resolutionMessage.trim() || resolving}
+                      className="px-6 py-3 rounded-xl font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: '#10b981' }}
+                    >
+                      {resolving ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mx-auto"></div>
+                      ) : (
+                        'Resolve Grievance'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Comments Section */}
+              {selectedGrievance.comments && selectedGrievance.comments.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3" style={{ color: textPrimary }}>💬 Comments ({selectedGrievance.comments.length})</h3>
+                  <div className="space-y-3">
+                    {selectedGrievance.comments.map((comment, commentIndex) => (
+                      <div key={comment.id || commentIndex} className="p-4 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                               style={{ backgroundColor: `${navyBlue}20`, color: navyBlue }}>
+                            {comment.isAnonymous ? '👤' : (comment.userName ? comment.userName.charAt(0) : '👤')}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium text-sm" style={{ color: textPrimary }}>
+                                {comment.isAnonymous ? 'Anonymous' : (comment.userName || 'Anonymous')}
+                              </span>
+                              <span className="text-xs px-2 py-0.5 rounded-full"
+                                    style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}>
+                                {comment.userRole || 'Employee'}
+                              </span>
+                              <span className="text-xs" style={{ color: textSecondary }}>
+                                {new Date(comment.createdAt).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-sm" style={{ color: textSecondary }}>{comment.message}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
