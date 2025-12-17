@@ -33,7 +33,22 @@ import HRGrievances from '../pages/hr/HRGrievances'
 
 // Protected Route wrapper
 function ProtectedRoute({ children, allowedRoles = [] }) {
-  const { user } = useAuth()
+  // Safely access auth context to avoid destructuring undefined
+  const auth = useAuth() || {}
+  const user = auth.user || { isLoggedIn: false, role: null }
+  const isInitializing = auth.isInitializing !== undefined ? auth.isInitializing : false
+  
+  // Show loading state while checking authentication
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p style={{ color: '#64748b' }}>Loading...</p>
+        </div>
+      </div>
+    )
+  }
   
   if (!user.isLoggedIn) {
     return <Navigate to="/login" replace />
@@ -48,7 +63,22 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
 }
 
 export default function AppRoutes() {
-  const { user } = useAuth()
+  // Safely access auth context to avoid destructuring undefined
+  const auth = useAuth() || {}
+  const user = auth.user || { isLoggedIn: false, role: null }
+  const isInitializing = auth.isInitializing !== undefined ? auth.isInitializing : false
+
+  // Show loading state while initializing
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p style={{ color: '#64748b' }}>Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
       <Routes>
@@ -58,9 +88,9 @@ export default function AppRoutes() {
         element={user.isLoggedIn ? <Navigate to="/dashboard" replace /> : <Login />} 
       />
 
-      {/* Standalone Document Upload - Public route (for testing without auth) */}
+      {/* Standalone Document Upload - Public routes (must be before default redirect) */}
       <Route 
-        path="/upload-documents" 
+        path="/upload-documents/onboarding/:onboardingId" 
         element={<DocumentUploadStandalone />} 
       />
       <Route 
@@ -68,7 +98,7 @@ export default function AppRoutes() {
         element={<DocumentUploadStandalone />} 
       />
       <Route 
-        path="/upload-documents/onboarding/:onboardingId" 
+        path="/upload-documents" 
         element={<DocumentUploadStandalone />} 
       />
 

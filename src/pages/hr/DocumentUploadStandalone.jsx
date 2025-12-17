@@ -57,38 +57,91 @@ export default function DocumentUploadStandalone() {
     photo: 'photo',
   };
 
-  // Fetch candidate info using token verification
+  // Fetch candidate info using token or onboardingId verification
   useEffect(() => {
     const verifyTokenAndFetchInfo = async () => {
-      if (token) {
+      if (token || onboardingId) {
         setIsLoadingInfo(true);
+        setError(null);
         try {
-          console.log("Verifying token:", token);
-          const response = await api.get(`/onboard/upload/verify/${token}`);
-          console.log("Token verification response:", response.data);
+          let response;
           
-          if (response.data.message === "Token verified" && response.data.onboarding) {
+          if (token) {
+            // Use token verification endpoint
+            console.log("Verifying token:", token);
+            response = await api.get(`/onboard/upload/verify/${token}`);
+            console.log("Token verification response:", response.data);
+          } else if (onboardingId) {
+            // Use onboardingId - try using it as token first, or fetch onboarding details
+            console.log("Verifying onboardingId:", onboardingId);
+            try {
+              // First, try using onboardingId as if it were a token
+              response = await api.get(`/onboard/upload/verify/${onboardingId}`);
+              console.log("OnboardingId verification response (as token):", response.data);
+            } catch (err) {
+              // If that fails, try fetching onboarding details directly from /onboard/all and find the matching one
+              console.log("Trying to fetch onboarding details for ID:", onboardingId);
+              try {
+                const allResponse = await api.get(`/onboard/all`);
+                if (allResponse.data && allResponse.data.onboardingList) {
+                  const foundOnboarding = allResponse.data.onboardingList.find(
+                    (onb) => onb._id === onboardingId || onb.id === onboardingId
+                  );
+                  if (foundOnboarding) {
+                    response = {
+                      data: {
+                        message: "Token verified",
+                        onboarding: foundOnboarding
+                      }
+                    };
+                  } else {
+                    throw new Error("Onboarding record not found");
+                  }
+                } else {
+                  throw new Error("Failed to fetch onboarding list");
+                }
+              } catch (fetchErr) {
+                console.error("Error fetching onboarding details:", fetchErr);
+                throw fetchErr;
+              }
+            }
+          }
+          
+          if (response && response.data && response.data.onboarding) {
             setCandidateInfo({
               candidateName: response.data.onboarding.candidateName,
               personalEmail: response.data.onboarding.personalEmail,
               jobDetails: response.data.onboarding.jobDetails,
               status: response.data.onboarding.status,
-              onboardingId: response.data.onboarding.id,
+              onboardingId: response.data.onboarding.id || onboardingId,
+            });
+          } else if (response && response.data && response.data.message === "Token verified" && response.data.onboarding) {
+            setCandidateInfo({
+              candidateName: response.data.onboarding.candidateName,
+              personalEmail: response.data.onboarding.personalEmail,
+              jobDetails: response.data.onboarding.jobDetails,
+              status: response.data.onboarding.status,
+              onboardingId: response.data.onboarding.id || onboardingId,
             });
           }
         } catch (error) {
-          console.error("Error verifying token:", error);
-          const errorMessage = error.response?.data?.message || error.message || "Invalid or expired token";
+          console.error("Error verifying token/onboardingId:", error);
+          const errorMessage = error.response?.data?.message || error.message || "Invalid or expired token/onboarding ID";
           setError(errorMessage);
-          alert(`Error: ${errorMessage}`);
+          // Don't show alert immediately, let user see the error message on page
+          // Still allow document upload even if verification fails (backend will validate)
         } finally {
           setIsLoadingInfo(false);
         }
+      } else {
+        // If no token or onboardingId, still show the form but with a warning
+        setError("No token or onboarding ID provided. Please use the link provided by HR.");
+        setIsLoadingInfo(false);
       }
     };
 
     verifyTokenAndFetchInfo();
-  }, [token]);
+  }, [token, onboardingId]);
 
   const handleDocumentUpload = (docId, file) => {
     if (file) {
@@ -133,12 +186,14 @@ export default function DocumentUploadStandalone() {
     setErrors(newErrors);
     
     if (Object.keys(newErrors).length === 0) {
-      if (!token) {
-        alert("Error: Token is required. Please use the link provided by HR.");
+      if (!token && !onboardingId) {
+        alert("Error: Token or Onboarding ID is required. Please use the link provided by HR.");
         return;
       }
 
       setIsSubmitting(true);
+      setError(null);
+      setErrors({});
       try {
         const formData = new FormData();
 
@@ -151,10 +206,12 @@ export default function DocumentUploadStandalone() {
 
         console.log("=== Submitting Documents ===");
         console.log("Token:", token);
+        console.log("OnboardingId:", onboardingId);
         console.log("Documents to upload:", Object.keys(documents).map(id => `${id} -> ${documentFieldMap[id] || id}`));
 
-        // Call API to upload documents
-        const endpoint = `/onboard/upload/${token}`;
+        // Call API to upload documents - use token if available, otherwise use onboardingId
+        const identifier = token || onboardingId;
+        const endpoint = `/onboard/upload/${identifier}`;
         console.log("Upload endpoint:", endpoint);
         
         const response = await api.post(endpoint, formData, {
@@ -240,8 +297,8 @@ export default function DocumentUploadStandalone() {
           </div>
         )}
 
-        {/* Documents Section */}
-        {!submitSuccess && !error && !isLoadingInfo && (
+        {/* Documents Section - Show even if there's an error (user can still try to upload) */}
+        {!submitSuccess && !isLoadingInfo && (
           <div className="p-6 rounded-xl border-2 animate-fade-in-up" style={{ 
             backgroundColor: isDark ? '#1e293b' : '#ffffff',
             borderColor: isDark ? '#334155' : '#e2e8f0'
