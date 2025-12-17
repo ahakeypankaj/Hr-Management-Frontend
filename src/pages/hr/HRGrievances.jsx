@@ -7,7 +7,7 @@ import { addGrievanceComment } from "../../services/grievanceService";
 const statusOptions = [
   { value: "submitted", label: "Submitted", color: "#f59e0b", bgColor: "#fef3c7" },
   { value: "in-review", label: "In Review", color: "#3b82f6", bgColor: "#dbeafe" },
-  { value: "resolved", label: "Resolved", color: "#10b981", bgColor: "#d1fae5" },
+  { value: "resolved", label: "Resolved", color: "#10b981", bgColor: "#d1fae5", disabled: true  },
   { value: "closed", label: "Closed", color: "#6b7280", bgColor: "#f3f4f6" }
 ];
 
@@ -301,7 +301,7 @@ export default function HRGrievances() {
                       <select
                         value={grievance.status}
                         onChange={(e) => updateGrievanceStatus(grievance._id, e.target.value)}
-                        disabled={updating === grievance._id}
+                        disabled={updating === grievance._id || grievance.status === "resolved"}
                         className="px-4 py-2 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
                         style={{
                           backgroundColor: statusInfo.bgColor,
@@ -311,7 +311,7 @@ export default function HRGrievances() {
                         }}
                       >
                         {statusOptions.map(option => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
+                          <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>
                         ))}
                       </select>
                       {updating === grievance._id && (
