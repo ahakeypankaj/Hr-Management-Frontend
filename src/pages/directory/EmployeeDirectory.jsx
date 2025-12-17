@@ -31,7 +31,7 @@ const avatarColors = [
   "linear-gradient(135deg, #ca8a04, #ea580c)",
 ];
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 12;
 
 export default function EmployeeDirectory() {
   const { theme } = useTheme();

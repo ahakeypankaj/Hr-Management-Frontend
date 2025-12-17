@@ -62,21 +62,25 @@ export default function TeamUserManagement() {
       onboardingStatus = "rejected";
     }
 
-    // Map BGV status
+    // Map BGV status - API returns "pending" or "verified"
     let bgvStatusDisplay = "pending";
     if (onboarding.bgvStatus === "verified") {
       bgvStatusDisplay = "completed";
     } else if (onboarding.bgvStatus === "in_progress") {
       bgvStatusDisplay = "in_progress";
+    } else if (onboarding.bgvStatus === "pending" || !onboarding.bgvStatus) {
+      bgvStatusDisplay = "pending";
     }
 
     // Map overall status
     let statusDisplay = "Pending";
-    if (onboarding.managerApproval === "approved" && onboarding.status === "onboarded") {
-      statusDisplay = "Active";
-    } else if (onboarding.managerApproval === "rejected") {
+    if (onboarding.managerApproval === "rejected") {
       statusDisplay = "Rejected";
+    } else if (onboarding.managerApproval === "approved" && onboarding.status === "onboarded") {
+      statusDisplay = "Active";
     } else if (onboarding.managerApproval === "approved") {
+      statusDisplay = "Pending";
+    } else {
       statusDisplay = "Pending";
     }
 
@@ -103,6 +107,7 @@ export default function TeamUserManagement() {
       onboardingStatus: onboardingStatus,
       documentStatus: documentStatus,
       bgvStatus: bgvStatusDisplay,
+      bgvStatusRaw: onboarding.bgvStatus, // Keep original API value for reference
       managerId: null, // Can be added if available in API
       managerApproval: onboarding.managerApproval,
       managerComments: onboarding.managerComments,
@@ -219,18 +224,19 @@ export default function TeamUserManagement() {
     setBGVError(null);
 
     try {
-      const bgvData = {
-        remarks: bgvRemarks.trim()
-      };
-
       console.log("=== Saving BGV Action ===");
       console.log("Onboarding ID:", selectedMember._id);
       console.log("Action:", bgvAction);
-      console.log("BGV Data:", bgvData);
+      console.log("Remarks:", bgvRemarks.trim());
 
       if (bgvAction === "approve") {
+        const bgvData = { remarks: bgvRemarks.trim() };
+        console.log("BGV Approve Data:", bgvData);
         await bgvApproveOnboarding(selectedMember._id, bgvData);
       } else {
+        // For reject, use "reject" as parameter name
+        const bgvData = { remarks: bgvRemarks.trim() };
+        console.log("BGV Reject Data:", bgvData);
         await bgvRejectOnboarding(selectedMember._id, bgvData);
       }
 
@@ -355,7 +361,7 @@ export default function TeamUserManagement() {
     { label: "Total Members", value: members.length, color: "#2563eb", icon: "👥" },
     { label: "Active", value: members.filter(m => m.status === "Active" || m.status === "active").length, color: "#16a34a", icon: "✅" },
     { label: "Pending", value: members.filter(m => m.status === "Pending" || m.status === "pending").length, color: "#d97706", icon: "⏳" },
-    { label: "BGV Pending", value: members.filter(m => m.bgvStatus === "in_progress").length, color: "#7c3aed", icon: "🔍" },
+    { label: "BGV Pending", value: members.filter(m => m.bgvStatus === "pending" || m.bgvStatus === "in_progress").length, color: "#7c3aed", icon: "🔍" },
   ];
 
   const getManagerName = (managerId) => {
@@ -489,7 +495,7 @@ export default function TeamUserManagement() {
                       <p className="text-sm truncate" style={{ color: textSecondary }}>
                         {memberJobTitle} • {memberDept}
                       </p>
-                      <p className="text-xs" style={{ color: textSecondary }}>ID: {member.id}</p>
+                      {/* <p className="text-xs" style={{ color: textSecondary }}>ID: {member.id}</p> */}
                     </div>
                   </div>
 
@@ -606,61 +612,98 @@ export default function TeamUserManagement() {
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 space-y-6 max-h-[calc(90vh-120px)] overflow-y-auto">
+            <div className="p-6 space-y-5 max-h-[calc(90vh-120px)] overflow-y-auto" style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: isDark ? '#475569 #1e293b' : '#cbd5e1 #ffffff'
+            }}>
               {/* Personal Information Section */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold" style={{ color: textPrimary }}>Personal Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+              <div className="space-y-3">
+                <h3 className="text-base font-bold pb-2 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0', color: textPrimary }}>
+                  👤 Personal Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                     <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📧 Email</p>
-                    <p className="font-semibold text-sm" style={{ color: textPrimary }}>
-                      {selectedMember.email || selectedMember.personalEmail || "N/A"}
+                    <p className="font-semibold text-xs break-all" style={{ color: textPrimary }}>
+                      {selectedMember.email || selectedMember.personalEmail || selectedMember.companyEmail || "N/A"}
                     </p>
                   </div>
-                  <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                     <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📞 Phone</p>
-                    <p className="font-semibold text-sm" style={{ color: textPrimary }}>
-                      {selectedMember.phoneCode ? `${selectedMember.phoneCode} ` : ""}{selectedMember.phone || "N/A"}
+                    <p className="font-semibold text-xs" style={{ color: textPrimary }}>
+                      {selectedMember.phoneCode ? `${selectedMember.phoneCode} ` : ""}{selectedMember.phone || selectedMember.phoneNumber || "N/A"}
                     </p>
                   </div>
-                  <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                    <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>🆔 Employee ID</p>
-                    <p className="font-semibold text-sm" style={{ color: textPrimary }}>
-                      {selectedMember.id || selectedMember._id || "N/A"}
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  {selectedMember.employeeId && (
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>🆔 Employee ID</p>
+                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
+                        {selectedMember.employeeId}
+                      </p>
+                    </div>
+                  )}
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                     <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📅 Join Date</p>
-                    <p className="font-semibold text-sm" style={{ color: textPrimary }}>
-                      {selectedMember.joinDate || selectedMember.joiningDate || "N/A"}
+                    <p className="font-semibold text-xs" style={{ color: textPrimary }}>
+                      {selectedMember.joinDate || selectedMember.joiningDate || selectedMember.proposedJoiningDate || "N/A"}
                     </p>
                   </div>
+                  {selectedMember.address && (
+                    <div className="p-3 rounded-lg md:col-span-2" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📍 Address</p>
+                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
+                        {selectedMember.address}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Job Information Section */}
+              <div className="space-y-3">
+                <h3 className="text-base font-bold pb-2 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0', color: textPrimary }}>
+                  💼 Job Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>🏢 Department</p>
+                    <p className="font-semibold text-xs" style={{ color: textPrimary }}>
+                      {selectedMember.department || selectedMember.dept || "N/A"}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>💼 Designation</p>
+                    <p className="font-semibold text-xs" style={{ color: textPrimary }}>
+                      {selectedMember.jobTitle || selectedMember.designation || "N/A"}
+                    </p>
+                  </div>
+                  {selectedMember.jobLevel && (
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📊 Job Level</p>
+                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
+                        {selectedMember.jobLevel}
+                      </p>
+                    </div>
+                  )}
+                  {selectedMember.jobType && (
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>⏰ Job Type</p>
+                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
+                        {selectedMember.jobType}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Status Section */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold" style={{ color: textPrimary }}>Status Overview</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {/* Manager Approval Status */}
-                  <div className="p-4 rounded-xl text-center" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                    <p className="text-xs font-medium mb-2" style={{ color: textSecondary }}>👤 Manager Approval</p>
-                    <span 
-                      className="px-3 py-1.5 rounded-full text-xs font-bold inline-block"
-                      style={{ 
-                        backgroundColor: selectedMember.managerApproval === 'approved' ? '#dcfce7' : 
-                                       selectedMember.managerApproval === 'rejected' ? '#fee2e2' : '#dbeafe',
-                        color: selectedMember.managerApproval === 'approved' ? '#16a34a' : 
-                               selectedMember.managerApproval === 'rejected' ? '#dc2626' : '#2563eb'
-                      }}
-                    >
-                      {selectedMember.managerApproval === 'approved' ? '✓ Approved' : 
-                       selectedMember.managerApproval === 'rejected' ? '✗ Rejected' : '⏳ Pending'}
-                    </span>
-                  </div>
-
+              <div className="space-y-3">
+                <h3 className="text-base font-bold pb-2 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0', color: textPrimary }}>
+                  📊 Status Overview
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* BGV Status */}
-                  <div className="p-4 rounded-xl text-center" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <div className="p-3 rounded-lg text-center" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                     <p className="text-xs font-medium mb-2" style={{ color: textSecondary }}>🔍 BGV Status</p>
                     <span 
                       className="px-3 py-1.5 rounded-full text-xs font-bold inline-block"
@@ -674,7 +717,7 @@ export default function TeamUserManagement() {
                   </div>
 
                   {/* Onboarding Status */}
-                  <div className="p-4 rounded-xl text-center" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <div className="p-3 rounded-lg text-center" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                     <p className="text-xs font-medium mb-2" style={{ color: textSecondary }}>📋 Onboarding</p>
                     <span 
                       className="px-3 py-1.5 rounded-full text-xs font-bold inline-block"
@@ -690,23 +733,25 @@ export default function TeamUserManagement() {
               </div>
 
               {/* Documents Status */}
-              {selectedMember.documentStatus && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-bold" style={{ color: textPrimary }}>📁 Document Status</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {selectedMember.documentStatus && Object.keys(selectedMember.documentStatus).length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-base font-bold pb-2 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0', color: textPrimary }}>
+                    📁 Document Status
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {Object.entries(selectedMember.documentStatus).map(([doc, status]) => {
                       const docStyle = getDocStatusStyle(status);
                       return (
                         <div 
                           key={doc} 
-                          className="p-3 rounded-xl text-center" 
+                          className="p-2.5 rounded-lg text-center" 
                           style={{ backgroundColor: docStyle.bg }}
                         >
-                          <p className="text-xs font-semibold capitalize" style={{ color: docStyle.color }}>
+                          <p className="text-xs font-semibold capitalize mb-1" style={{ color: docStyle.color }}>
                             {docStyle.icon} {doc.replace(/([A-Z])/g, ' $1').trim()}
                           </p>
-                          <p className="text-xs mt-1 font-medium" style={{ color: docStyle.color }}>
-                            {status === 'verified' ? 'Verified' : status === 'pending' ? 'Pending' : status}
+                          <p className="text-xs font-medium" style={{ color: docStyle.color }}>
+                            {status === 'verified' ? '✓ Verified' : status === 'pending' ? '⏳ Pending' : status}
                           </p>
                         </div>
                       );
@@ -715,46 +760,26 @@ export default function TeamUserManagement() {
                 </div>
               )}
 
-              {/* Manager Comments / Remarks */}
-              {(selectedMember.managerComments || selectedMember.bgvRemarks) && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-bold" style={{ color: textPrimary }}>Remarks & Comments</h3>
-                  {selectedMember.managerComments && (
-                    <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                      <p className="text-xs font-medium mb-2" style={{ color: textSecondary }}>Manager Comments</p>
-                      <p className="text-sm" style={{ color: textPrimary }}>{selectedMember.managerComments}</p>
-                    </div>
-                  )}
-                  {selectedMember.bgvRemarks && (
-                    <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                      <p className="text-xs font-medium mb-2" style={{ color: textSecondary }}>BGV Remarks</p>
-                      <p className="text-sm" style={{ color: textPrimary }}>{selectedMember.bgvRemarks}</p>
-                    </div>
-                  )}
+              {/* BGV Remarks */}
+              {selectedMember.bgvRemarks && (
+                <div className="space-y-3">
+                  <h3 className="text-base font-bold pb-2 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0', color: textPrimary }}>
+                    💬 BGV Remarks
+                  </h3>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <p className="text-xs leading-relaxed" style={{ color: textPrimary }}>{selectedMember.bgvRemarks}</p>
+                  </div>
                 </div>
               )}
 
               {/* Action Buttons */}
-              <div className="pt-4 space-y-3" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-                {/* Manager Approval Button */}
-                <button
-                  onClick={() => { setShowViewModal(false); handleEditMember(selectedMember); }}
-                  className="w-full py-3 rounded-xl font-semibold transition-all hover:opacity-90 hover:scale-[1.02]"
-                  style={{ 
-                    backgroundColor: '#f3e8ff', 
-                    color: '#7c3aed',
-                    boxShadow: '0 2px 8px rgba(124, 58, 237, 0.2)'
-                  }}
-                >
-                  ✏️ Manager Approval
-                </button>
-
+              <div className="pt-4 space-y-2" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
                 {/* BGV Action Buttons */}
-                {selectedMember.bgvStatus !== "completed" && (
-                  <div className="grid grid-cols-2 gap-3">
+                {selectedMember.bgvStatus !== "completed" && selectedMember.bgvStatus !== "verified" && (
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => { setShowViewModal(false); handleBGVAction(selectedMember, "approve"); }}
-                      className="py-3 rounded-xl font-semibold transition-all hover:opacity-90 hover:scale-[1.02]"
+                      className="py-2.5 rounded-lg font-semibold text-sm transition-all hover:opacity-90 hover:scale-[1.02]"
                       style={{ 
                         backgroundColor: '#dcfce7', 
                         color: '#16a34a',
@@ -765,7 +790,7 @@ export default function TeamUserManagement() {
                     </button>
                     <button
                       onClick={() => { setShowViewModal(false); handleBGVAction(selectedMember, "reject"); }}
-                      className="py-3 rounded-xl font-semibold transition-all hover:opacity-90 hover:scale-[1.02]"
+                      className="py-2.5 rounded-lg font-semibold text-sm transition-all hover:opacity-90 hover:scale-[1.02]"
                       style={{ 
                         backgroundColor: '#fee2e2', 
                         color: '#dc2626',
@@ -780,7 +805,7 @@ export default function TeamUserManagement() {
                 {/* Close Button */}
                 <button
                   onClick={() => setShowViewModal(false)}
-                  className="w-full py-3 rounded-xl font-semibold transition-all hover:opacity-90"
+                  className="w-full py-2.5 rounded-lg font-semibold text-sm transition-all hover:opacity-90"
                   style={{ 
                     backgroundColor: isDark ? '#334155' : '#f1f5f9', 
                     color: textPrimary 

@@ -45,11 +45,16 @@ export const logout = async () => {
   const token = localStorage.getItem("authToken");
 
   try {
-    await api.post("/auth/logout",{});
+    if (token) {
+      await api.post("/auth/logout",{});
+    }
   } catch (error) {
     console.error("Logout API error:", error);
   } finally {
-    // Clear frontend session
+    // Clear frontend session - remove all auth-related items
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("hr-nexus-user");
+    localStorage.removeItem("userRole");
     localStorage.removeItem("token");
     localStorage.removeItem("user");
   }

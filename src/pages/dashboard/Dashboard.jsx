@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { Link } from "react-router-dom";
 import DonutChart from "../../components/charts/DonutChart";
 import BarChart from "../../components/charts/BarChart";
 import PieChart from "../../components/charts/PieChart";
+import { fetchDashboardData } from "../../services/dashboardService";
+import { getAttendanceDashboard } from "../../services/attendanceService";
 
 // Employee Stats
 const getEmployeeStats = (user) => [
@@ -14,29 +16,28 @@ const getEmployeeStats = (user) => [
   { label: "Open Grievances", value: 1, color: "#ea580c", icon: "📝", change: "pending" },
 ];
 
-// HR/Manager Stats
-const hrStats = [
-  { label: "Total Employees", value: 156, color: "#2563eb", icon: "👥", change: "+5 this month" },
-  { label: "Pending Approvals", value: 8, color: "#ea580c", icon: "✅", change: "need action" },
-  { label: "New Hires", value: 5, color: "#16a34a", icon: "🎉", change: "this month" },
-  { label: "Open Grievances", value: 3, color: "#dc2626", icon: "📝", change: "unresolved" },
+// Default HR/Manager Stats (fallback)
+const defaultHrStats = [
+  { label: "Total Employees", value: 0, color: "#2563eb", icon: "👥", change: "loading..." },
+  { label: "Pending Approvals", value: 0, color: "#ea580c", icon: "✅", change: "need action" },
+  { label: "New Hires", value: 0, color: "#16a34a", icon: "🎉", change: "this month" },
+  { label: "Open Grievances", value: 0, color: "#dc2626", icon: "📝", change: "unresolved" },
 ];
 
-// Chart Data for HR
-const departmentData = [
-  { label: "Eng", value: 45, color: "#2563eb" },
-  { label: "Sales", value: 25, color: "#16a34a" },
-  { label: "HR", value: 12, color: "#7c3aed" },
-  { label: "Finance", value: 18, color: "#ea580c" },
-  { label: "Ops", value: 20, color: "#0891b2" },
+// Default Chart Data for HR (fallback)
+const defaultDepartmentData = [
+  { label: "IT", value: 0, color: "#2563eb" },
+  { label: "Engineering", value: 0, color: "#16a34a" },
+  { label: "HR", value: 0, color: "#7c3aed" },
+  { label: "QA", value: 0, color: "#ea580c" },
 ];
 
-const monthlyAttendance = [
-  { label: "Mon", value: 95 },
-  { label: "Tue", value: 98 },
-  { label: "Wed", value: 92 },
-  { label: "Thu", value: 96 },
-  { label: "Fri", value: 88 },
+const defaultWeeklyAttendance = [
+  { label: "Mon", value: 0 },
+  { label: "Tue", value: 0 },
+  { label: "Wed", value: 0 },
+  { label: "Thu", value: 0 },
+  { label: "Fri", value: 0 },
 ];
 
 const recentActivities = [
@@ -59,9 +60,9 @@ const getPersonalizedActivities = (user) => {
 };
 
 const upcomingEvents = [
-  { id: 1, title: "Team Meeting", date: "Dec 13", time: "10:00 AM", type: "meeting" },
-  { id: 2, title: "Performance Review", date: "Dec 15", time: "2:00 PM", type: "review" },
-  { id: 3, title: "Christmas Party", date: "Dec 25", time: "6:00 PM", type: "holiday" },
+  { id: 1, title: "Daily Standup Meet", date: "Daily", time: "9:30 PM", type: "meeting" },
+  { id: 2, title: "Irish Taylor Talk", date: "Wed", time: "5:30 PM", type: "meeting" },
+  { id: 3, title: "Irish Taylor Talks", date: "Friday", time: "5:30 PM", type: "meeting" },
 ];
 
 const teamMembers = [
@@ -81,10 +82,10 @@ const employeeQuickLinks = [
 
 // Quick Links for HR (with Directory)
 const hrQuickLinks = [
-  { name: "Approvals", path: "/hr/approvals", icon: "✅", color: "#16a34a" },
-  { name: "Directory", path: "/directory", icon: "👥", color: "#2563eb" },
-  { name: "Reports", path: "/hr/reports", icon: "📑", color: "#ea580c" },
-  { name: "Settings", path: "/hr/settings", icon: "⚙️", color: "#7c3aed" },
+  { name: "Onboarding Employees", path: "/hr/users", icon: "👤", color: "#2563eb" },
+  { name: "Attendance Management", path: "/hr/attendance", icon: "⏰", color: "#16a34a" },
+  { name: "Directory", path: "/directory", icon: "👥", color: "#7c3aed" },
+  { name: "Grievance", path: "/grievance", icon: "📝", color: "#ea580c" },
 ];
 
 // Quick Links for Admin
@@ -144,9 +145,168 @@ export default function Dashboard() {
   const isAdmin = user?.role === "admin";
   const isEmployee = user?.role === "employee";
   
+  // Dashboard API state (for HR/Admin only)
+  const [dashboardData, setDashboardData] = useState(null);
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
+  const [dashboardError, setDashboardError] = useState(null);
+  
+  // Attendance Dashboard API state (for HR/Admin only)
+  const [attendanceData, setAttendanceData] = useState(null);
+  const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
+  const [attendanceError, setAttendanceError] = useState(null);
+
+  // Fetch dashboard data for HR/Admin
+  useEffect(() => {
+    if (isHRManager || isAdmin) {
+      const loadDashboardData = async () => {
+        setIsLoadingDashboard(true);
+        setDashboardError(null);
+        try {
+          const data = await fetchDashboardData();
+          setDashboardData(data);
+        } catch (error) {
+          console.error('Failed to load dashboard data:', error);
+          setDashboardError(error.message || 'Failed to load dashboard data');
+        } finally {
+          setIsLoadingDashboard(false);
+        }
+      };
+      loadDashboardData();
+    }
+  }, [isHRManager, isAdmin]);
+
+  // Fetch attendance dashboard data for HR/Admin
+  useEffect(() => {
+    if (isHRManager || isAdmin) {
+      const loadAttendanceData = async () => {
+        setIsLoadingAttendance(true);
+        setAttendanceError(null);
+        try {
+          const data = await getAttendanceDashboard();
+          setAttendanceData(data);
+        } catch (error) {
+          console.error('Failed to load attendance data:', error);
+          setAttendanceError(error.message || 'Failed to load attendance data');
+        } finally {
+          setIsLoadingAttendance(false);
+        }
+      };
+      loadAttendanceData();
+    }
+  }, [isHRManager, isAdmin]);
+
+  // Map API stats to UI format
+  const getHrStats = () => {
+    if (!dashboardData?.stats) return defaultHrStats;
+    const { stats } = dashboardData;
+    return [
+      { label: "Total Employees", value: stats.totalEmployees || 0, color: "#2563eb", icon: "👥", change: "all employees" },
+      { label: "Pending Approvals", value: stats.pendingApprovals || 0, color: "#ea580c", icon: "✅", change: "need action" },
+      { label: "New Hires", value: stats.newHires || 0, color: "#16a34a", icon: "🎉", change: "this month" },
+      { label: "Open Grievances", value: stats.openGrievances || 0, color: "#dc2626", icon: "📝", change: "unresolved" },
+    ];
+  };
+
+  // Map API department distribution to chart format
+  const getDepartmentData = () => {
+    if (!dashboardData?.charts?.departmentDistribution || dashboardData.charts.departmentDistribution.length === 0) {
+      return defaultDepartmentData;
+    }
+    const colors = ["#2563eb", "#16a34a", "#7c3aed", "#ea580c", "#0891b2", "#dc2626", "#f59e0b"];
+    return dashboardData.charts.departmentDistribution.map((dept, index) => ({
+      label: dept.label || "Unknown",
+      value: dept.value || 0,
+      color: colors[index % colors.length],
+    }));
+  };
+
+  // Map API weekly attendance to chart format
+  const getWeeklyAttendance = () => {
+    if (!dashboardData?.charts?.weeklyAttendance || dashboardData.charts.weeklyAttendance.length === 0) {
+      return defaultWeeklyAttendance;
+    }
+    const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    return dashboardData.charts.weeklyAttendance.map((item, index) => ({
+      label: dayLabels[index] || `Day ${index + 1}`,
+      value: item.percentage || 0,
+    }));
+  };
+
+  // Map API activities to UI format
+  const getActivities = () => {
+    if (!dashboardData?.activities || dashboardData.activities.length === 0) {
+      return getPersonalizedActivities(user).slice(0, 4);
+    }
+    return dashboardData.activities.slice(0, 4).map((activity, index) => {
+      const date = new Date(activity.createdAt);
+      const now = new Date();
+      const diffTime = Math.abs(now - date);
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      let timeStr = "";
+      if (diffDays === 0) {
+        const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+        if (diffHours === 0) {
+          const diffMins = Math.floor(diffTime / (1000 * 60));
+          timeStr = diffMins <= 1 ? "Just now" : `${diffMins} minutes ago`;
+        } else {
+          timeStr = diffHours === 1 ? "1 hour ago" : `${diffHours} hours ago`;
+        }
+      } else if (diffDays === 1) {
+        timeStr = "Yesterday, " + date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      } else if (diffDays < 7) {
+        timeStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      } else {
+        timeStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+
+      // Map action types to icons
+      const actionIcons = {
+        "Checked in": "🟢",
+        "Checked out": "🔴",
+        "BGV submitted": "🔍",
+        "onboarding submitted": "📋",
+        "Grievance submitted": "📝",
+        "Leave request": "🏖️",
+        "Profile updated": "✏️",
+      };
+
+      const icon = actionIcons[activity.action] || "📌";
+      const type = activity.type === "success" ? "success" : activity.type === "warning" ? "warning" : "info";
+
+      return {
+        id: activity._id || index,
+        action: activity.action || "Unknown action",
+        time: timeStr,
+        icon: icon,
+        type: type,
+      };
+    });
+  };
+
+  // Map API team data to UI format
+  const getTeamMembers = () => {
+    if (!dashboardData?.team || dashboardData.team.length === 0) {
+      return teamMembers; // Use default if no team data
+    }
+    return dashboardData.team.slice(0, 4).map((member) => ({
+      id: member._id || member.id,
+      name: member.name || "Unknown",
+      role: member.designation || member.role || "Employee",
+      avatar: (member.name || "U").charAt(0).toUpperCase(),
+      status: "online", // Default status
+    }));
+  };
+  
   // Get appropriate stats and quick links based on role
-  const currentStats = isAdmin ? adminStats : (isHRManager ? hrStats : getEmployeeStats(user));
+  const currentStats = isAdmin ? adminStats : (isHRManager ? getHrStats() : getEmployeeStats(user));
   const quickLinks = isAdmin ? adminQuickLinks : (isHRManager ? hrQuickLinks : employeeQuickLinks);
+  
+  // Get chart data
+  const departmentData = (isHRManager || isAdmin) ? getDepartmentData() : [];
+  const weeklyAttendanceData = (isHRManager || isAdmin) ? getWeeklyAttendance() : [];
+  const activities = !isAdmin ? getActivities() : [];
+  const teamData = isHRManager ? getTeamMembers() : [];
 
   // Get current week's quote
   const currentQuote = weeklyQuotes[getWeeklyQuoteIndex()];
@@ -331,17 +491,29 @@ export default function Dashboard() {
             <h3 className="font-bold text-lg mb-4" style={{ color: textPrimary }}>
               Department Distribution
             </h3>
-            <div className="flex items-center justify-center">
-              <PieChart data={departmentData} size={180} strokeWidth={35} />
-            </div>
-            <div className="grid grid-cols-3 gap-2 mt-4">
-              {departmentData.slice(0, 3).map((item, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                  <span className="text-xs" style={{ color: textSecondary }}>{item.label}</span>
+            {isLoadingDashboard ? (
+              <div className="flex items-center justify-center h-48">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: colors.primary }}></div>
+              </div>
+            ) : dashboardError ? (
+              <div className="text-center py-8">
+                <p className="text-sm" style={{ color: textSecondary }}>Failed to load chart data</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-center">
+                  <PieChart data={departmentData} size={180} strokeWidth={35} />
                 </div>
-              ))}
-            </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-4">
+                  {departmentData.slice(0, 6).map((item, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
+                      <span className="text-xs" style={{ color: textSecondary }}>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Today's Attendance */}
@@ -349,27 +521,52 @@ export default function Dashboard() {
             <h3 className="font-bold text-lg mb-4" style={{ color: textPrimary }}>
               Today's Attendance
             </h3>
-            <div className="flex items-center justify-center mb-4">
-              <DonutChart 
-                percentage={91} 
-                size={150} 
-                strokeWidth={15} 
-                color="#16a34a" 
-                label="Present"
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { label: "Present", value: 142, color: "#16a34a" },
-                { label: "Leave", value: 8, color: "#ea580c" },
-                { label: "Optional Holiday", value: 6, color: "#9333ea" },
-              ].map((item, i) => (
-                <div key={i} className="text-center p-2 rounded-lg" style={{ backgroundColor: `${item.color}10` }}>
-                  <p className="text-lg font-bold" style={{ color: item.color }}>{item.value}</p>
-                  <p className="text-xs" style={{ color: textSecondary }}>{item.label}</p>
-                </div>
-              ))}
-            </div>
+            {isLoadingAttendance ? (
+              <div className="flex items-center justify-center h-48">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: colors.primary }}></div>
+              </div>
+            ) : attendanceError ? (
+              <div className="text-center py-8">
+                <p className="text-sm" style={{ color: textSecondary }}>Failed to load attendance data</p>
+              </div>
+            ) : (
+              <>
+                {(() => {
+                  const summary = attendanceData?.summary || {};
+                  const total = summary.totalEmployees || 0;
+                  const present = summary.present || 0;
+                  const presentPercentage = total > 0 ? Math.round((present / total) * 100) : 0;
+                  
+                  return (
+                    <>
+                      <div className="flex items-center justify-center mb-4">
+                        <DonutChart 
+                          percentage={presentPercentage} 
+                          size={150} 
+                          strokeWidth={15} 
+                          color="#16a34a" 
+                          label="Present"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="text-center p-2 rounded-lg" style={{ backgroundColor: '#16a34a10' }}>
+                          <p className="text-lg font-bold" style={{ color: '#16a34a' }}>{present}</p>
+                          <p className="text-xs" style={{ color: textSecondary }}>Present</p>
+                        </div>
+                        <div className="text-center p-2 rounded-lg" style={{ backgroundColor: '#ea580c10' }}>
+                          <p className="text-lg font-bold" style={{ color: '#ea580c' }}>{summary.onLeave || 0}</p>
+                          <p className="text-xs" style={{ color: textSecondary }}>On Leave</p>
+                        </div>
+                        <div className="text-center p-2 rounded-lg" style={{ backgroundColor: '#2563eb10' }}>
+                          <p className="text-lg font-bold" style={{ color: '#2563eb' }}>{summary.checkedOut || 0}</p>
+                          <p className="text-xs" style={{ color: textSecondary }}>Checked Out</p>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </>
+            )}
           </div>
 
           {/* Weekly Attendance Trend */}
@@ -377,7 +574,17 @@ export default function Dashboard() {
             <h3 className="font-bold text-lg mb-4" style={{ color: textPrimary }}>
               Weekly Attendance %
             </h3>
-            <BarChart data={monthlyAttendance} height={180} />
+            {isLoadingDashboard ? (
+              <div className="flex items-center justify-center h-48">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: colors.primary }}></div>
+              </div>
+            ) : dashboardError ? (
+              <div className="text-center py-8">
+                <p className="text-sm" style={{ color: textSecondary }}>Failed to load chart data</p>
+              </div>
+            ) : (
+              <BarChart data={weeklyAttendanceData} height={180} />
+            )}
           </div>
         </div>
       )}
@@ -453,8 +660,13 @@ export default function Dashboard() {
         {!isAdmin && (
           <div className="lg:col-span-2 p-6 animate-fade-in-up stagger-3" style={cardStyle}>
             <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Recent Activity</h2>
-            <div className="space-y-3">
-              {getPersonalizedActivities(user).map((activity, index) => (
+            {isLoadingDashboard && (isHRManager || isAdmin) ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: colors.primary }}></div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activities.map((activity, index) => (
                 <div
                   key={activity.id}
                   className="flex items-center gap-4 p-4 rounded-xl transition-all hover:scale-[1.01]"
@@ -480,8 +692,9 @@ export default function Dashboard() {
                     <p className="text-sm" style={{ color: textSecondary }}>{activity.time}</p>
                   </div>
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -519,14 +732,14 @@ export default function Dashboard() {
                 <Link
                   key={index}
                   to={link.path}
-                  className="p-4 rounded-xl text-center transition-all hover-lift hover-glow"
+                  className="p-4 rounded-xl text-center transition-all hover-lift hover-glow flex flex-col items-center justify-center min-h-[100px]"
                   style={{ 
                     background: `linear-gradient(135deg, ${link.color}15, ${link.color}05)`,
                     border: `1px solid ${link.color}30`
                   }}
                 >
                   <span className="text-3xl block mb-2">{link.icon}</span>
-                  <span className="text-sm font-semibold" style={{ color: link.color }}>{link.name}</span>
+                  <span className="text-xs sm:text-sm font-semibold leading-tight text-center" style={{ color: link.color }}>{link.name}</span>
                 </Link>
               ))}
             </div>
@@ -586,8 +799,17 @@ export default function Dashboard() {
                         : "linear-gradient(135deg, #16a34a, #15803d)"
                     }}
                   >
-                    <span className="text-lg">{event.date.split(" ")[1]}</span>
-                    <span className="text-[10px] opacity-80">{event.date.split(" ")[0]}</span>
+                    {event.date === "Daily" ? (
+                      <>
+                        <span className="text-lg">📅</span>
+                        <span className="text-[10px] opacity-80">Daily</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-lg">{event.date.substring(0, 3)}</span>
+                        <span className="text-[10px] opacity-80">{event.date}</span>
+                      </>
+                    )}
                   </div>
                   <div className="flex-1">
                     <p className="font-semibold" style={{ color: textPrimary }}>{event.title}</p>
@@ -602,8 +824,13 @@ export default function Dashboard() {
           {isHRManager && (
             <div className="p-6 animate-fade-in-up stagger-5" style={cardStyle}>
               <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Team Members</h2>
-              <div className="space-y-3">
-                {teamMembers.map((member) => (
+              {isLoadingDashboard ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: colors.primary }}></div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {teamData.length > 0 ? teamData.map((member) => (
                   <div
                     key={member.id}
                     className="flex items-center gap-4 p-3 rounded-xl transition-all hover:scale-[1.01]"
@@ -629,8 +856,13 @@ export default function Dashboard() {
                       <p className="text-sm" style={{ color: textSecondary }}>{member.role}</p>
                     </div>
                   </div>
-                ))}
-              </div>
+                  )) : (
+                    <div className="text-center py-8">
+                      <p className="text-sm" style={{ color: textSecondary }}>No team members available</p>
+                    </div>
+                  )}
+                </div>
+              )}
               <Link
                 to="/directory"
                 className="mt-4 block text-center font-semibold text-sm py-3 rounded-xl transition-all hover:opacity-80"

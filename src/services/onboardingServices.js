@@ -85,7 +85,7 @@ export async function bgvApproveOnboarding(onboardingId, bgvData) {
  * BGV reject onboarding employee
  * @param {string} onboardingId - The ID of the onboarding record
  * @param {Object} bgvData - Object containing:
- *   - remarks: string
+ *   - remarks: string (or reject: string)
  * @returns {Promise} API response
  */
 export async function bgvRejectOnboarding(onboardingId, bgvData) {
