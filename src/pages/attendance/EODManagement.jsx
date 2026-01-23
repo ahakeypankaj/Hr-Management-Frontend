@@ -93,8 +93,10 @@ export default function EODManagement() {
                     name: e.employee?.name,
                     email: e.employee?.email,
                     status: formatStatus(e),
-                    time: e.time ? new Date(e.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
-                    summary: formatSummary(e.summary),
+                    submissionTime: e.time ? new Date(e.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
+                    projects: Array.isArray(e.summary) ? [...new Set(e.summary.map(s => s.project || s.projectName).filter(Boolean))].join(', ') : '-',
+                    workingHours: e.totalWorkingHours || 0,
+                    tasks: formatSummary(e.summary),
                     date: e.date ? new Date(e.date).toLocaleDateString() : '-'
                 }));
 
@@ -118,8 +120,10 @@ export default function EODManagement() {
                     id: e._id,
                     date: e.date ? new Date(e.date).toLocaleDateString() : '-',
                     status: formatStatus(e),
+                    submissionTime: e.time ? new Date(e.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
+                    projects: Array.isArray(e.summary) ? [...new Set(e.summary.map(s => s.project || s.projectName).filter(Boolean))].join(', ') : '-',
                     workingHours: e.totalWorkingHours || 0,
-                    summary: formatSummary(e.summary)
+                    tasks: formatSummary(e.summary)
                 }));
 
                 setEodData(formattedEods);
@@ -372,18 +376,22 @@ export default function EODManagement() {
                                 <tr>
                                     {isHRManager ? (
                                         <>
-                                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Employee</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Date</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Status</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Submission</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Task Summary</th>
+                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Employee</th>
+                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Project Name</th>
+                                            <th className="px-2 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: textSecondary }}>Worked Hours</th>
+                                            <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Status</th>
+                                            <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: textSecondary }}>Submission Time</th>
+                                            <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Date</th>
+                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider w-full" style={{ color: textSecondary }}>Task Summary</th>
                                         </>
                                     ) : (
                                         <>
-                                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Date</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Status</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Hours</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Task Summary</th>
+                                            <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Date</th>
+                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Project Name</th>
+                                            <th className="px-2 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: textSecondary }}>Worked Hours</th>
+                                            <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Status</th>
+                                            <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: textSecondary }}>Submission Time</th>
+                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider w-full" style={{ color: textSecondary }}>Task Summary</th>
                                         </>
                                     )}
                                 </tr>
@@ -395,51 +403,57 @@ export default function EODManagement() {
                                         <tr key={idx} className="hover:bg-opacity-50 transition-all">
                                             {isHRManager ? (
                                                 <>
-                                                    <td className="px-6 py-4">
+                                                    <td className="px-4 py-4">
                                                         <div className="flex items-center gap-3">
                                                             <div
-                                                                className="w-9 h-9 rounded-xl flex items-center justify-center font-bold"
+                                                                className="w-9 h-9 rounded-xl flex items-center justify-center font-bold shrink-0"
                                                                 style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}
                                                             >
                                                                 {(row.name || "U").charAt(0).toUpperCase()}
                                                             </div>
-                                                            <div>
-                                                                <p className="font-semibold text-sm" style={{ color: textPrimary }}>{row.name}</p>
-                                                                <p className="text-xs" style={{ color: textSecondary }}>{row.email}</p>
+                                                            <div className="min-w-0">
+                                                                <p className="font-semibold text-sm truncate" style={{ color: textPrimary }}>{row.name}</p>
+                                                                <p className="text-xs truncate" style={{ color: textSecondary }}>{row.email}</p>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-sm" style={{ color: textPrimary }}>{row.date}</td>
-                                                    <td className="px-6 py-4 text-sm">
+                                                    <td className="px-4 py-4">
+                                                        <div className="text-sm font-medium" style={{ color: textPrimary }}>{row.projects}</div>
+                                                    </td>
+                                                    <td className="px-2 py-4 text-sm font-bold whitespace-nowrap" style={{ color: textPrimary }}>{row.workingHours}h</td>
+                                                    <td className="px-3 py-4 text-sm">
                                                         <span
-                                                            className="px-3 py-1 rounded-full font-bold flex items-center gap-1 w-fit"
+                                                            className="px-3 py-1 rounded-full font-bold flex items-center gap-1 w-fit whitespace-nowrap"
                                                             style={{ backgroundColor: statusStyle.bg, color: statusStyle.color, fontSize: '11px' }}
                                                         >
                                                             {statusStyle.icon} {row.status}
                                                         </span>
                                                     </td>
-                                                    <td className="px-6 py-4 text-sm" style={{ color: textSecondary }}>{row.time}</td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="text-xs line-clamp-2 max-w-xs" style={{ color: textSecondary }}>
-                                                            {row.summary}
+                                                    <td className="px-3 py-4 text-sm font-medium whitespace-nowrap" style={{ color: textSecondary }}>{row.submissionTime}</td>
+                                                    <td className="px-3 py-4 text-sm whitespace-nowrap" style={{ color: textPrimary }}>{row.date}</td>
+                                                    <td className="px-4 py-4">
+                                                        <div className="text-xs text-wrap" style={{ color: textSecondary }}>
+                                                            {row.tasks}
                                                         </div>
                                                     </td>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <td className="px-6 py-4 text-sm font-semibold" style={{ color: textPrimary }}>{row.date}</td>
-                                                    <td className="px-6 py-4 text-sm">
+                                                    <td className="px-3 py-4 text-sm font-semibold whitespace-nowrap" style={{ color: textPrimary }}>{row.date}</td>
+                                                    <td className="px-4 py-4 text-sm font-medium" style={{ color: textPrimary }}>{row.projects}</td>
+                                                    <td className="px-2 py-4 text-sm font-bold whitespace-nowrap" style={{ color: textPrimary }}>{row.workingHours}h</td>
+                                                    <td className="px-3 py-4 text-sm">
                                                         <span
-                                                            className="px-3 py-1 rounded-full font-bold flex items-center gap-1 w-fit"
+                                                            className="px-3 py-1 rounded-full font-bold flex items-center gap-1 w-fit whitespace-nowrap"
                                                             style={{ backgroundColor: statusStyle.bg, color: statusStyle.color, fontSize: '11px' }}
                                                         >
                                                             {statusStyle.icon} {row.status}
                                                         </span>
                                                     </td>
-                                                    <td className="px-6 py-4 text-sm font-bold" style={{ color: textPrimary }}>{row.workingHours}h</td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="text-sm" style={{ color: textSecondary }}>
-                                                            {row.summary}
+                                                    <td className="px-3 py-4 text-sm font-medium whitespace-nowrap" style={{ color: textSecondary }}>{row.submissionTime}</td>
+                                                    <td className="px-4 py-4">
+                                                        <div className="text-sm text-wrap" style={{ color: textSecondary }}>
+                                                            {row.tasks}
                                                         </div>
                                                     </td>
                                                 </>
