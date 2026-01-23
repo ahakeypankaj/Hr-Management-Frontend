@@ -51,6 +51,12 @@ export default function EODManagement() {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
 
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalRecords, setTotalRecords] = useState(0);
+    const ITEMS_PER_PAGE = 10;
+
     const navyBlue = '#1e3a5f';
     const cardStyle = {
         backgroundColor: isDark ? '#1e293b' : '#ffffff',
@@ -71,10 +77,12 @@ export default function EODManagement() {
         try {
             if (isHRManager) {
                 const params = {
-                    startDate: new Date(dateRange.from).toISOString(),
-                    endDate: new Date(dateRange.to).toISOString(),
+                    startDate: dateRange.from,
+                    endDate: dateRange.to,
                     search: searchTerm || undefined,
-                    status: statusFilter !== "All" ? statusFilter : undefined
+                    status: statusFilter !== "All" ? statusFilter : undefined,
+                    page: currentPage,
+                    limit: ITEMS_PER_PAGE
                 };
                 const data = await fetchEODDetails(params);
 
@@ -91,25 +99,32 @@ export default function EODManagement() {
                 }));
 
                 setEodData(formattedEods);
-                setSummary(data.stats || {
-                    totalEmployees: 0,
-                    submittedToday: 0,
-                    missedEODCount: 0,
-                    totalWorkingHoursToday: 0
+                setTotalPages(data.totalPages || 1);
+                setTotalRecords(data.total || 0);
+
+                // Robustly set summary stats
+                const stats = data.stats || data.summary || {};
+                setSummary({
+                    totalEmployees: stats.totalEmployees || stats.total || 0,
+                    submittedToday: stats.submittedToday || stats.submitted || stats.totalSubmitted || 0,
+                    missedEODCount: stats.missedEODCount || stats.missed || stats.totalMissed || 0,
+                    totalWorkingHoursToday: stats.totalWorkingHoursToday || stats.totalHours || 0
                 });
             } else {
-                const data = await fetchEmployeeEOD(user.id, dateRange.from, dateRange.to);
-                const empEods = data.employee?.eods || [];
+                const data = await fetchEmployeeEOD(user.id, dateRange.from, dateRange.to, currentPage, ITEMS_PER_PAGE);
+                const empEods = data.eods || [];
 
                 const formattedEods = empEods.map(e => ({
                     id: e._id,
-                    date: new Date(e.date).toLocaleDateString(),
-                    status: e.submissionStatus === 'submitted' ? 'Submitted' : 'Missed',
-                    summary: formatSummary(e.tasks),
-                    workingHours: e.workingHours || 0
+                    date: e.date ? new Date(e.date).toLocaleDateString() : '-',
+                    status: formatStatus(e),
+                    workingHours: e.totalWorkingHours || 0,
+                    summary: formatSummary(e.summary)
                 }));
 
                 setEodData(formattedEods);
+                setTotalPages(data.totalPages || 1);
+                setTotalRecords(data.total || 0);
             }
         } catch (err) {
             console.error("Error fetching EOD data:", err);
@@ -135,8 +150,12 @@ export default function EODManagement() {
     };
 
     useEffect(() => {
+        setCurrentPage(1);
+    }, [dateRange, isHRManager, searchTerm, statusFilter]);
+
+    useEffect(() => {
         fetchData();
-    }, [dateRange, isHRManager]);
+    }, [dateRange, isHRManager, searchTerm, statusFilter, currentPage]);
 
     const handleExport = async () => {
         try {
@@ -176,6 +195,10 @@ export default function EODManagement() {
         return `${fromDate.toLocaleDateString("en-US", options)} - ${toDate.toLocaleDateString("en-US", options)}`;
     };
 
+    // Calculate stats for the selected range from the current table data
+    const rangeSubmitted = eodData.filter(e => e.status === "Submitted").length;
+    const rangeMissed = eodData.filter(e => e.status === "Missed").length;
+
     return (
         <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {/* Header */}
@@ -189,21 +212,41 @@ export default function EODManagement() {
                     </p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 items-center">
                     {isHRManager && (
-                        <button
-                            onClick={handleExport}
-                            className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 flex items-center gap-2"
-                            style={{ background: `linear-gradient(135deg, #16a34a 0%, #15803d 100%)` }}
-                        >
-                            <span>📊</span> Export Excel
-                        </button>
+                        <>
+                            <div
+                                className="flex items-center gap-3 px-4 py-2 rounded-xl"
+                                style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}
+                            >
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-sm">Today:</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-xs">✅</span>
+                                        <span className="text-sm font-bold" style={{ color: '#16a34a' }}>{summary.submittedToday}</span>
+                                    </div>
+                                    <div className="w-[1px] h-3 bg-gray-300 dark:bg-gray-600"></div>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-xs">❌</span>
+                                        <span className="text-sm font-bold" style={{ color: '#dc2626' }}>{summary.missedEODCount}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={handleExport}
+                                className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 flex items-center gap-2"
+                                style={{ background: `linear-gradient(135deg, #16a34a 0%, #15803d 100%)` }}
+                            >
+                                <span>📊</span> Export Excel
+                            </button>
+                        </>
                     )}
                     <div
                         className="text-right px-4 py-2 rounded-xl min-w-[120px]"
                         style={{ background: `linear-gradient(135deg, ${navyBlue} 0%, #2563eb 100%)` }}
                     >
-                        <p className="text-xs text-blue-100">Live View</p>
                         <p className="text-sm font-bold text-white">
                             {getHeaderDate()}
                         </p>
@@ -215,8 +258,8 @@ export default function EODManagement() {
             {isHRManager && (
                 <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 animate-fade-in-up">
                     {[
-                        { label: "Submitted EOD", value: summary.submittedToday, icon: "✅", color: "#16a34a" },
-                        { label: "Missed EOD", value: summary.missedEODCount, icon: "❌", color: "#dc2626" },
+                        { label: "EOD: Submitted", value: rangeSubmitted, icon: "📊", color: "#2563eb" },
+                        { label: "EOD: Missed", value: rangeMissed, icon: "📉", color: "#f59e0b" },
                     ].map((stat, i) => (
                         <div key={i} className="p-4" style={cardStyle}>
                             <div className="flex items-center justify-between">
@@ -293,7 +336,7 @@ export default function EODManagement() {
                 </div>
 
                 <div className="mt-4 flex justify-between items-center text-xs" style={{ color: textSecondary }}>
-                    <p>Filtered Results: {eodData.length}</p>
+                    <p>Total Records: {totalRecords} | Page {currentPage} of {totalPages}</p>
                     <button
                         onClick={fetchData}
                         className="font-bold hover:opacity-80 transition-all flex items-center gap-1"
@@ -406,6 +449,43 @@ export default function EODManagement() {
                                 })}
                             </tbody>
                         </table>
+
+                        {/* Pagination Controls */}
+                        {totalPages > 1 && (
+                            <div className="p-4 flex items-center justify-between border-t" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-30"
+                                    style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
+                                >
+                                    Previous
+                                </button>
+                                <div className="flex gap-2">
+                                    {[...Array(totalPages)].map((_, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => setCurrentPage(i + 1)}
+                                            className={`w-9 h-9 rounded-xl text-sm font-bold transition-all ${currentPage === i + 1 ? 'text-white' : ''}`}
+                                            style={{
+                                                backgroundColor: currentPage === i + 1 ? navyBlue : (isDark ? '#334155' : '#f1f5f9'),
+                                                color: currentPage === i + 1 ? 'white' : textPrimary
+                                            }}
+                                        >
+                                            {i + 1}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-30"
+                                    style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

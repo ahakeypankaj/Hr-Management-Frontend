@@ -33,14 +33,18 @@ export async function fetchEODDetails(params = {}) {
  * @param {string} id - Employee ID
  * @param {string} fromDate - ISO date string
  * @param {string} toDate - ISO date string
+ * @param {number} page - Page number
+ * @param {number} limit - Items per page
  * @returns {Promise} API response
  */
-export async function fetchEmployeeEOD(id, fromDate, toDate) {
-    let url = `employee/getParticularEmployeeData/${id}`;
+export async function fetchEmployeeEOD(id, fromDate, toDate, page = 1, limit = 10) {
+    const query = new URLSearchParams();
+    if (fromDate) query.append('from_date', fromDate);
+    if (toDate) query.append('to_date', toDate);
+    if (page) query.append('page', String(page));
+    if (limit) query.append('limit', String(limit));
 
-    if (fromDate && toDate) {
-        url += `?from_date=${fromDate}&to_date=${toDate}`;
-    }
+    const url = `user/eod/employee/${id}?${query.toString()}`;
 
     console.log(`[EOD] Fetching employee EOD: ${url}`);
     try {
@@ -63,7 +67,7 @@ export async function downloadEODExcel(startDate, endDate) {
     if (startDate) query.append('startDate', startDate);
     if (endDate) query.append('endDate', endDate);
 
-    const url = `user/eod/download-excel${query.toString() ? `?${query.toString()}` : ''}`;
+    const url = `user/eod/download-excel-by-employee${query.toString() ? `?${query.toString()}` : ''}`;
 
     try {
         const response = await api.get(url, {
