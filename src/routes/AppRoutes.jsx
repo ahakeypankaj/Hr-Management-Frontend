@@ -18,6 +18,7 @@ import EmployeeProfile from '../pages/directory/EmployeeProfile'
 import Grievance from '../pages/grievance/Grievance'
 import Performance from '../pages/performance/Performance'
 import Events from '../pages/events/Events'
+import EODManagement from '../pages/attendance/EODManagement'
 
 // HR/Manager Pages
 import TeamUserManagement from '../pages/hr/TeamUserManagement'
@@ -37,7 +38,7 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
   const auth = useAuth() || {}
   const user = auth.user || { isLoggedIn: false, role: null }
   const isInitializing = auth.isInitializing !== undefined ? auth.isInitializing : false
-  
+
   // Show loading state while checking authentication
   if (isInitializing) {
     return (
@@ -49,7 +50,7 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
       </div>
     )
   }
-  
+
   if (!user.isLoggedIn) {
     return <Navigate to="/login" replace />
   }
@@ -58,7 +59,7 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />
   }
-  
+
   return <MainLayout>{children}</MainLayout>
 }
 
@@ -81,34 +82,39 @@ export default function AppRoutes() {
   }
 
   return (
-      <Routes>
+    <Routes>
       {/* ===================== PUBLIC ROUTE ===================== */}
-      <Route 
-        path="/login" 
-        element={user.isLoggedIn ? <Navigate to="/dashboard" replace /> : <Login />} 
+      <Route
+        path="/login"
+        element={user.isLoggedIn ? <Navigate to="/dashboard" replace /> : <Login />}
       />
 
       {/* Standalone Document Upload - Public routes (must be before default redirect) */}
-      <Route 
-        path="/upload-documents/onboarding/:onboardingId" 
-        element={<DocumentUploadStandalone />} 
+      <Route
+        path="/upload-documents/onboarding/:onboardingId"
+        element={<DocumentUploadStandalone />}
       />
-      <Route 
-        path="/upload-documents/:token" 
-        element={<DocumentUploadStandalone />} 
+      <Route
+        path="/upload-documents/:token"
+        element={<DocumentUploadStandalone />}
       />
-      <Route 
-        path="/upload-documents" 
-        element={<DocumentUploadStandalone />} 
+      <Route
+        path="/upload-documents"
+        element={<DocumentUploadStandalone />}
       />
 
       {/* Default redirect */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
       {/* ===================== ALL USERS ===================== */}
       {/* Dashboard - Available to all logged in users */}
       <Route path="/dashboard" element={
         <ProtectedRoute><Dashboard /></ProtectedRoute>
+      } />
+
+      {/* EOD Management - Available to all logged in users */}
+      <Route path="/eod-management" element={
+        <ProtectedRoute><EODManagement /></ProtectedRoute>
       } />
 
       {/* Events - Available to all logged in users */}
@@ -118,27 +124,27 @@ export default function AppRoutes() {
 
       {/* ===================== EMPLOYEE & HR/MANAGER ONLY ===================== */}
       {/* These pages are NOT for Admin */}
-      
+
       <Route path="/profile" element={
         <ProtectedRoute allowedRoles={['employee', 'hr_manager']}><Profile /></ProtectedRoute>
       } />
-      
+
       <Route path="/attendance" element={
         <ProtectedRoute allowedRoles={['employee', 'hr_manager']}><Attendance /></ProtectedRoute>
       } />
-      
+
       <Route path="/leave" element={
         <ProtectedRoute allowedRoles={['employee', 'hr_manager']}><LeaveManagement /></ProtectedRoute>
       } />
-      
+
       <Route path="/expense" element={
         <ProtectedRoute allowedRoles={['employee', 'hr_manager']}><ExpenseManagement /></ProtectedRoute>
       } />
-      
+
       <Route path="/grievance" element={
         <ProtectedRoute allowedRoles={['employee', 'hr_manager']}><Grievance /></ProtectedRoute>
       } />
-      
+
       <Route path="/performance" element={
         <ProtectedRoute allowedRoles={['employee', 'hr_manager']}><Performance /></ProtectedRoute>
       } />
@@ -152,7 +158,7 @@ export default function AppRoutes() {
       <Route path="/directory" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><EmployeeDirectory /></ProtectedRoute>
       } />
-      
+
       <Route path="/directory/:id" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><EmployeeProfile /></ProtectedRoute>
       } />
@@ -161,47 +167,47 @@ export default function AppRoutes() {
       <Route path="/hr/team" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><TeamUserManagement /></ProtectedRoute>
       } />
-      
+
       {/* User Management (redirects to team) */}
       <Route path="/hr/users" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><TeamUserManagement /></ProtectedRoute>
       } />
-      
+
       {/* Attendance Management */}
       <Route path="/hr/attendance" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><AttendanceManagement /></ProtectedRoute>
       } />
-      
+
       {/* Grievance Management */}
       <Route path="/hr/grievances" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><HRGrievances /></ProtectedRoute>
       } />
-      
+
       {/* Approvals */}
       <Route path="/hr/approvals" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><Approvals /></ProtectedRoute>
       } />
-      
+
       {/* Add Employee */}
       <Route path="/hr/users/add" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><AddEmployee /></ProtectedRoute>
       } />
-      
+
       {/* Document Upload */}
       <Route path="/hr/documents/upload" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><DocumentUpload /></ProtectedRoute>
       } />
-      
+
       {/* Performance Hub */}
       <Route path="/hr/performance" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><PerformanceHub /></ProtectedRoute>
       } />
-      
+
       {/* Reports */}
       <Route path="/hr/reports" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><Reports /></ProtectedRoute>
       } />
-      
+
       {/* Settings & Audit */}
       <Route path="/hr/settings" element={
         <ProtectedRoute allowedRoles={['hr_manager', 'admin']}><Settings /></ProtectedRoute>
@@ -209,10 +215,10 @@ export default function AppRoutes() {
 
       {/* ===================== CATCH ALL ===================== */}
       <Route path="*" element={
-        user.isLoggedIn 
+        user.isLoggedIn
           ? <ProtectedRoute><div className='p-6 text-center'>Page not found</div></ProtectedRoute>
           : <Navigate to="/login" replace />
       } />
-      </Routes>
+    </Routes>
   )
 }

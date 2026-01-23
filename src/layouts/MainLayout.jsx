@@ -53,7 +53,7 @@ export default function MainLayout({ children }) {
             const now = new Date();
             const diffTime = Math.abs(now - date);
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            
+
             let timeStr = "";
             if (diffDays === 0) {
               const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
@@ -112,7 +112,7 @@ export default function MainLayout({ children }) {
       try {
         await markAsRead(notification.id);
         // Update local state
-        setNotifications(prev => prev.map(n => 
+        setNotifications(prev => prev.map(n =>
           n.id === notification.id ? { ...n, read: true } : n
         ));
         // Update unread count
@@ -129,11 +129,11 @@ export default function MainLayout({ children }) {
       if (!url.startsWith('/')) {
         url = '/' + url;
       }
-      
+
       // Extract base path (e.g., /hr/grievances from /hr/grievances/123)
       // This handles routes like /hr/grievances/:id or /hr/leaves/:id
       const urlParts = url.split('/').filter(part => part);
-      
+
       // Map notification types to base routes
       let basePath = url;
       if (notification.notificationType === 'grievance') {
@@ -148,7 +148,7 @@ export default function MainLayout({ children }) {
           basePath = '/' + urlParts.slice(0, 2).join('/');
         }
       }
-      
+
       console.log('Navigating to:', basePath, 'from actionUrl:', notification.actionUrl);
       navigate(basePath);
       setShowNotifications(false);
@@ -160,6 +160,7 @@ export default function MainLayout({ children }) {
     { name: "Dashboard", path: "/dashboard", icon: "📊" },
     { name: "My Profile", path: "/profile", icon: "👤" },
     { name: "Attendance", path: "/attendance", icon: "⏰" },
+    { name: "EOD Management", path: "/eod-management", icon: "📑" },
     { name: "Leave Management", path: "/leave", icon: "🏖️" },
     { name: "Expenses", path: "/expense", icon: "💰" },
     { name: "Grievance", path: "/grievance", icon: "📝" },
@@ -173,7 +174,8 @@ export default function MainLayout({ children }) {
     { name: "Approvals", path: "/hr/approvals", icon: "✅", highlight: true },
     { name: "Onboarding Employees", path: "/hr/team", icon: "👥" },
     { name: "Add Onboarding Employee", path: "/hr/users/add", icon: "➕" },
-    { name: "Attendance Mgmt", path: "/hr/attendance", icon: "⏰" },
+    { name: "Attendance Mgmt (Live)", path: "/hr/attendance", icon: "⏰" },
+    { name: "EOD Management (EOD)", path: "/eod-management", icon: "📑" },
     { name: "Grievance Mgmt", path: "/hr/grievances", icon: "📝" },
     { name: "Directory", path: "/directory", icon: "📖" },
     { name: "Performance Hub", path: "/hr/performance", icon: "📈" },
@@ -183,6 +185,7 @@ export default function MainLayout({ children }) {
     { divider: true, label: "My Features" },
     { name: "My Profile", path: "/profile", icon: "👤" },
     { name: "Attendance", path: "/attendance", icon: "⏰" },
+    { name: "EOD History", path: "/eod-management?view=personal", icon: "📑" },
     { name: "Leave Management", path: "/leave", icon: "🏖️" },
     { name: "Expenses", path: "/expense", icon: "💰" },
   ];
@@ -195,7 +198,8 @@ export default function MainLayout({ children }) {
     { name: "Add Onboarding Employee", path: "/hr/users/add", icon: "➕" },
     { name: "Approvals", path: "/hr/approvals", icon: "✅", highlight: true },
     { divider: true, label: "Organization" },
-    { name: "Attendance Mgmt", path: "/hr/attendance", icon: "⏰" },
+    { name: "Attendance Mgmt (Live)", path: "/hr/attendance", icon: "⏰" },
+    { name: "EOD Mgmt (EOD)", path: "/eod-management", icon: "📑" },
     { name: "Grievance Mgmt", path: "/hr/grievances", icon: "📝" },
     { name: "Directory", path: "/directory", icon: "📖" },
     { name: "Performance Hub", path: "/hr/performance", icon: "📈" },
@@ -224,17 +228,17 @@ export default function MainLayout({ children }) {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen"
-      style={{ 
+      style={{
         backgroundColor: isDark ? '#0f172a' : '#f8fafc',
         fontFamily: "'Outfit', sans-serif"
       }}
     >
       {/* TOP HEADER */}
-      <header 
+      <header
         className="fixed top-0 left-0 right-0 h-16 z-50 flex items-center justify-between px-4 animate-fade-in-down"
-        style={{ 
+        style={{
           backgroundColor: navyBlue,
           boxShadow: '0 4px 20px rgba(30, 58, 95, 0.3)'
         }}
@@ -251,7 +255,7 @@ export default function MainLayout({ children }) {
             </svg>
           </button>
           <div className="flex items-center gap-3">
-            <div 
+            <div
               className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
               style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
             >
@@ -267,11 +271,11 @@ export default function MainLayout({ children }) {
         <div className="flex items-center gap-2">
           {/* User Info - Admin has no profile link */}
           {isAdmin ? (
-            <div 
+            <div
               className="flex items-center gap-3 px-3 py-1.5 rounded-xl"
               style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
             >
-              <div 
+              <div
                 className="w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm border-2 border-red-400/50"
                 style={{ backgroundColor: 'rgba(220, 38, 38, 0.3)' }}
               >
@@ -283,12 +287,12 @@ export default function MainLayout({ children }) {
               </div>
             </div>
           ) : (
-            <Link 
+            <Link
               to="/profile"
               className="flex items-center gap-3 px-3 py-1.5 rounded-xl transition-all hover:bg-white/10"
               style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
             >
-              <div 
+              <div
                 className="w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm border-2 border-white/30"
                 style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
               >
@@ -313,7 +317,7 @@ export default function MainLayout({ children }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
               {unreadCount > 0 && (
-                <span 
+                <span
                   className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
                   style={{ backgroundColor: '#dc2626', color: '#ffffff' }}
                 >
@@ -324,23 +328,23 @@ export default function MainLayout({ children }) {
 
             {/* Notifications Dropdown */}
             {showNotifications && (
-              <div 
+              <div
                 className="absolute right-0 sm:right-0 top-12 w-[calc(100vw-2rem)] sm:w-80 max-w-sm rounded-xl shadow-2xl overflow-hidden animate-fade-in-down z-50"
-                style={{ 
+                style={{
                   backgroundColor: isDark ? '#1e293b' : '#ffffff',
                   border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`
                 }}
               >
-                <div 
+                <div
                   className="p-4 font-bold flex items-center justify-between"
-                  style={{ 
+                  style={{
                     borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
                     color: isDark ? '#f8fafc' : '#0f172a'
                   }}
                 >
                   <span>Notifications</span>
                   {unreadCount > 0 && (
-                    <span 
+                    <span
                       className="px-2 py-0.5 rounded-full text-xs"
                       style={{ backgroundColor: '#dc262620', color: '#dc2626' }}
                     >
@@ -362,11 +366,11 @@ export default function MainLayout({ children }) {
                     </div>
                   ) : (
                     notifications.map((notif) => (
-                      <div 
+                      <div
                         key={notif.id}
                         onClick={() => handleNotificationClick(notif)}
                         className="p-4 flex gap-3 cursor-pointer transition-all hover:bg-opacity-50"
-                        style={{ 
+                        style={{
                           backgroundColor: !notif.read ? (isDark ? '#334155' : '#f8fafc') : 'transparent',
                           borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`
                         }}
@@ -411,7 +415,7 @@ export default function MainLayout({ children }) {
               </svg>
             ) : (
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                <path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
               </svg>
             )}
           </button>
@@ -429,7 +433,7 @@ export default function MainLayout({ children }) {
 
       {/* Click outside to close notifications - positioned to not cover sidebar */}
       {showNotifications && (
-        <div 
+        <div
           className="fixed inset-0 z-30"
           onClick={() => setShowNotifications(false)}
         />
@@ -438,7 +442,7 @@ export default function MainLayout({ children }) {
       {/* LEFT SIDEBAR */}
       <aside
         className="fixed top-16 left-0 bottom-0 w-64 z-50 flex flex-col transition-transform duration-300 animate-fade-in-left"
-        style={{ 
+        style={{
           backgroundColor: isDark ? '#1e293b' : '#ffffff',
           borderRight: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
           boxShadow: isDark ? 'none' : '4px 0 20px rgba(30, 58, 95, 0.05)',
@@ -449,7 +453,7 @@ export default function MainLayout({ children }) {
         <div className="p-4 flex-shrink-0">
           <div
             className="px-4 py-3 rounded-xl text-center font-semibold text-sm text-white"
-            style={{ 
+            style={{
               backgroundColor: isAdmin ? '#dc2626' : (isHRManager ? '#7c3aed' : navyBlue),
               boxShadow: `0 4px 15px ${isAdmin ? 'rgba(220, 38, 38, 0.3)' : (isHRManager ? 'rgba(124, 58, 237, 0.3)' : 'rgba(30, 58, 95, 0.3)')}`
             }}
@@ -463,8 +467,8 @@ export default function MainLayout({ children }) {
           {menu.map((item, index) => {
             if (item.divider) {
               return (
-                <div 
-                  key={`divider-${index}`} 
+                <div
+                  key={`divider-${index}`}
                   className="mt-4 mb-2 px-4 pt-4"
                   style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}
                 >
@@ -475,13 +479,13 @@ export default function MainLayout({ children }) {
               );
             }
 
-            const isActive = location.pathname === item.path;
+            const isActive = (location.pathname + location.search) === item.path;
             return (
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-1 font-medium transition-all cursor-pointer text-left"
-                style={{ 
+                style={{
                   backgroundColor: isActive ? navyBlue : 'transparent',
                   color: isActive ? '#ffffff' : (isDark ? '#94a3b8' : '#475569'),
                   boxShadow: isActive ? '0 4px 15px rgba(30, 58, 95, 0.3)' : 'none',
@@ -492,7 +496,7 @@ export default function MainLayout({ children }) {
                 <span className="text-lg flex-shrink-0">{item.icon}</span>
                 <span className="flex-1 truncate">{item.name}</span>
                 {item.highlight && (
-                  <span 
+                  <span
                     className="px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0"
                     style={{ backgroundColor: '#dc2626', color: '#ffffff' }}
                   >
@@ -509,14 +513,14 @@ export default function MainLayout({ children }) {
         </nav>
 
         {/* Sidebar Footer - Fixed at bottom */}
-        <div 
+        <div
           className="p-4 flex-shrink-0"
-          style={{ 
+          style={{
             backgroundColor: isDark ? '#1e293b' : '#ffffff',
             borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`
           }}
         >
-          <div 
+          <div
             className="p-4 rounded-xl text-center"
             style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9' }}
           >
@@ -543,7 +547,7 @@ export default function MainLayout({ children }) {
       {/* FOOTER */}
       <footer
         className="py-4 text-center text-sm transition-all duration-300"
-        style={{ 
+        style={{
           marginLeft: sidebarOpen ? '256px' : '0',
           backgroundColor: isDark ? '#1e293b' : '#ffffff',
           color: isDark ? '#64748b' : '#64748b',
