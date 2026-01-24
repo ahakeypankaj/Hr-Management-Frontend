@@ -38,7 +38,7 @@ export default function PerformanceHub() {
           goals.push({
             id: `${performance._id}-${index}`,
             performanceId: performance._id,
-            empId: performance.userId?.employeeId || 'N/A',
+            empId: performance.userId?.employeeId || '',
             empName: performance.userId?.name || 'Unknown',
             goal: goal.title || '',
             description: goal.description || '',
@@ -46,7 +46,7 @@ export default function PerformanceHub() {
             selfScore: goal.selfRating || null,
             managerScore: goal.managerRating || null,
             status: getGoalStatus(performance.status, goal),
-            deadline: performance.cycleId ? 'TBD' : 'N/A',
+            deadline: performance.cycleId ? 'TBD' : '',
             department: performance.userId?.department || 'Unknown',
             comments: goal.comments || '',
           });
@@ -65,10 +65,10 @@ export default function PerformanceHub() {
       return {
         id: performance._id,
         performanceId: performance._id,
-        empId: performance.userId?.employeeId || 'N/A',
+        empId: performance.userId?.employeeId || '',
         empName: performance.userId?.name || 'Unknown',
         dept: performance.userId?.department || 'Unknown',
-        cycle: performance.cycleId || 'N/A',
+        cycle: performance.cycleId || '',
         selfReview: hasSelfReview,
         managerReview: hasManagerReview,
         peerFeedback: 0, // Not in API response
@@ -387,7 +387,9 @@ export default function PerformanceHub() {
                             </div>
                             <div>
                               <p className="font-semibold text-sm" style={{ color: textPrimary }}>{goal.empName}</p>
-                              <p className="text-xs" style={{ color: textSecondary }}>{goal.empId}</p>
+                              {goal.empId && (
+                                <p className="text-xs" style={{ color: textSecondary }}>{goal.empId}</p>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -408,7 +410,7 @@ export default function PerformanceHub() {
                             {goal.status.replace("_", " ").toUpperCase()}
                           </span>
                         </td>
-                        <td className="px-6 py-4" style={{ color: textSecondary }}>{goal.deadline}</td>
+                        <td className="px-6 py-4" style={{ color: textSecondary }}>{goal.deadline || "—"}</td>
                       </tr>
                     );
                   })
@@ -480,7 +482,7 @@ export default function PerformanceHub() {
                         </div>
                         <div>
                           <h3 className="font-bold" style={{ color: textPrimary }}>{review.empName}</h3>
-                          <p className="text-sm" style={{ color: textSecondary }}>{review.dept} • {review.cycle}</p>
+                          <p className="text-sm" style={{ color: textSecondary }}>{[review.dept, review.cycle].filter(Boolean).join(" • ") || "—"}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-6">

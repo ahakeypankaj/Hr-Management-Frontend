@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
 import { getPendingExpenses, approveExpense, rejectExpense } from "../../services/expenseService";
-import { getPendingLeaveApprovals, approveLeave, rejectLeave } from "../../services/leaveService";
+import { getPendingLeaveApprovals, approveLeave, rejectLeave, getTeamLeaveCalendar } from "../../services/leaveService";
 import { fetchEmployees } from "../../services/directoryService";
 import * as onboardingServices from "../../services/onboardingServices";
+
+// Leave type configuration for calendar
+const leaveTypeConfig = {
+  casual: { color: "#60a5fa", icon: "🏖️", label: "Casual" },
+  vacation: { color: "#a78bfa", icon: "✈️", label: "Vacation" },
+  sick: { color: "#f87171", icon: "🏥", label: "Sick" },
+};
 
 // Mock approval data - onboarding will be fetched from API
 const mockApprovals = {
@@ -22,10 +29,19 @@ export default function Approvals() {
   const [activeTab, setActiveTab] = useState("leave");
   const [selectedItems, setSelectedItems] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showTeamCalendarModal, setShowTeamCalendarModal] = useState(false);
   const [modalAction, setModalAction] = useState("");
   const [modalItem, setModalItem] = useState(null);
   const [comment, setComment] = useState("");
   const [effectiveDate, setEffectiveDate] = useState("");
+
+  // Calendar state for team leave calendar
+  const today = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+  const [calendarData, setCalendarData] = useState(null);
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+  const [calendarError, setCalendarError] = useState(null);
 
   // Filters
   const [filterDept, setFilterDept] = useState("All");
@@ -502,6 +518,77 @@ export default function Approvals() {
     }
   };
 
+  // Build calendar structure from API leaves (startDate/endDate ISO, userId, leaveType, status)
+  const buildCalendarFromLeaves = (leaves, year, month) => {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const cal = {};
+    for (let day = 1; day <= daysInMonth; day++) cal[day] = [];
+    (leaves || []).forEach((leave) => {
+      const start = new Date(leave.startDate);
+      const end = new Date(leave.endDate);
+      const user = leave.userId || {};
+      const entry = {
+        employeeId: user._id || user.employeeId,
+        employeeName: user.name || "Unknown",
+        department: user.department || "",
+        leaveType: leave.leaveType || "casual",
+        status: leave.status || "pending",
+      };
+      const cursor = new Date(start);
+      while (cursor <= end) {
+        if (cursor.getFullYear() === year && cursor.getMonth() === month) {
+          const d = cursor.getDate();
+          cal[d].push(entry);
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    });
+    return { calendarData: cal, daysInMonth, firstDayOfMonth };
+  };
+
+  // Fetch team leave calendar from API when modal opens or month/year changes
+  useEffect(() => {
+    if (!showTeamCalendarModal) return;
+    const fetchCalendar = async () => {
+      setIsLoadingCalendar(true);
+      setCalendarError(null);
+      try {
+        const res = await getTeamLeaveCalendar(selectedYear, selectedMonth);
+        const payload = res?.data ?? res;
+        const leaves = payload?.leaves ?? [];
+        const { calendarData: cal, daysInMonth, firstDayOfMonth } = buildCalendarFromLeaves(leaves, selectedYear, selectedMonth);
+        setCalendarData({ calendarData: cal, daysInMonth, firstDayOfMonth });
+      } catch (err) {
+        console.error("Error fetching team leave calendar:", err);
+        setCalendarError(err?.response?.data?.message || err?.message || "Failed to load team calendar.");
+        setCalendarData(null);
+      } finally {
+        setIsLoadingCalendar(false);
+      }
+    };
+    fetchCalendar();
+  }, [showTeamCalendarModal, selectedMonth, selectedYear]);
+
+  // Navigate months
+  const handlePreviousMonth = () => {
+    if (selectedMonth === 0) {
+      setSelectedMonth(11);
+      setSelectedYear(selectedYear - 1);
+    } else {
+      setSelectedMonth(selectedMonth - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (selectedMonth === 11) {
+      setSelectedMonth(0);
+      setSelectedYear(selectedYear + 1);
+    } else {
+      setSelectedMonth(selectedMonth + 1);
+    }
+  };
+
   return (
     <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
       {/* Header */}
@@ -510,12 +597,28 @@ export default function Approvals() {
           <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>Approvals Dashboard</h1>
           <p style={{ color: textSecondary }}>Manage onboarding, leave, and expense requests</p>
         </div>
-        <div 
-          className="px-4 py-2 rounded-xl"
-          style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}
-        >
-          <span className="font-bold text-2xl">{totalPending}</span>
-          <span className="ml-2 text-sm">pending approvals</span>
+        <div className="flex items-center gap-3">
+          {activeTab === "leave" && (
+            <button
+              onClick={() => {
+                const now = new Date();
+                setSelectedMonth(now.getMonth());
+                setSelectedYear(now.getFullYear());
+                setShowTeamCalendarModal(true);
+              }}
+              className="px-6 py-3 rounded-xl font-bold text-white flex items-center gap-2 transition-all hover:opacity-90"
+              style={{ backgroundColor: '#0891b2', boxShadow: '0 4px 15px rgba(8, 145, 178, 0.4)' }}
+            >
+              📅 Team Calendar
+            </button>
+          )}
+          <div 
+            className="px-4 py-2 rounded-xl"
+            style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}
+          >
+            <span className="font-bold text-2xl">{totalPending}</span>
+            <span className="ml-2 text-sm">pending approvals</span>
+          </div>
         </div>
       </div>
 
@@ -704,9 +807,14 @@ export default function Approvals() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-bold" style={{ color: textPrimary }}>{item.name}</h3>
-                      {(activeTab === "onboarding" || activeTab === "leave") && (
+                      {activeTab === "onboarding" && (
                         <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}>
                           {item.department}
+                        </span>
+                      )}
+                      {activeTab === "leave" && (
+                        <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}>
+                          {item.designation || '—'}
                         </span>
                       )}
                     </div>
@@ -831,7 +939,7 @@ export default function Approvals() {
               <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                 <p className="font-bold" style={{ color: textPrimary }}>{modalItem.name}</p>
                 <p className="text-sm" style={{ color: textSecondary }}>
-                  {activeTab === "onboarding" && `${modalItem.department || 'Unknown'} - ${modalItem.designation || 'N/A'}`}
+                  {activeTab === "onboarding" && [modalItem.department || "Unknown", modalItem.designation].filter(Boolean).join(" – ")}
                   {activeTab === "leave" && `${modalItem.type} (${modalItem.days} days)`}
                   {activeTab === "expense" && `${modalItem.category} - ₹${modalItem.amount.toLocaleString()}`}
                 </p>
@@ -873,6 +981,184 @@ export default function Approvals() {
           </div>
         </div>
       )}
+
+      {/* Team Leave Calendar Modal */}
+      {showTeamCalendarModal && (() => {
+        const cal = calendarData?.calendarData || {};
+        const daysInMonth = calendarData?.daysInMonth ?? new Date(selectedYear, selectedMonth + 1, 0).getDate();
+        const firstDayOfMonth = calendarData?.firstDayOfMonth ?? new Date(selectedYear, selectedMonth, 1).getDay();
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const isCurrentMonth = selectedMonth === today.getMonth() && selectedYear === today.getFullYear();
+
+        return (
+          <div
+            className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in p-4"
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)'
+            }}
+            onClick={() => setShowTeamCalendarModal(false)}
+          >
+            <div
+              className="w-full max-w-6xl animate-scale-in"
+              style={{
+                backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                borderRadius: '24px',
+                boxShadow: '0 25px 80px -12px rgba(0, 0, 0, 0.8)',
+                overflow: 'hidden',
+                maxHeight: '90vh'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div
+                className="p-6 border-b"
+                style={{
+                  background: `linear-gradient(135deg, ${navyBlue}, #2563eb)`,
+                  borderColor: isDark ? '#334155' : '#e2e8f0'
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={handlePreviousMonth}
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all"
+                    >
+                      ←
+                    </button>
+                    <div>
+                      <h2 className="text-2xl font-bold text-white">Team Leave Calendar</h2>
+                      <p className="text-blue-100 text-sm mt-1">{monthNames[selectedMonth]} {selectedYear}</p>
+                    </div>
+                    <button
+                      onClick={handleNextMonth}
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all"
+                    >
+                      →
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setShowTeamCalendarModal(false)}
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Calendar Body */}
+              <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 100px)' }}>
+                {isLoadingCalendar ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                    <span className="ml-4" style={{ color: textPrimary }}>Loading team calendar…</span>
+                  </div>
+                ) : calendarError ? (
+                  <div className="flex flex-col items-center justify-center py-16" style={{ color: textSecondary }}>
+                    <p className="font-medium" style={{ color: textPrimary }}>{calendarError}</p>
+                    <p className="text-sm mt-2">Try another month or check your connection.</p>
+                  </div>
+                ) : (
+                  <>
+                {/* Legend */}
+                <div className="flex flex-wrap gap-4 mb-6 pb-4 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                  {Object.entries(leaveTypeConfig).map(([type, config]) => (
+                    <div key={type} className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded" style={{ backgroundColor: `${config.color}40`, border: `1px solid ${config.color}` }}></div>
+                      <span className="text-sm" style={{ color: textPrimary }}>{config.label}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded border-2" style={{ borderColor: '#d97706', backgroundColor: '#fef3c7' }}></div>
+                    <span className="text-sm" style={{ color: textPrimary }}>Overlapping</span>
+                  </div>
+                </div>
+
+                {/* Calendar Grid */}
+                <div className="grid grid-cols-7 gap-2 mb-6">
+                  {/* Day Headers */}
+                  {dayNames.map((day) => (
+                    <div
+                      key={day}
+                      className="text-center font-bold text-sm py-2"
+                      style={{ color: textSecondary }}
+                    >
+                      {day}
+                    </div>
+                  ))}
+
+                  {/* Empty cells for days before month starts */}
+                  {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+                    <div key={`empty-${i}`} className="aspect-square"></div>
+                  ))}
+
+                  {/* Calendar Days */}
+                  {Array.from({ length: daysInMonth }).map((_, i) => {
+                    const day = i + 1;
+                    const dayLeaves = cal[day] || [];
+                    const isToday = isCurrentMonth && today.getDate() === day;
+                    const isOverlapping = dayLeaves.length > 1;
+                    const hasLeaves = dayLeaves.length > 0;
+
+                    // No background color for day cells
+                    let dayColor = 'transparent';
+                    let borderColor = isDark ? '#475569' : '#e2e8f0';
+
+                    return (
+                      <div
+                        key={day}
+                        className="aspect-square p-1 rounded-lg transition-all hover:scale-105 relative"
+                        style={{
+                          backgroundColor: dayColor,
+                          border: `2px solid ${isToday ? '#2563eb' : borderColor}`,
+                          cursor: hasLeaves ? 'pointer' : 'default',
+                          minHeight: '60px'
+                        }}
+                        title={hasLeaves ? `${dayLeaves.length} employee(s) on leave` : 'No leaves'}
+                      >
+                        <div className="flex flex-col h-full">
+                          <span
+                            className="text-sm font-bold mb-1"
+                            style={{ color: hasLeaves ? textPrimary : textSecondary }}
+                          >
+                            {day}
+                          </span>
+                          {hasLeaves && (
+                            <div className="flex-1 flex flex-col gap-0.5 overflow-y-auto">
+                              {dayLeaves.map((leave, idx) => {
+                                const config = leaveTypeConfig[leave.leaveType] || leaveTypeConfig.casual;
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="text-[9px] px-1 py-0.5 rounded truncate"
+                                    style={{ 
+                                      color: config.color
+                                    }}
+                                    title={`${leave.employeeName} - ${config.label} (${leave.status})`}
+                                  >
+                                    {leave.employeeName.split(' ')[0]}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {isOverlapping && (
+                            <span className="absolute top-1 right-1 text-[10px]" style={{ color: '#d97706' }}>⚠️</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

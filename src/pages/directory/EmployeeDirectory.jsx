@@ -4,18 +4,22 @@ import { useTheme } from "../../context/ThemeContext";
 import { fetchEmployees } from "../../services/directoryService";
 
 // Map API user data to UI format
+// Directory API: profilePicture, department (string or { name, _id })
 const mapUserToEmployee = (user) => {
+  const dept = typeof user.department === "object" && user.department?.name
+    ? user.department.name
+    : user.department || "";
   return {
     id: user.employeeId || user._id,
     _id: user._id,
     name: user.name || "",
-    dept: user.department || "",
+    dept,
     role: user.designation || user.role || "",
     joiningDate: user.joiningDate ? new Date(user.joiningDate).toISOString().split('T')[0] : "",
     email: user.companyEmail || user.personalEmail || "",
     phone: user.phoneNumber || "",
     status: user.isActive ? "Active" : "Inactive",
-    dob: user.dateOfBirth || null, // Not in API response, will be null
+    dob: user.dateOfBirth || null,
     profilePicture: user.profilePicture || null,
     employeeId: user.employeeId,
     employmentType: user.employmentType || "",
@@ -234,12 +238,20 @@ export default function EmployeeDirectory() {
             <div key={emp._id || emp.id} className="p-5 transition-all hover:scale-[1.02] hover-lift" style={cardStyle}>
             {/* Avatar and Status */}
             <div className="flex items-start justify-between mb-4">
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold"
-                style={{ background: getAvatarColor(emp.name) }}
-              >
-                {emp.name.charAt(0)}
-              </div>
+              {emp.profilePicture ? (
+                <img
+                  src={emp.profilePicture}
+                  alt={emp.name}
+                  className="w-14 h-14 rounded-full object-cover"
+                />
+              ) : (
+                <div
+                  className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold"
+                  style={{ background: getAvatarColor(emp.name) }}
+                >
+                  {emp.name.charAt(0)}
+                </div>
+              )}
               <span 
                 className="px-3 py-1 rounded-full text-xs font-bold"
                 style={{ 
@@ -253,19 +265,24 @@ export default function EmployeeDirectory() {
 
             {/* Employee Info */}
             <h3 className="font-bold text-lg" style={{ color: textPrimary }}>{emp.name}</h3>
-            <p className="font-semibold text-sm" style={{ color: navyBlue }}>{emp.role || "N/A"}</p>
-            <p className="text-sm mt-1" style={{ color: textSecondary }}>{emp.dept || "N/A"}</p>
-            <p className="text-xs mt-1 font-mono" style={{ color: textSecondary }}>{emp.employeeId || emp.id || "N/A"}</p>
+            {emp.role && <p className="font-semibold text-sm" style={{ color: navyBlue }}>{emp.role}</p>}
+            {emp.dept && <p className="text-sm mt-1" style={{ color: textSecondary }}>{emp.dept}</p>}
+            {(emp.employeeId || emp.id) && <p className="text-xs mt-1 font-mono" style={{ color: textSecondary }}>{emp.employeeId || emp.id}</p>}
 
-            {/* Contact Info */}
-            <div className="mt-4 pt-4 space-y-2" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-              <p className="text-sm flex items-center gap-2" style={{ color: textSecondary }}>
-                <span>📧</span> {emp.email}
-              </p>
-              <p className="text-sm flex items-center gap-2" style={{ color: textSecondary }}>
-                <span>📱</span> {emp.phone}
-              </p>
-            </div>
+            {(emp.email || emp.phone) && (
+              <div className="mt-4 pt-4 space-y-2" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+                {emp.email && (
+                  <p className="text-sm flex items-center gap-2" style={{ color: textSecondary }}>
+                    <span>📧</span> {emp.email}
+                  </p>
+                )}
+                {emp.phone && (
+                  <p className="text-sm flex items-center gap-2" style={{ color: textSecondary }}>
+                    <span>📱</span> {emp.phone}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* View Profile Link */}
             <Link

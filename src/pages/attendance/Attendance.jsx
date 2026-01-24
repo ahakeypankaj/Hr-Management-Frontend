@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import DonutChart from "../../components/charts/DonutChart";
-import { checkIn, checkOut, getAttendanceHistory, getTodayAttendance } from "../../services/attendanceService";
+import { checkIn, checkOut, getAttendanceHistory, getTodayAttendance, getMonthlyAttendance } from "../../services/attendanceService";
 
 // Helper function to format time from ISO string
 const formatTime = (isoString) => {
@@ -55,6 +55,8 @@ export default function Attendance() {
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [calendarData, setCalendarData] = useState(null);
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
 
   const colors = {
     primary: '#1e3a5f',
@@ -162,49 +164,50 @@ export default function Attendance() {
 
   const handleFilterChange = () => setCurrentPage(1);
 
-  // Generate static attendance data for selected month
-  const generateAttendanceData = (year, month) => {
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOfMonth = new Date(year, month, 1).getDay();
-    
-    const attendanceData = {};
-    
-    // Generate static data: mix of Present, Absent, and Late
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day);
-      const dayOfWeek = date.getDay();
-      
-      // Skip weekends (Saturday = 6, Sunday = 0)
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        attendanceData[day] = { status: 'weekend', checkInTime: null };
-      } else {
-        // Randomly assign status: 70% Present, 15% Late, 15% Absent
-        const rand = Math.random();
-        if (rand < 0.7) {
-          // Present - check-in before 9:30 AM
-          const checkInHour = Math.floor(Math.random() * 2) + 8; // 8 or 9
-          const checkInMinute = checkInHour === 8 ? Math.floor(Math.random() * 60) : Math.floor(Math.random() * 30);
-          attendanceData[day] = { 
-            status: 'present', 
-            checkInTime: `${checkInHour.toString().padStart(2, '0')}:${checkInMinute.toString().padStart(2, '0')}` 
-          };
-        } else if (rand < 0.85) {
-          // Late - check-in after 9:30 AM
-          const checkInHour = Math.floor(Math.random() * 3) + 9; // 9, 10, or 11
-          const checkInMinute = checkInHour === 9 ? Math.floor(Math.random() * 30) + 30 : Math.floor(Math.random() * 60);
-          attendanceData[day] = { 
-            status: 'late', 
-            checkInTime: `${checkInHour.toString().padStart(2, '0')}:${checkInMinute.toString().padStart(2, '0')}` 
-          };
-        } else {
-          // Absent
-          attendanceData[day] = { status: 'absent', checkInTime: null };
+  // Fetch monthly attendance data from API
+  useEffect(() => {
+    if (showCalendarModal) {
+      const fetchMonthlyAttendance = async () => {
+        setIsLoadingCalendar(true);
+        try {
+          // API expects month as 1-12, but JavaScript Date uses 0-11
+          const apiMonth = selectedMonth + 1;
+          const response = await getMonthlyAttendance(selectedYear, apiMonth);
+          
+          const payload = response?.data ?? response;
+          if (payload?.attendance) {
+            // Transform API response to calendar format; normalize status to lowercase for getStatusColor
+            const attendanceData = {};
+            payload.attendance.forEach((item) => {
+              attendanceData[item.day] = {
+                status: typeof item.status === "string" ? item.status.toLowerCase() : item.status,
+                checkInTime: item.checkInTime,
+                checkOutTime: item.checkOutTime,
+                totalHours: item.totalHours,
+                isLate: item.isLate,
+                isWeekend: item.isWeekend,
+                isHoliday: item.isHoliday,
+                isLeave: item.isLeave,
+              };
+            });
+            setCalendarData({
+              attendanceData,
+              daysInMonth: payload.daysInMonth,
+              firstDayOfMonth: payload.firstDayOfMonth,
+              summary: payload.summary,
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching monthly attendance:", error);
+          setCalendarData(null);
+        } finally {
+          setIsLoadingCalendar(false);
         }
-      }
+      };
+
+      fetchMonthlyAttendance();
     }
-    
-    return { attendanceData, daysInMonth, firstDayOfMonth };
-  };
+  }, [showCalendarModal, selectedMonth, selectedYear]);
 
   // Navigate months
   const handlePreviousMonth = () => {
@@ -744,11 +747,15 @@ export default function Attendance() {
 
       {/* Attendance Calendar Modal */}
       {showCalendarModal && (() => {
-        const { attendanceData, daysInMonth, firstDayOfMonth } = generateAttendanceData(selectedYear, selectedMonth);
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         const today = new Date();
         const isCurrentMonth = selectedMonth === today.getMonth() && selectedYear === today.getFullYear();
+        
+        // Use API data if available, otherwise show loading
+        const attendanceData = calendarData?.attendanceData || {};
+        const daysInMonth = calendarData?.daysInMonth || new Date(selectedYear, selectedMonth + 1, 0).getDate();
+        const firstDayOfMonth = calendarData?.firstDayOfMonth || new Date(selectedYear, selectedMonth, 1).getDay();
         
         const getStatusColor = (status) => {
           switch (status) {
@@ -756,6 +763,8 @@ export default function Attendance() {
             case 'late': return { bg: '#fef3c7', text: '#d97706', border: '#fde68a' };
             case 'absent': return { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' };
             case 'weekend': return { bg: isDark ? '#334155' : '#f1f5f9', text: isDark ? '#94a3b8' : '#64748b', border: isDark ? '#475569' : '#e2e8f0' };
+            case 'half-day': return { bg: '#dbeafe', text: '#2563eb', border: '#bfdbfe' };
+            case 'leave': return { bg: '#f3e8ff', text: '#7c3aed', border: '#e9d5ff' };
             default: return { bg: isDark ? '#334155' : '#f8fafc', text: textSecondary, border: isDark ? '#475569' : '#e2e8f0' };
           }
         };
@@ -818,85 +827,131 @@ export default function Attendance() {
 
               {/* Calendar Body */}
               <div className="p-6">
-                {/* Legend */}
-                <div className="flex flex-wrap gap-4 mb-6 pb-4 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded" style={{ backgroundColor: '#dcfce7', border: '1px solid #bbf7d0' }}></div>
-                    <span className="text-sm" style={{ color: textPrimary }}>Present</span>
+                {isLoadingCalendar ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                    <span className="ml-4" style={{ color: textPrimary }}>Loading calendar data...</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded" style={{ backgroundColor: '#fef3c7', border: '1px solid #fde68a' }}></div>
-                    <span className="text-sm" style={{ color: textPrimary }}>Late (after 9:30 AM)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded" style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca' }}></div>
-                    <span className="text-sm" style={{ color: textPrimary }}>Absent</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded" style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}></div>
-                    <span className="text-sm" style={{ color: textPrimary }}>Weekend</span>
-                  </div>
-                </div>
-
-                {/* Calendar Grid */}
-                <div className="grid grid-cols-7 gap-2">
-                  {/* Day Headers */}
-                  {dayNames.map((day) => (
-                    <div
-                      key={day}
-                      className="text-center font-bold text-sm py-2"
-                      style={{ color: textSecondary }}
-                    >
-                      {day}
-                    </div>
-                  ))}
-
-                  {/* Empty cells for days before month starts */}
-                  {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-                    <div key={`empty-${i}`} className="aspect-square"></div>
-                  ))}
-
-                  {/* Calendar Days */}
-                  {Array.from({ length: daysInMonth }).map((_, i) => {
-                    const day = i + 1;
-                    const dayData = attendanceData[day];
-                    const statusColors = getStatusColor(dayData?.status);
-                    const isToday = isCurrentMonth && today.getDate() === day;
-
-                    return (
-                      <div
-                        key={day}
-                        className="aspect-square p-1 rounded-lg transition-all hover:scale-105"
-                        style={{
-                          backgroundColor: statusColors.bg,
-                          border: `2px solid ${isToday ? '#2563eb' : statusColors.border}`,
-                          cursor: dayData?.status !== 'weekend' ? 'pointer' : 'default'
-                        }}
-                        title={dayData?.checkInTime ? `Check-in: ${dayData.checkInTime}` : dayData?.status === 'weekend' ? 'Weekend' : 'No check-in'}
-                      >
-                        <div className="flex flex-col items-center justify-center h-full">
-                          <span
-                            className="text-sm font-bold"
-                            style={{ color: statusColors.text }}
-                          >
-                            {day}
-                          </span>
-                          {dayData?.checkInTime && (
-                            <span
-                              className="text-[10px] mt-0.5"
-                              style={{ color: statusColors.text }}
-                            >
-                              {dayData.checkInTime}
-                            </span>
-                          )}
-                          {dayData?.status === 'late' && (
-                            <span className="text-[10px] mt-0.5" style={{ color: '#d97706' }}>⚠️</span>
-                          )}
-                        </div>
+                ) : (
+                  <>
+                    {/* Legend */}
+                    <div className="flex flex-wrap gap-4 mb-6 pb-4 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: '#dcfce7', border: '1px solid #bbf7d0' }}></div>
+                        <span className="text-sm" style={{ color: textPrimary }}>Present</span>
                       </div>
-                    );
-                  })}
-                </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: '#fef3c7', border: '1px solid #fde68a' }}></div>
+                        <span className="text-sm" style={{ color: textPrimary }}>Late (after 9:30 AM)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca' }}></div>
+                        <span className="text-sm" style={{ color: textPrimary }}>Absent</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: '#dbeafe', border: '1px solid #bfdbfe' }}></div>
+                        <span className="text-sm" style={{ color: textPrimary }}>Half Day</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: '#f3e8ff', border: '1px solid #e9d5ff' }}></div>
+                        <span className="text-sm" style={{ color: textPrimary }}>Leave</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}></div>
+                        <span className="text-sm" style={{ color: textPrimary }}>Weekend</span>
+                      </div>
+                    </div>
+
+                    {/* Calendar Grid */}
+                    <div className="grid grid-cols-7 gap-2">
+                      {/* Day Headers */}
+                      {dayNames.map((day) => (
+                        <div
+                          key={day}
+                          className="text-center font-bold text-sm py-2"
+                          style={{ color: textSecondary }}
+                        >
+                          {day}
+                        </div>
+                      ))}
+
+                      {/* Empty cells for days before month starts */}
+                      {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+                        <div key={`empty-${i}`} className="aspect-square"></div>
+                      ))}
+
+                      {/* Calendar Days */}
+                      {Array.from({ length: daysInMonth }).map((_, i) => {
+                        const day = i + 1;
+                        const dayData = attendanceData[day];
+                        const statusColors = getStatusColor(dayData?.status);
+                        const isToday = isCurrentMonth && today.getDate() === day;
+                        
+                        // Format check-in time from ISO string
+                        let formattedCheckInTime = null;
+                        if (dayData?.checkInTime) {
+                          try {
+                            const checkInDate = new Date(dayData.checkInTime);
+                            formattedCheckInTime = checkInDate.toLocaleTimeString('en-US', { 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              hour12: true 
+                            });
+                          } catch (e) {
+                            formattedCheckInTime = dayData.checkInTime;
+                          }
+                        }
+
+                        // Determine if late (use isLate flag from API or check status)
+                        const isLate = dayData?.isLate || dayData?.status === 'late';
+
+                        return (
+                          <div
+                            key={day}
+                            className="aspect-square p-1 rounded-lg transition-all hover:scale-105"
+                            style={{
+                              backgroundColor: statusColors.bg,
+                              border: `2px solid ${isToday ? '#2563eb' : statusColors.border}`,
+                              cursor: dayData?.status && dayData.status !== 'weekend' ? 'pointer' : 'default',
+                              minHeight: '60px'
+                            }}
+                            title={
+                              dayData?.status === 'weekend' 
+                                ? 'Weekend' 
+                                : dayData?.status === 'leave'
+                                ? 'Leave'
+                                : dayData?.status === 'absent'
+                                ? 'Absent'
+                                : formattedCheckInTime
+                                ? `Check-in: ${formattedCheckInTime}${dayData?.totalHours ? ` | Hours: ${dayData.totalHours.toFixed(2)}h` : ''}`
+                                : 'No check-in'
+                            }
+                          >
+                            <div className="flex flex-col items-center justify-center h-full">
+                              <span
+                                className="text-sm font-bold"
+                                style={{ color: statusColors.text }}
+                              >
+                                {day}
+                              </span>
+                              {formattedCheckInTime && (
+                                <span
+                                  className="text-[9px] mt-0.5"
+                                  style={{ color: statusColors.text }}
+                                >
+                                  {formattedCheckInTime}
+                                </span>
+                              )}
+                              {isLate && (
+                                <span className="text-[10px] mt-0.5" style={{ color: '#d97706' }}>⚠️</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -4,22 +4,26 @@ import { useTheme } from "../../context/ThemeContext";
 import { fetchEmployee, fetchEmployees } from "../../services/directoryService";
 
 // Map API user data to UI format
+// Directory API: profilePicture, department (string or { name, _id })
 const mapUserToEmployee = (user) => {
   console.log('🔄 Mapping user data:', user);
+  const dept = typeof user.department === "object" && user.department?.name
+    ? user.department.name
+    : user.department || "";
   const mapped = {
     id: user.employeeId || user._id || "",
     _id: user._id || "",
     name: user.name || "Unknown",
-    dept: user.department || "N/A",
-    role: user.designation || user.role || "N/A",
+    dept,
+    role: user.designation || user.role || "",
     joiningDate: user.joiningDate ? new Date(user.joiningDate).toISOString().split('T')[0] : "",
     companyEmail: user.companyEmail || "",
     personalEmail: user.personalEmail || "",
     email: user.companyEmail || user.personalEmail || "",
     phone: user.phoneNumber || "",
     status: user.isActive !== undefined ? (user.isActive ? "Active" : "Inactive") : "Active",
-    manager: user.reportingManager || "N/A",
-    location: user.location || "N/A",
+    manager: user.reportingManager || "",
+    location: user.location || "",
     skills: user.skills || [],
     profilePicture: user.profilePicture || null,
     employeeId: user.employeeId || "",
@@ -231,58 +235,63 @@ export default function EmployeeProfile() {
                     </span>
                   )}
                 </div>
-                <p className="text-xl font-semibold mb-1 text-white" style={{ textShadow: '0 2px 6px rgba(0,0,0,0.3)' }}>
-                  {emp.role || "N/A"}
-                </p>
-                <p className="text-base text-white/90" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
-                  {emp.dept || "N/A"} {emp.dept && "Department"}
-                </p>
+                {emp.role && (
+                  <p className="text-xl font-semibold mb-1 text-white" style={{ textShadow: '0 2px 6px rgba(0,0,0,0.3)' }}>
+                    {emp.role}
+                  </p>
+                )}
+                {emp.dept && (
+                  <p className="text-base text-white/90" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
+                    {emp.dept} Department
+                  </p>
+                )}
               </div>
 
-              {/* Action Buttons on Gradient */}
-              <div className="flex flex-wrap gap-3 flex-shrink-0">
-                <a 
-                  href={`mailto:${emp.email}`} 
-                  className="px-6 py-3 rounded-xl font-semibold text-white transition-all hover:opacity-90 hover:scale-105 shadow-lg bg-white/20 backdrop-blur-sm border border-white/30"
-                >
-                  📧 Email
-                </a>
-                <a 
-                  href={`tel:${emp.phone}`} 
-                  className="px-6 py-3 rounded-xl font-semibold text-white transition-all hover:opacity-90 hover:scale-105 bg-white/20 backdrop-blur-sm border border-white/30"
-                >
-                  📞 Call
-                </a>
-              </div>
-            </div>
-          </div>
-          
-          {/* Additional Info Below Gradient */}
-          <div className="px-6 sm:px-8 py-6">
-            <div className="flex flex-wrap gap-3">
-              <span className="text-sm px-3 py-1.5 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textSecondary }}>
-                🆔 ID: {emp.id || emp._id || "N/A"}
-              </span>
-              {emp.joiningDate && (
-                <span className="text-sm px-3 py-1.5 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textSecondary }}>
-                  📅 Joined: {emp.joiningDate}
-                </span>
+              {(emp.email || emp.phone) && (
+                <div className="flex flex-wrap gap-3 flex-shrink-0">
+                  {emp.email && (
+                    <a 
+                      href={`mailto:${emp.email}`} 
+                      className="px-6 py-3 rounded-xl font-semibold text-white transition-all hover:opacity-90 hover:scale-105 shadow-lg bg-white/20 backdrop-blur-sm border border-white/30"
+                    >
+                      📧 Email
+                    </a>
+                  )}
+                  {emp.phone && (
+                    <a 
+                      href={`tel:${emp.phone}`} 
+                      className="px-6 py-3 rounded-xl font-semibold text-white transition-all hover:opacity-90 hover:scale-105 bg-white/20 backdrop-blur-sm border border-white/30"
+                    >
+                      📞 Call
+                    </a>
+                  )}
+                </div>
               )}
             </div>
           </div>
+          
+          {((emp.id || emp._id) || emp.joiningDate) && (
+            <div className="px-6 sm:px-8 py-6">
+              <div className="flex flex-wrap gap-3">
+                {(emp.id || emp._id) && (
+                  <span className="text-sm px-3 py-1.5 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textSecondary }}>
+                    🆔 ID: {emp.id || emp._id}
+                  </span>
+                )}
+                {emp.joiningDate && (
+                  <span className="text-sm px-3 py-1.5 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textSecondary }}>
+                    📅 Joined: {emp.joiningDate}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Contact & Work Info */}
           <div 
-            className="lg:col-span-2 space-y-6" 
-            style={{
-              maxHeight: 'calc(100vh - 250px)',
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              paddingRight: '12px',
-              paddingBottom: '20px'
-            }}
+            className="lg:col-span-2 space-y-6"
           >
             {/* Contact Information */}
             <div className="p-4" style={cardStyle}>
@@ -290,61 +299,58 @@ export default function EmployeeProfile() {
                 📞 Contact Information
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#dbeafe' }}>
-                      📧
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Company Email</p>
-                      <p className="font-semibold text-xs break-all" style={{ color: textPrimary }}>
-                        {emp.companyEmail || "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#f3e8ff' }}>
-                      📧
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Personal Email</p>
-                      <p className="font-semibold text-xs break-all" style={{ color: textPrimary }}>
-                        {emp.personalEmail || "N/A"}
-                      </p>
+                {emp.companyEmail && (
+                  <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#dbeafe' }}>
+                        📧
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Company Email</p>
+                        <p className="font-semibold text-xs break-all" style={{ color: textPrimary }}>{emp.companyEmail}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#dcfce7' }}>
-                      📱
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Phone Number</p>
-                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
-                        {emp.phone || "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#ffedd5' }}>
-                      📍
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Location</p>
-                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
-                        {emp.location || "N/A"}
-                      </p>
+                )}
+                {emp.personalEmail && (
+                  <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#f3e8ff' }}>
+                        📧
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Personal Email</p>
+                        <p className="font-semibold text-xs break-all" style={{ color: textPrimary }}>{emp.personalEmail}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
+                {emp.phone && (
+                  <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#dcfce7' }}>
+                        📱
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Phone Number</p>
+                        <p className="font-semibold text-xs" style={{ color: textPrimary }}>{emp.phone}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {emp.location && (
+                  <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#ffedd5' }}>
+                        📍
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Location</p>
+                        <p className="font-semibold text-xs" style={{ color: textPrimary }}>{emp.location}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -354,63 +360,59 @@ export default function EmployeeProfile() {
                 💼 Work Information
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#f3e8ff' }}>
-                      🏢
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Department</p>
-                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
-                        {emp.dept || "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#dbeafe' }}>
-                      💼
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Designation</p>
-                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
-                        {emp.role || "N/A"}
-                      </p>
+                {emp.dept && (
+                  <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#f3e8ff' }}>
+                        🏢
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Department</p>
+                        <p className="font-semibold text-xs" style={{ color: textPrimary }}>{emp.dept}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#fce7f3' }}>
-                      🆔
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Employee ID</p>
-                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
-                        {emp.employeeId || emp.id || "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#fef9c3' }}>
-                      📅
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Joining Date</p>
-                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
-                        {emp.joiningDate || "N/A"}
-                      </p>
+                )}
+                {emp.role && (
+                  <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#dbeafe' }}>
+                        💼
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Designation</p>
+                        <p className="font-semibold text-xs" style={{ color: textPrimary }}>{emp.role}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                {emp.manager && emp.manager !== "N/A" && (
+                )}
+                {(emp.employeeId || emp.id) && (
+                  <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#fce7f3' }}>
+                        🆔
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Employee ID</p>
+                        <p className="font-semibold text-xs" style={{ color: textPrimary }}>{emp.employeeId || emp.id}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {emp.joiningDate && (
+                  <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#fef9c3' }}>
+                        📅
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Joining Date</p>
+                        <p className="font-semibold text-xs" style={{ color: textPrimary }}>{emp.joiningDate}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {emp.manager && (
                   <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                     <div className="flex items-center gap-2">
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#dcfce7' }}>
@@ -425,49 +427,47 @@ export default function EmployeeProfile() {
                     </div>
                   </div>
                 )}
-
-                <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#fef3c7' }}>
-                      💼
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Employment Type</p>
-                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
-                        {emp.employmentType || "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#e0e7ff' }}>
-                      👔
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>User Role</p>
-                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
-                        {emp.userRole || "N/A"}
-                      </p>
+                {emp.employmentType && (
+                  <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#fef3c7' }}>
+                        💼
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Employment Type</p>
+                        <p className="font-semibold text-xs" style={{ color: textPrimary }}>{emp.employmentType}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#fce7f3' }}>
-                      🔐
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Account Status</p>
-                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
-                        {emp.accountStatus ? emp.accountStatus.charAt(0).toUpperCase() + emp.accountStatus.slice(1) : "N/A"}
-                      </p>
+                )}
+                {emp.userRole && (
+                  <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#e0e7ff' }}>
+                        👔
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>User Role</p>
+                        <p className="font-semibold text-xs" style={{ color: textPrimary }}>{emp.userRole}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-
+                )}
+                {/* {emp.accountStatus && (
+                  <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#fce7f3' }}>
+                        🔐
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Account Status</p>
+                        <p className="font-semibold text-xs" style={{ color: textPrimary }}>
+                          {emp.accountStatus.charAt(0).toUpperCase() + emp.accountStatus.slice(1)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )} */}
                 <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                   <div className="flex items-center gap-2">
                     <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#dbeafe' }}>
@@ -559,14 +559,7 @@ export default function EmployeeProfile() {
 
           {/* Right Column - Quick Stats / Additional Info */}
           <div 
-            className="space-y-6" 
-            style={{
-              maxHeight: 'calc(100vh - 250px)',
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              paddingRight: '12px',
-              paddingBottom: '20px'
-            }}
+            className="space-y-6"
           >
             {/* Quick Stats Card */}
             <div className="p-4" style={cardStyle}>
@@ -587,12 +580,14 @@ export default function EmployeeProfile() {
                   </span>
                 </div>
 
-                <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Employee ID</p>
-                  <p className="font-bold text-sm font-mono" style={{ color: textPrimary }}>
-                    {emp.id || emp._id || "N/A"}
-                  </p>
-                </div>
+                {(emp.id || emp._id) && (
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                    <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Employee ID</p>
+                    <p className="font-bold text-sm font-mono" style={{ color: textPrimary }}>
+                      {emp.id || emp._id}
+                    </p>
+                  </div>
+                )}
 
                 {emp.joiningDate && (
                   <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
@@ -605,34 +600,39 @@ export default function EmployeeProfile() {
               </div>
             </div>
 
-            {/* Additional Actions */}
-            <div className="p-4" style={cardStyle}>
-              <h2 className="text-lg font-bold mb-4 pb-3 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0', color: textPrimary }}>
-                ⚡ Quick Actions
-              </h2>
-              <div className="space-y-2">
-                <a 
-                  href={`mailto:${emp.email}`}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-semibold text-white text-sm transition-all hover:opacity-90 hover:scale-[1.02]"
-                  style={{ 
-                    backgroundColor: '#2563eb',
-                    boxShadow: '0 4px 15px rgba(37, 99, 235, 0.3)'
-                  }}
-                >
-                  📧 Send Email
-                </a>
-                <a 
-                  href={`tel:${emp.phone}`}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-semibold text-sm transition-all hover:opacity-90 hover:scale-[1.02]"
-                  style={{ 
-                    backgroundColor: isDark ? '#334155' : '#f1f5f9', 
-                    color: textPrimary 
-                  }}
-                >
-                  📞 Make Call
-                </a>
+            {(emp.email || emp.phone) && (
+              <div className="p-4" style={cardStyle}>
+                <h2 className="text-lg font-bold mb-4 pb-3 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0', color: textPrimary }}>
+                  ⚡ Quick Actions
+                </h2>
+                <div className="space-y-2">
+                  {emp.email && (
+                    <a 
+                      href={`mailto:${emp.email}`}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-semibold text-white text-sm transition-all hover:opacity-90 hover:scale-[1.02]"
+                      style={{ 
+                        backgroundColor: '#2563eb',
+                        boxShadow: '0 4px 15px rgba(37, 99, 235, 0.3)'
+                      }}
+                    >
+                      📧 Send Email
+                    </a>
+                  )}
+                  {emp.phone && (
+                    <a 
+                      href={`tel:${emp.phone}`}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-semibold text-sm transition-all hover:opacity-90 hover:scale-[1.02]"
+                      style={{ 
+                        backgroundColor: isDark ? '#334155' : '#f1f5f9', 
+                        color: textPrimary 
+                      }}
+                    >
+                      📞 Make Call
+                    </a>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

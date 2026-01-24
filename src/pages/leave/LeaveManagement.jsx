@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
-import { applyLeave, getLeaveSummary, getMyLeaveApplications } from "../../services/leaveService";
+import { applyLeave, getLeaveSummary, getMyLeaveApplications, getTeamLeaveCalendar } from "../../services/leaveService";
 
 // Leave type configuration with colors and icons for all possible leave types
 const leaveTypeConfig = {
-  casual: { color: "#2563eb", icon: "🏖️", label: "Casual" },
-  sick: { color: "#dc2626", icon: "🏥", label: "Sick" },
-  vacation: { color: "#7c3aed", icon: "✈️", label: "Vacation" },
-  unpaid: { color: "#f59e0b", icon: "💰", label: "Unpaid" },
-  annual: { color: "#16a34a", icon: "📅", label: "Annual" },
-  maternity: { color: "#ec4899", icon: "🤱", label: "Maternity" },
-  paternity: { color: "#0ea5e9", icon: "👨‍👶", label: "Paternity" },
-  bereavement: { color: "#64748b", icon: "🕊️", label: "Bereavement" },
+  casual: { color: "#60a5fa", icon: "🏖️", label: "Casual" },
+  vacation: { color: "#a78bfa", icon: "✈️", label: "Vacation" },
+  sick: { color: "#f87171", icon: "🏥", label: "Sick" },
 };
 
 const ITEMS_PER_PAGE = 10;
@@ -23,6 +18,7 @@ export default function LeaveManagement() {
   const isDark = theme === "dark";
   const isHRManager = user?.role === "hr_manager" || user?.role === "admin";
   const [showApplyModal, setShowApplyModal] = useState(false);
+  const [showTeamCalendarModal, setShowTeamCalendarModal] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [leaveForm, setLeaveForm] = useState({
     leaveType: "",
@@ -46,6 +42,14 @@ export default function LeaveManagement() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Calendar state for team leave calendar
+  const today = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+  const [calendarData, setCalendarData] = useState(null);
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+  const [calendarError, setCalendarError] = useState(null);
+
   const navyBlue = '#1e3a5f';
   const cardStyle = {
     backgroundColor: isDark ? '#1e293b' : '#ffffff',
@@ -66,31 +70,31 @@ export default function LeaveManagement() {
         console.log("data leave balances", data);
 
         
-        // Map API response to component format (excluding unpaid leave from display)
+        // Map API response to component format - include only casual, vacation, and sick leave types
         const balances = [
           {
             type: "casual",
-            total: data.casualLeave.total,
-            used: data.casualLeave.used,
-            pending: data.casualLeave.pending,
-            left: data.casualLeave.left,
+            total: data.casualLeave?.total || 0,
+            used: data.casualLeave?.used || 0,
+            pending: data.casualLeave?.pending || 0,
+            left: data.casualLeave?.left || 0,
             ...leaveTypeConfig.casual
           },
           {
-            type: "sick",
-            total: data.sickLeave.total,
-            used: data.sickLeave.used,
-            pending: data.sickLeave.pending,
-            left: data.sickLeave.left,
-            ...leaveTypeConfig.sick
+            type: "vacation",
+            total: data.vacationLeave?.total || 0,
+            used: data.vacationLeave?.used || 0,
+            pending: data.vacationLeave?.pending || 0,
+            left: data.vacationLeave?.left || 0,
+            ...leaveTypeConfig.vacation
           },
           {
-            type: "vacation",
-            total: data.vacationLeave.total,
-            used: data.vacationLeave.used,
-            pending: data.vacationLeave.pending,
-            left: data.vacationLeave.left,
-            ...leaveTypeConfig.vacation
+            type: "sick",
+            total: data.sickLeave?.total || 0,
+            used: data.sickLeave?.used || 0,
+            pending: data.sickLeave?.pending || 0,
+            left: data.sickLeave?.left || 0,
+            ...leaveTypeConfig.sick
           },
         ];
         
@@ -113,26 +117,40 @@ export default function LeaveManagement() {
       setIsLoadingHistory(true);
       try {
         const response = await getMyLeaveApplications();
-        const applications = response.data.data || [];
+        console.log("Leave applications API response:", response);
+        
+        // Handle different API response structures
+        let applications = [];
+        if (response?.data?.data) {
+          applications = response.data.data;
+        } else if (response?.data) {
+          applications = Array.isArray(response.data) ? response.data : [];
+        } else if (Array.isArray(response)) {
+          applications = response;
+        }
+        
+        console.log("Parsed applications:", applications);
         
         // Map API response to component format
         const mappedHistory = applications.map((app, index) => ({
           id: app._id,
           type: app.leaveType,
-          startDate: new Date(app.startDate).toISOString().split('T')[0],
-          endDate: new Date(app.endDate).toISOString().split('T')[0],
-          days: app.totalDays,
-          reason: app.reason,
-          status: app.status, // approved, rejected, pending, cancelled
-          appliedOn: new Date(app.createdAt).toISOString().split('T')[0],
+          startDate: app.startDate ? new Date(app.startDate).toISOString().split('T')[0] : '',
+          endDate: app.endDate ? new Date(app.endDate).toISOString().split('T')[0] : '',
+          days: app.totalDays || 0,
+          reason: app.reason || '',
+          status: app.status || 'pending', // approved, rejected, pending, cancelled
+          appliedOn: app.createdAt ? new Date(app.createdAt).toISOString().split('T')[0] : '',
           managerComment: app.comments || "",
           rejectReason: app.rejectionReason || "",
           attachment: app.attachment || null,
         }));
         
+        console.log("Mapped leave history:", mappedHistory);
         setAllLeaveHistory(mappedHistory);
       } catch (error) {
         console.error("Error fetching leave history:", error);
+        console.error("Error details:", error.response?.data || error.message);
         setAllLeaveHistory([]);
       } finally {
         setIsLoadingHistory(false);
@@ -240,27 +258,27 @@ export default function LeaveManagement() {
       const balances = [
         {
           type: "casual",
-          total: data.casualLeave.total,
-          used: data.casualLeave.used,
-          pending: data.casualLeave.pending,
-          left: data.casualLeave.left,
+          total: data.casualLeave?.total || 0,
+          used: data.casualLeave?.used || 0,
+          pending: data.casualLeave?.pending || 0,
+          left: data.casualLeave?.left || 0,
           ...leaveTypeConfig.casual
         },
         {
-          type: "sick",
-          total: data.sickLeave.total,
-          used: data.sickLeave.used,
-          pending: data.sickLeave.pending,
-          left: data.sickLeave.left,
-          ...leaveTypeConfig.sick
+          type: "vacation",
+          total: data.vacationLeave?.total || 0,
+          used: data.vacationLeave?.used || 0,
+          pending: data.vacationLeave?.pending || 0,
+          left: data.vacationLeave?.left || 0,
+          ...leaveTypeConfig.vacation
         },
         {
-          type: "vacation",
-          total: data.vacationLeave.total,
-          used: data.vacationLeave.used,
-          pending: data.vacationLeave.pending,
-          left: data.vacationLeave.left,
-          ...leaveTypeConfig.vacation
+          type: "sick",
+          total: data.sickLeave?.total || 0,
+          used: data.sickLeave?.used || 0,
+          pending: data.sickLeave?.pending || 0,
+          left: data.sickLeave?.left || 0,
+          ...leaveTypeConfig.sick
         },
       ];
       setLeaveBalances(balances);
@@ -299,60 +317,57 @@ export default function LeaveManagement() {
     setCurrentPage(1); // Reset to first page when filters change
   };
 
-  // Generate team leave data for calendar (static data for demo)
-  const generateTeamLeaveData = (year, month) => {
+  // Build calendar structure from API leaves (startDate/endDate ISO, userId, leaveType, status)
+  const buildCalendarFromLeaves = (leaves, year, month) => {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDayOfMonth = new Date(year, month, 1).getDay();
-    
-    // Static team members with leaves
-    const teamMembers = [
-      { id: 1, name: "John Doe", department: "Engineering", leaves: [
-        { start: 5, end: 7, type: "casual", status: "approved" },
-        { start: 15, end: 18, type: "vacation", status: "approved" },
-        { start: 25, end: 25, type: "sick", status: "pending" }
-      ]},
-      { id: 2, name: "Jane Smith", department: "Marketing", leaves: [
-        { start: 3, end: 5, type: "casual", status: "approved" },
-        { start: 12, end: 14, type: "vacation", status: "approved" },
-        { start: 20, end: 22, type: "casual", status: "approved" }
-      ]},
-      { id: 3, name: "Mike Johnson", department: "Sales", leaves: [
-        { start: 8, end: 10, type: "vacation", status: "approved" },
-        { start: 18, end: 18, type: "sick", status: "approved" },
-        { start: 28, end: 30, type: "casual", status: "pending" }
-      ]},
-      { id: 4, name: "Sarah Williams", department: "HR", leaves: [
-        { start: 6, end: 8, type: "casual", status: "approved" },
-        { start: 16, end: 19, type: "vacation", status: "approved" }
-      ]},
-      { id: 5, name: "David Brown", department: "Engineering", leaves: [
-        { start: 4, end: 6, type: "vacation", status: "approved" },
-        { start: 14, end: 15, type: "casual", status: "approved" },
-        { start: 24, end: 26, type: "vacation", status: "pending" }
-      ]},
-    ];
-
-    // Create calendar data structure
-    const calendarData = {};
-    for (let day = 1; day <= daysInMonth; day++) {
-      calendarData[day] = [];
-      teamMembers.forEach(member => {
-        member.leaves.forEach(leave => {
-          if (day >= leave.start && day <= leave.end) {
-            calendarData[day].push({
-              employeeId: member.id,
-              employeeName: member.name,
-              department: member.department,
-              leaveType: leave.type,
-              status: leave.status
-            });
-          }
-        });
-      });
-    }
-
-    return { calendarData, daysInMonth, firstDayOfMonth, teamMembers };
+    const cal = {};
+    for (let day = 1; day <= daysInMonth; day++) cal[day] = [];
+    (leaves || []).forEach((leave) => {
+      const start = new Date(leave.startDate);
+      const end = new Date(leave.endDate);
+      const user = leave.userId || {};
+      const entry = {
+        employeeId: user._id || user.employeeId,
+        employeeName: user.name || "Unknown",
+        department: user.department || "",
+        leaveType: leave.leaveType || "casual",
+        status: leave.status || "pending",
+      };
+      const cursor = new Date(start);
+      while (cursor <= end) {
+        if (cursor.getFullYear() === year && cursor.getMonth() === month) {
+          const d = cursor.getDate();
+          cal[d].push(entry);
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    });
+    return { calendarData: cal, daysInMonth, firstDayOfMonth };
   };
+
+  // Fetch team leave calendar from API when modal opens or month/year changes
+  useEffect(() => {
+    if (!isHRManager || !showTeamCalendarModal) return;
+    const fetchCalendar = async () => {
+      setIsLoadingCalendar(true);
+      setCalendarError(null);
+      try {
+        const res = await getTeamLeaveCalendar(selectedYear, selectedMonth);
+        const payload = res?.data ?? res;
+        const leaves = payload?.leaves ?? [];
+        const { calendarData: cal, daysInMonth, firstDayOfMonth } = buildCalendarFromLeaves(leaves, selectedYear, selectedMonth);
+        setCalendarData({ calendarData: cal, daysInMonth, firstDayOfMonth });
+      } catch (err) {
+        console.error("Error fetching team leave calendar:", err);
+        setCalendarError(err?.response?.data?.message || err?.message || "Failed to load team calendar.");
+        setCalendarData(null);
+      } finally {
+        setIsLoadingCalendar(false);
+      }
+    };
+    fetchCalendar();
+  }, [isHRManager, showTeamCalendarModal, selectedMonth, selectedYear]);
 
   // Navigate months
   const handlePreviousMonth = () => {
@@ -384,7 +399,12 @@ export default function LeaveManagement() {
         <div className="flex gap-3">
           {isHRManager && (
             <button
-              onClick={() => setShowTeamCalendarModal(true)}
+              onClick={() => {
+                const now = new Date();
+                setSelectedMonth(now.getMonth());
+                setSelectedYear(now.getFullYear());
+                setShowTeamCalendarModal(true);
+              }}
               className="px-6 py-3 rounded-xl font-bold text-white flex items-center gap-2 transition-all hover:opacity-90"
               style={{ backgroundColor: '#0891b2', boxShadow: '0 4px 15px rgba(8, 145, 178, 0.4)' }}
             >
@@ -813,7 +833,9 @@ export default function LeaveManagement() {
 
       {/* Team Leave Calendar Modal - HR/Admin Only */}
       {isHRManager && showTeamCalendarModal && (() => {
-        const { calendarData, daysInMonth, firstDayOfMonth, teamMembers } = generateTeamLeaveData(selectedYear, selectedMonth);
+        const cal = calendarData?.calendarData || {};
+        const daysInMonth = calendarData?.daysInMonth ?? new Date(selectedYear, selectedMonth + 1, 0).getDate();
+        const firstDayOfMonth = calendarData?.firstDayOfMonth ?? new Date(selectedYear, selectedMonth, 1).getDay();
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         const today = new Date();
@@ -878,6 +900,18 @@ export default function LeaveManagement() {
 
               {/* Calendar Body */}
               <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 100px)' }}>
+                {isLoadingCalendar ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                    <span className="ml-4" style={{ color: textPrimary }}>Loading team calendar…</span>
+                  </div>
+                ) : calendarError ? (
+                  <div className="flex flex-col items-center justify-center py-16" style={{ color: textSecondary }}>
+                    <p className="font-medium" style={{ color: textPrimary }}>{calendarError}</p>
+                    <p className="text-sm mt-2">Try another month or check your connection.</p>
+                  </div>
+                ) : (
+                  <>
                 {/* Legend */}
                 <div className="flex flex-wrap gap-4 mb-6 pb-4 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
                   {Object.entries(leaveTypeConfig).map(([type, config]) => (
@@ -913,26 +947,14 @@ export default function LeaveManagement() {
                   {/* Calendar Days */}
                   {Array.from({ length: daysInMonth }).map((_, i) => {
                     const day = i + 1;
-                    const dayLeaves = calendarData[day] || [];
+                    const dayLeaves = cal[day] || [];
                     const isToday = isCurrentMonth && today.getDate() === day;
                     const isOverlapping = dayLeaves.length > 1;
                     const hasLeaves = dayLeaves.length > 0;
 
-                    // Get primary leave type color if single leave, or overlapping color
-                    let dayColor = isDark ? '#334155' : '#f8fafc';
+                    // No background color for day cells
+                    let dayColor = 'transparent';
                     let borderColor = isDark ? '#475569' : '#e2e8f0';
-                    
-                    if (hasLeaves) {
-                      if (isOverlapping) {
-                        dayColor = '#fef3c7';
-                        borderColor = '#d97706';
-                      } else {
-                        const leaveType = dayLeaves[0].leaveType;
-                        const config = leaveTypeConfig[leaveType] || leaveTypeConfig.casual;
-                        dayColor = `${config.color}40`;
-                        borderColor = config.color;
-                      }
-                    }
 
                     return (
                       <div
@@ -954,16 +976,15 @@ export default function LeaveManagement() {
                             {day}
                           </span>
                           {hasLeaves && (
-                            <div className="flex-1 flex flex-col gap-0.5 overflow-hidden">
-                              {dayLeaves.slice(0, 2).map((leave, idx) => {
+                            <div className="flex-1 flex flex-col gap-0.5 overflow-y-auto">
+                              {dayLeaves.map((leave, idx) => {
                                 const config = leaveTypeConfig[leave.leaveType] || leaveTypeConfig.casual;
                                 return (
                                   <div
                                     key={idx}
                                     className="text-[9px] px-1 py-0.5 rounded truncate"
                                     style={{ 
-                                      backgroundColor: config.color,
-                                      color: '#ffffff'
+                                      color: config.color
                                     }}
                                     title={`${leave.employeeName} - ${config.label} (${leave.status})`}
                                   >
@@ -971,11 +992,6 @@ export default function LeaveManagement() {
                                   </div>
                                 );
                               })}
-                              {dayLeaves.length > 2 && (
-                                <div className="text-[9px] px-1 py-0.5 rounded" style={{ backgroundColor: '#64748b', color: '#ffffff' }}>
-                                  +{dayLeaves.length - 2} more
-                                </div>
-                              )}
                             </div>
                           )}
                           {isOverlapping && (
@@ -986,37 +1002,8 @@ export default function LeaveManagement() {
                     );
                   })}
                 </div>
-
-                {/* Team Members List */}
-                <div className="mt-6 pt-6 border-t" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
-                  <h3 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Team Members</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {teamMembers.map((member) => (
-                      <div
-                        key={member.id}
-                        className="p-3 rounded-lg"
-                        style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}
-                      >
-                        <p className="font-semibold text-sm" style={{ color: textPrimary }}>{member.name}</p>
-                        <p className="text-xs" style={{ color: textSecondary }}>{member.department}</p>
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {member.leaves.map((leave, idx) => {
-                            const config = leaveTypeConfig[leave.type] || leaveTypeConfig.casual;
-                            return (
-                              <span
-                                key={idx}
-                                className="text-[10px] px-2 py-0.5 rounded"
-                                style={{ backgroundColor: `${config.color}40`, color: config.color }}
-                              >
-                                {config.label} {leave.start}-{leave.end}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -67,3 +67,23 @@ export async function getAttendanceDashboard() {
     throw error;
   }
 }
+
+/**
+ * Get monthly attendance data for calendar view
+ * @param {number} year - Year (e.g., 2025)
+ * @param {number} month - Month (1-12, where 1 = January)
+ * @returns {Promise} API response with monthly attendance data
+ */
+export async function getMonthlyAttendance(year, month) {
+  console.log("[Attendance] Fetching monthly attendance:", { year, month });
+  try {
+    const response = await api.get('/attendance/monthly', {
+      params: { year, month }
+    });
+    console.log("[Attendance] Monthly attendance response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error('[Attendance] Error fetching monthly attendance:', error);
+    throw error;
+  }
+}

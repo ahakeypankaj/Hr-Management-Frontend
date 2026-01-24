@@ -56,7 +56,6 @@ export async function rejectLeave(leaveId, rejectionReason) {
     throw error;
   }
 }
-;
 
 /**
  * Apply for leave
@@ -99,4 +98,91 @@ export async function getLeaveSummary() {
  */
 export async function getMyLeaveApplications() {
   return api.get('/leave/my-applications');
+}
+
+/**
+ * Get all leave policies
+ * @returns {Promise<{ success: boolean, policies: Array }>}
+ */
+export async function getLeavePolicies() {
+  try {
+    const response = await api.get('/leave/leave-policy');
+    return response.data;
+  } catch (error) {
+    console.error('[Leave] Error fetching leave policies:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a leave policy
+ * @param {Object} payload
+ * @param {string} payload.leaveType
+ * @param {number} payload.totalDays
+ * @param {number} payload.carryOver
+ * @param {number} payload.maxConsecutiveDays
+ * @param {number} payload.noticePeriodDays
+ * @returns {Promise}
+ */
+export async function createLeavePolicy(payload) {
+  try {
+    const response = await api.post('/leave/leave-policy', payload);
+    return response.data;
+  } catch (error) {
+    console.error('[Leave] Error creating leave policy:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update a leave policy
+ * @param {string} id - Policy _id
+ * @param {Object} payload - Same as create
+ * @returns {Promise}
+ */
+export async function updateLeavePolicy(id, payload) {
+  try {
+    const response = await api.put(`/leave/leave-policy/${id}`, payload);
+    return response.data;
+  } catch (error) {
+    console.error('[Leave] Error updating leave policy:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a leave policy
+ * @param {string} id - Policy _id
+ * @returns {Promise}
+ */
+export async function deleteLeavePolicy(id) {
+  try {
+    const response = await api.delete(`/leave/leave-policy/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('[Leave] Error deleting leave policy:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get team leave calendar data
+ * @param {number} year - Year (e.g., 2026)
+ * @param {number} month - Month 0–11 (0 = January, 11 = December), matches JS Date
+ * @returns {Promise} API response with team leave calendar data
+ */
+export async function getTeamLeaveCalendar(year, month) {
+  // API expects month as 1–12 zero-padded (e.g. "01", "02")
+  const apiMonth = String(month + 1).padStart(2, '0');
+  console.log("[Leave] Fetching team leave calendar:", { year, month: apiMonth });
+  try {
+    const response = await api.get('/leave/team-calendar', {
+      params: { year, month: apiMonth }
+    });
+    console.log("[Leave] Team calendar response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error('[Leave] Error fetching team leave calendar:', error);
+    throw error;
+  }
 }
