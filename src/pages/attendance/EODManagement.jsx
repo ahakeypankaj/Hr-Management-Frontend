@@ -26,14 +26,14 @@ export default function EODManagement() {
     const formatDateForInput = (date) => date.toISOString().split('T')[0];
 
     const [dateRange, setDateRange] = useState({
-        from: isHRManager ? formatDateForInput(today) : formatDateForInput(twoWeeksAgo),
+        from: isHRManager ? formatDateForInput(yesterday) : formatDateForInput(twoWeeksAgo),
         to: formatDateForInput(today)
     });
 
     // Reset date range when view mode changes
     useEffect(() => {
         setDateRange({
-            from: isHRManager ? formatDateForInput(today) : formatDateForInput(twoWeeksAgo),
+            from: isHRManager ? formatDateForInput(yesterday) : formatDateForInput(twoWeeksAgo),
             to: formatDateForInput(today)
         });
     }, [isHRManager]);

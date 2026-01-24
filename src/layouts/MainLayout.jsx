@@ -166,6 +166,7 @@ export default function MainLayout({ children }) {
     { name: "Grievance", path: "/grievance", icon: "📝" },
     { name: "Performance", path: "/performance", icon: "🎯" },
     { name: "Events & Kudos", path: "/events", icon: "🎉" },
+    { name: "My Assets", path: "/assets", icon: "📦" },
   ];
 
   // HR/Manager Menu Items
@@ -180,13 +181,15 @@ export default function MainLayout({ children }) {
     { name: "Directory", path: "/directory", icon: "📖" },
     { name: "Performance Hub", path: "/hr/performance", icon: "📈" },
     { name: "Events & Kudos", path: "/events", icon: "🎉" },
+    { name: "Asset Management", path: "/assets", icon: "📦" },
     { name: "Reports", path: "/hr/reports", icon: "📑" },
     { name: "Settings & Audit", path: "/hr/settings", icon: "🔧" },
     { divider: true, label: "My Features" },
     { name: "My Profile", path: "/profile", icon: "👤" },
-    { name: "Attendance", path: "/attendance", icon: "⏰" },
+    { name: "My Attendance", path: "/attendance", icon: "⏰" },
     { name: "EOD History", path: "/eod-management?view=personal", icon: "📑" },
-    { name: "Leave Management", path: "/leave", icon: "🏖️" },
+    { name: "My Assets", path: "/assets?view=personal", icon: "📦" },
+    { name: "My Leaves", path: "/leave", icon: "🏖️" },
     { name: "Expenses", path: "/expense", icon: "💰" },
   ];
 
@@ -204,6 +207,7 @@ export default function MainLayout({ children }) {
     { name: "Directory", path: "/directory", icon: "📖" },
     { name: "Performance Hub", path: "/hr/performance", icon: "📈" },
     { name: "Events & Kudos", path: "/events", icon: "🎉" },
+    { name: "Asset Management", path: "/assets", icon: "📦" },
     { divider: true, label: "System" },
     { name: "Reports", path: "/hr/reports", icon: "📑" },
     { name: "Settings", path: "/hr/settings", icon: "🔧" },
