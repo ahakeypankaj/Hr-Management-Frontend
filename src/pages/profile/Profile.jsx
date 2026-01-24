@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import api from "../../services/api";
+import { getDepartments } from "../../services/departmentService";
 
 
 export default function Profile() {
@@ -12,14 +13,27 @@ export default function Profile() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [departments, setDepartments] = useState([]);
 
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-  const [passwordError, setPasswordError] = useState("");
+  const departmentName = useMemo(() => {
+    if (!profile) return "";
+    const dept = profile.department;
+    if (!dept) return "";
+    // If department is an object with name
+    if (typeof dept === "object" && dept?.name) {
+      return dept.name;
+    }
+    // If department is an ID string, try to resolve from departments API
+    if (typeof dept === "string" && departments.length) {
+      const found = departments.find((d) => d._id === dept);
+      if (found?.name) return found.name;
+      // If not found by ID, might be a name already
+      return dept;
+    }
+    // Fallback to department as string
+    return typeof dept === "string" ? dept : "";
+  }, [profile, departments]);
+
   const [showIDCardModal, setShowIDCardModal] = useState(false);
 
   const navyBlue = '#1e3a5f';
@@ -33,6 +47,16 @@ export default function Profile() {
 
   useEffect(() => {
     fetchProfile();
+    // Fetch departments for resolving department names
+    const loadDepartments = async () => {
+      try {
+        const data = await getDepartments();
+        setDepartments(data?.departments ?? []);
+      } catch (e) {
+        console.error("Failed to fetch departments:", e);
+      }
+    };
+    loadDepartments();
   }, []);
 
   const fetchProfile = async () => {
@@ -40,6 +64,7 @@ export default function Profile() {
       setLoading(true);
       const response = await api.get('/users/me');
       const userData = response.data.user;
+      console.log("userData", userData);
 
       const profileData = {
         id: userData._id,
@@ -49,6 +74,7 @@ export default function Profile() {
         phone: userData.phoneNumber,
         employeeId: userData.employeeId,
         department: userData.department,
+        departmentId: typeof userData.department === "object" ? userData.department?._id : (typeof userData.department === "string" ? userData.department : null),
         role: userData.designation,
         employmentType: userData.employmentType,
         manager: userData.reportingManager,
@@ -57,6 +83,7 @@ export default function Profile() {
         isActive: userData.isActive,
         createdAt: userData.createdAt,
         updatedAt: userData.updatedAt,
+        profilePicture: userData.profilePicture || null,
         // Additional fields with defaults
         location: "Bangalore, India", // Can be made dynamic if available
         address: "Address not provided", // Can be made dynamic if available
@@ -79,23 +106,6 @@ export default function Profile() {
       setLoading(false);
     }
   };
-
-  const handlePasswordChange = () => {
-    setPasswordError("");
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordError("New passwords do not match");
-      return;
-    }
-    if (passwordData.newPassword.length < 8) {
-      setPasswordError("Password must be at least 8 characters");
-      return;
-    }
-    // API call would go here
-    setShowPasswordModal(false);
-    setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    alert("Password changed successfully!");
-  };
-
 
   return (
     <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -125,13 +135,6 @@ export default function Profile() {
             </div>
             <div className="flex gap-2 sm:gap-3">
               <button
-                onClick={() => setShowPasswordModal(true)}
-                className="px-3 sm:px-4 py-2 rounded-xl font-semibold flex items-center gap-1 sm:gap-2 transition-all hover:opacity-80 text-sm sm:text-base"
-                style={{ backgroundColor: '#dc2626', color: '#ffffff' }}
-              >
-                🔐 <span className="hidden sm:inline">Change</span> Password
-              </button>
-              <button
                 onClick={() => setShowIDCardModal(true)}
                 className="px-3 sm:px-4 py-2 rounded-xl font-semibold flex items-center gap-1 sm:gap-2 transition-all hover:opacity-80 text-sm sm:text-base"
                 style={{ backgroundColor: navyBlue, color: '#ffffff' }}
@@ -146,8 +149,20 @@ export default function Profile() {
             <div className="flex flex-col md:flex-row items-center gap-6">
               {/* Profile Picture */}
               <div className="relative group">
+                {profile.profilePicture ? (
+                  <img
+                    src={profile.profilePicture}
+                    alt={profile.name}
+                    className="w-32 h-32 rounded-full object-cover border-4 border-white/30"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      const fallback = e.target.nextElementSibling;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
                 <div
-                  className="w-32 h-32 rounded-full flex items-center justify-center text-5xl font-bold text-white border-4 border-white/30"
+                  className={`w-32 h-32 rounded-full flex items-center justify-center text-5xl font-bold text-white border-4 border-white/30 ${profile.profilePicture ? 'hidden' : ''}`}
                   style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
                 >
                   {profile.name.charAt(0)}
@@ -162,9 +177,11 @@ export default function Profile() {
                   <span className="px-3 py-1 rounded-full text-sm font-medium bg-white/20 text-white">
                     🆔 {profile.employeeId}
                   </span>
-                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-white/20 text-white">
-                    🏢 {profile.department}
-                  </span>
+                  {departmentName && (
+                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-white/20 text-white">
+                      🏢 {departmentName}
+                    </span>
+                  )}
                   {profile.joinDate && (
                     <span className="px-3 py-1 rounded-full text-sm font-medium bg-white/20 text-white">
                       📅 Joined {new Date(profile.joinDate).toLocaleDateString()}
@@ -200,14 +217,14 @@ export default function Profile() {
                   <span style={{ color: textSecondary }}>Phone</span>
                   <span className="font-medium" style={{ color: textPrimary }}>{profile.phone || 'Not provided'}</span>
                 </div>
-                <div className="flex items-center justify-between py-2" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+                {/* <div className="flex items-center justify-between py-2" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
                   <span style={{ color: textSecondary }}>Date of Birth</span>
                   <span className="font-medium" style={{ color: textPrimary }}>{profile.dob}</span>
-                </div>
-                <div className="flex items-center justify-between py-2" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+                </div> */}
+                {/* <div className="flex items-center justify-between py-2" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
                   <span style={{ color: textSecondary }}>Blood Group</span>
                   <span className="font-medium" style={{ color: textPrimary }}>{profile.bloodGroup}</span>
-                </div>
+                </div> */}
               </div>
             </div>
 
@@ -220,11 +237,10 @@ export default function Profile() {
               <div className="space-y-4">
                 {[
                   { label: "Employee ID", value: profile.employeeId },
-                  { label: "Department", value: profile.department },
+                  { label: "Department", value: departmentName || "Not assigned" },
                   { label: "Designation", value: profile.role },
                   { label: "Employment Type", value: profile.employmentType },
-                  { label: "Reporting Manager", value: profile.manager || 'Not assigned' },
-                  { label: "Status", value: profile.status },
+                  // { label: "Status", value: profile.status },
                   { label: "Joining Date", value: profile.joinDate ? new Date(profile.joinDate).toLocaleDateString() : 'Not set' },
                   { label: "Location", value: profile.location },
                 ].map((item, i) => (
@@ -359,8 +375,21 @@ export default function Profile() {
                   <div className="px-4 sm:px-6 py-4 sm:py-6" style={{ backgroundColor: '#ffffff' }}>
                     <div className="flex items-center gap-3 sm:gap-5">
                       {/* Profile Photo */}
+                      {profile.profilePicture ? (
+                        <img
+                          src={profile.profilePicture}
+                          alt={profile.name}
+                          className="w-16 h-16 sm:w-24 sm:h-24 rounded-xl object-cover shadow-lg flex-shrink-0"
+                          style={{ border: '3px solid #e5e5e5' }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            const fallback = e.target.nextElementSibling;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
                       <div
-                        className="w-16 h-16 sm:w-24 sm:h-24 rounded-xl flex items-center justify-center text-2xl sm:text-4xl font-bold shadow-lg flex-shrink-0"
+                        className={`w-16 h-16 sm:w-24 sm:h-24 rounded-xl flex items-center justify-center text-2xl sm:text-4xl font-bold shadow-lg flex-shrink-0 ${profile.profilePicture ? 'hidden' : ''}`}
                         style={{
                           backgroundColor: '#1a1a1a',
                           color: '#ffffff',
@@ -391,7 +420,7 @@ export default function Profile() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888888' }}>Department</p>
-                        <p className="font-semibold" style={{ color: '#1a1a1a' }}>{profile.department}</p>
+                        <p className="font-semibold" style={{ color: '#1a1a1a' }}>{departmentName || "Not assigned"}</p>
                       </div>
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888888' }}>Blood Group</p>
@@ -478,123 +507,6 @@ export default function Profile() {
                   >
                     📥 Download
                   </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Change Password Modal */}
-          {showPasswordModal && (
-            <div
-              className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in p-4"
-              style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)'
-              }}
-            >
-              <div
-                className="w-full max-w-lg animate-scale-in"
-                style={{
-                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                  borderRadius: '24px',
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-                  overflow: 'hidden'
-                }}
-              >
-                {/* Modal Header */}
-                <div
-                  className="p-6"
-                  style={{
-                    background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl">
-                        🔐
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-bold text-white">Change Password</h2>
-                        <p className="text-red-200 text-sm">Update your account security</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Modal Body */}
-                <div className="p-6 space-y-5">
-                  {passwordError && (
-                    <div className="p-4 rounded-xl flex items-center gap-3" style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca' }}>
-                      <span className="text-xl">⚠️</span>
-                      <span className="font-medium" style={{ color: '#dc2626' }}>{passwordError}</span>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>🔑 Current Password</label>
-                    <input
-                      type="password"
-                      value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                      className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-red-400"
-                      style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                      placeholder="Enter current password"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>🆕 New Password</label>
-                    <input
-                      type="password"
-                      value={passwordData.newPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                      className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-red-400"
-                      style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                      placeholder="Enter new password (min 8 characters)"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>✅ Confirm New Password</label>
-                    <input
-                      type="password"
-                      value={passwordData.confirmPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                      className="w-full px-4 py-4 rounded-xl outline-none transition-all focus:ring-2 focus:ring-red-400"
-                      style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                      placeholder="Confirm new password"
-                    />
-                  </div>
-
-                  {/* Password Requirements */}
-                  <div className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                    <p className="text-sm font-semibold mb-2" style={{ color: textPrimary }}>Password Requirements:</p>
-                    <ul className="text-xs space-y-1" style={{ color: textSecondary }}>
-                      <li>• Minimum 8 characters</li>
-                      <li>• At least one uppercase letter</li>
-                      <li>• At least one number</li>
-                      <li>• At least one special character</li>
-                    </ul>
-                  </div>
-
-                  <div className="flex gap-4 pt-4" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-                    <button
-                      onClick={() => setShowPasswordModal(false)}
-                      className="flex-1 py-4 rounded-xl font-semibold transition-all hover:opacity-80"
-                      style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handlePasswordChange}
-                      className="flex-1 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90"
-                      style={{
-                        background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
-                        boxShadow: '0 4px 15px rgba(220, 38, 38, 0.4)'
-                      }}
-                    >
-                      🔒 Update Password
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>

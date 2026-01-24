@@ -112,6 +112,7 @@ export default function Settings() {
     setDeptError(null);
     try {
       const data = await getDepartments();
+      console.log("data departments", data);
       setDepartments(data?.departments ?? []);
     } catch (err) {
       console.error("Failed to fetch departments:", err);

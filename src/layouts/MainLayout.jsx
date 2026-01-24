@@ -182,7 +182,6 @@ export default function MainLayout({ children }) {
     { name: "Performance Hub", path: "/hr/performance", icon: "📈" },
     { name: "Events & Kudos", path: "/events", icon: "🎉" },
     { name: "Asset Management", path: "/assets", icon: "📦" },
-    { name: "Reports", path: "/hr/reports", icon: "📑" },
     { name: "Settings & Audit", path: "/hr/settings", icon: "🔧" },
     { divider: true, label: "My Features" },
     { name: "My Profile", path: "/profile", icon: "👤" },
@@ -209,7 +208,6 @@ export default function MainLayout({ children }) {
     { name: "Events & Kudos", path: "/events", icon: "🎉" },
     { name: "Asset Management", path: "/assets", icon: "📦" },
     { divider: true, label: "System" },
-    { name: "Reports", path: "/hr/reports", icon: "📑" },
     { name: "Settings", path: "/hr/settings", icon: "🔧" },
   ];
 
