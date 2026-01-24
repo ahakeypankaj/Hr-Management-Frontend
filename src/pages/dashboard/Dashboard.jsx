@@ -135,7 +135,6 @@ const adminQuickLinks = [
   { name: "User Mgmt", path: "/hr/users", icon: "👥", color: "#dc2626" },
   { name: "Attendance Management", path: "/hr/attendance", icon: "⏰", color: "#16a34a" },
   { name: "Approvals", path: "/hr/approvals", icon: "✅", color: "#16a34a" },
-  { name: "Reports", path: "/hr/reports", icon: "📑", color: "#2563eb" },
   { name: "Settings", path: "/hr/settings", icon: "🔧", color: "#7c3aed" },
 ];
 

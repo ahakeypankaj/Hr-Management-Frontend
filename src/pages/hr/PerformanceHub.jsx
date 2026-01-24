@@ -623,6 +623,229 @@ export default function PerformanceHub() {
           )}
         </div>
       )}
+
+      {/* Assign Goal Modal */}
+      {showAssignGoalModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl" style={{ backgroundColor: isDark ? '#1e293b' : '#ffffff' }}>
+            <div className="p-6 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold" style={{ color: textPrimary }}>Assign New Goals</h2>
+                <button onClick={() => setShowAssignGoalModal(false)} className="text-2xl" style={{ color: textSecondary }}>×</button>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              {goalError && (
+                <div className="p-3 rounded-lg" style={{ backgroundColor: '#fee2e2', color: '#dc2626' }}>{goalError}</div>
+              )}
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Select Performance Record</label>
+                <select
+                  value={selectedPerformanceId}
+                  onChange={(e) => {
+                    setSelectedPerformanceId(e.target.value);
+                    const perf = teamPerformance.find((p) => p._id === e.target.value);
+                    if (perf) {
+                      const empName = typeof perf.userId === 'object' && perf.userId?.name ? perf.userId.name : 'Unknown';
+                      const cycle = typeof perf.cycleId === 'object' && perf.cycleId?.name ? perf.cycleId.name : '';
+                      setSelectedEmployee(`${empName}${cycle ? ` - ${cycle}` : ''}`);
+                    }
+                  }}
+                  className="w-full px-4 py-3 rounded-xl outline-none"
+                  style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                >
+                  <option value="">Select employee performance...</option>
+                  {teamPerformance.map((perf) => {
+                    const empName = typeof perf.userId === 'object' && perf.userId?.name ? perf.userId.name : 'Unknown';
+                    const cycle = typeof perf.cycleId === 'object' && perf.cycleId?.name ? perf.cycleId.name : '';
+                    return (
+                      <option key={perf._id} value={perf._id}>
+                        {empName}{cycle ? ` - ${cycle}` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-semibold" style={{ color: textPrimary }}>Goals</label>
+                  <button
+                    onClick={handleAddGoalRow}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium text-white"
+                    style={{ backgroundColor: navyBlue }}
+                  >
+                    + Add Goal
+                  </button>
+                </div>
+                {goalForm.map((goal, idx) => (
+                  <div key={idx} className="p-4 mb-3 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <span className="text-sm font-semibold" style={{ color: textPrimary }}>Goal {idx + 1}</span>
+                      {goalForm.length > 1 && (
+                        <button onClick={() => handleRemoveGoalRow(idx)} className="text-red-500 text-sm">Remove</button>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      <input
+                        type="text"
+                        placeholder="Goal Title"
+                        value={goal.title}
+                        onChange={(e) => handleGoalFormChange(idx, 'title', e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg outline-none"
+                        style={{ backgroundColor: isDark ? '#1e293b' : '#ffffff', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                      />
+                      <textarea
+                        placeholder="Description"
+                        value={goal.description}
+                        onChange={(e) => handleGoalFormChange(idx, 'description', e.target.value)}
+                        rows={2}
+                        className="w-full px-3 py-2 rounded-lg outline-none resize-none"
+                        style={{ backgroundColor: isDark ? '#1e293b' : '#ffffff', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                      />
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm" style={{ color: textSecondary }}>Weightage:</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={goal.weightage}
+                          onChange={(e) => handleGoalFormChange(idx, 'weightage', e.target.value)}
+                          className="w-20 px-2 py-1 rounded-lg outline-none"
+                          style={{ backgroundColor: isDark ? '#1e293b' : '#ffffff', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                        />
+                        <span className="text-sm" style={{ color: textSecondary }}>%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3 pt-4 border-t" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                <button
+                  onClick={() => setShowAssignGoalModal(false)}
+                  className="flex-1 px-4 py-3 rounded-xl font-semibold"
+                  style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitGoals}
+                  disabled={isSubmittingGoals}
+                  className="flex-1 px-4 py-3 rounded-xl font-bold text-white transition-all disabled:opacity-50"
+                  style={{ backgroundColor: navyBlue }}
+                >
+                  {isSubmittingGoals ? 'Assigning...' : 'Assign Goals'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manager Review Modal */}
+      {showReviewModal && selectedReview && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl" style={{ backgroundColor: isDark ? '#1e293b' : '#ffffff' }}>
+            <div className="p-6 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold" style={{ color: textPrimary }}>Manager Review - {selectedReview.empName}</h2>
+                  <p className="text-sm mt-1" style={{ color: textSecondary }}>{selectedReview.cycle}</p>
+                </div>
+                <button onClick={() => setShowReviewModal(false)} className="text-2xl" style={{ color: textSecondary }}>×</button>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              {reviewError && (
+                <div className="p-3 rounded-lg" style={{ backgroundColor: '#fee2e2', color: '#dc2626' }}>{reviewError}</div>
+              )}
+              {(() => {
+                const perf = teamPerformance.find((p) => p._id === selectedReview.performanceId);
+                const goals = perf?.goals || [];
+                return goals.map((goal, idx) => (
+                  <div key={idx} className="p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}>
+                    <h3 className="font-semibold mb-2" style={{ color: textPrimary }}>{goal.title}</h3>
+                    <p className="text-sm mb-3" style={{ color: textSecondary }}>{goal.description}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Manager Rating (1-5)</label>
+                        <select
+                          value={reviewForm[idx]?.managerRating || ''}
+                          onChange={(e) => handleReviewFormChange(idx, 'managerRating', e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg outline-none"
+                          style={{ backgroundColor: isDark ? '#1e293b' : '#ffffff', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                        >
+                          <option value="">Select rating</option>
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Comments</label>
+                        <textarea
+                          value={reviewForm[idx]?.comments || ''}
+                          onChange={(e) => handleReviewFormChange(idx, 'comments', e.target.value)}
+                          rows={3}
+                          className="w-full px-3 py-2 rounded-lg outline-none resize-none"
+                          style={{ backgroundColor: isDark ? '#1e293b' : '#ffffff', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                          placeholder="Add comments..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ));
+              })()}
+              <div className="p-4 rounded-xl border-t pt-4" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>Overall Rating (for Calibration)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  value={overallRating}
+                  onChange={(e) => setOverallRating(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl outline-none"
+                  style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                  placeholder="Enter overall rating (0-5)"
+                />
+              </div>
+              <div className="flex gap-3 pt-4 border-t" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                <button
+                  onClick={() => setShowReviewModal(false)}
+                  className="px-4 py-3 rounded-xl font-semibold"
+                  style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitManagerReview}
+                  disabled={isSubmittingReview}
+                  className="px-4 py-3 rounded-xl font-bold text-white transition-all disabled:opacity-50"
+                  style={{ backgroundColor: navyBlue }}
+                >
+                  {isSubmittingReview ? 'Submitting...' : 'Submit Manager Review'}
+                </button>
+                <button
+                  onClick={handleCalibrate}
+                  disabled={isCalibrating || !overallRating}
+                  className="px-4 py-3 rounded-xl font-bold text-white transition-all disabled:opacity-50"
+                  style={{ backgroundColor: '#7c3aed' }}
+                >
+                  {isCalibrating ? 'Calibrating...' : 'Calibrate'}
+                </button>
+                <button
+                  onClick={handleFinalize}
+                  disabled={isFinalizing}
+                  className="px-4 py-3 rounded-xl font-bold text-white transition-all disabled:opacity-50"
+                  style={{ backgroundColor: '#16a34a' }}
+                >
+                  {isFinalizing ? 'Finalizing...' : 'Finalize'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

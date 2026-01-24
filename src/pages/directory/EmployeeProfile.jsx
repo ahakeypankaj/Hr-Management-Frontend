@@ -1,22 +1,23 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
-import { fetchEmployee, fetchEmployees } from "../../services/directoryService";
+import { fetchEmployees } from "../../services/directoryService";
+import { getDepartments } from "../../services/departmentService";
 
 // Map API user data to UI format
 // Directory API: profilePicture, department (string or { name, _id })
 const mapUserToEmployee = (user) => {
-  console.log('🔄 Mapping user data:', user);
-  const dept = typeof user.department === "object" && user.department?.name
-    ? user.department.name
-    : user.department || "";
-  const mapped = {
+  const deptObj = typeof user.department === "object" ? user.department : null;
+  const departmentId = deptObj?._id || (typeof user.department === "string" ? user.department : null) || null;
+  const deptNameFromUser = deptObj?.name || null;
+  return {
     id: user.employeeId || user._id || "",
     _id: user._id || "",
     name: user.name || "Unknown",
-    dept,
+    departmentId,
+    dept: deptNameFromUser || (typeof user.department === "string" ? user.department : "") || "",
     role: user.designation || user.role || "",
-    joiningDate: user.joiningDate ? new Date(user.joiningDate).toISOString().split('T')[0] : "",
+    joiningDate: user.joiningDate ? new Date(user.joiningDate).toISOString().split("T")[0] : "",
     companyEmail: user.companyEmail || "",
     personalEmail: user.personalEmail || "",
     email: user.companyEmail || user.personalEmail || "",
@@ -35,8 +36,13 @@ const mapUserToEmployee = (user) => {
     userRole: user.role || "",
     accountStatus: user.status || "",
   };
-  console.log('✅ Mapped employee data:', mapped);
-  return mapped;
+};
+
+// Deterministic placeholder emergency contact from employee id
+const getEmergencyContact = (id) => {
+  if (!id) return "+91 98765 43210";
+  const s = String(id).replace(/\D/g, "").slice(-8).padStart(8, "0");
+  return `+91 98${s.slice(0, 4)} ${s.slice(4, 8)}`;
 };
 
 const avatarColors = [
@@ -53,6 +59,36 @@ export default function EmployeeProfile() {
   const [emp, setEmp] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [departments, setDepartments] = useState([]);
+
+  const departmentName = useMemo(() => {
+    if (!emp) return "";
+    // First try to resolve by departmentId (if we have an id)
+    if (emp.departmentId && departments.length) {
+      const d = departments.find((dept) => dept._id === emp.departmentId);
+      if (d?.name) return d.name;
+    }
+    // Also try matching emp.dept as an id (in case department was passed as string id)
+    if (emp.dept && departments.length) {
+      const d = departments.find((dept) => dept._id === emp.dept);
+      if (d?.name) return d.name;
+    }
+    // Fallback to dept (could be name from object or string name)
+    return emp.dept || "";
+  }, [emp, departments]);
+
+  // Fetch departments for resolving department names
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await getDepartments();
+        setDepartments(data?.departments ?? []);
+      } catch (e) {
+        console.error("Failed to fetch departments:", e);
+      }
+    };
+    load();
+  }, []);
 
   // Fetch employee data
   useEffect(() => {
@@ -240,9 +276,9 @@ export default function EmployeeProfile() {
                     {emp.role}
                   </p>
                 )}
-                {emp.dept && (
+                {departmentName && (
                   <p className="text-base text-white/90" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
-                    {emp.dept} Department
+                    {departmentName} Department
                   </p>
                 )}
               </div>
@@ -351,6 +387,17 @@ export default function EmployeeProfile() {
                     </div>
                   </div>
                 )}
+                <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#fee2e2' }}>
+                      🚨
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Emergency Contact</p>
+                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>{getEmergencyContact(emp.id || emp._id)}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -360,7 +407,7 @@ export default function EmployeeProfile() {
                 💼 Work Information
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {emp.dept && (
+                {departmentName && (
                   <div className="p-3 rounded-lg transition-all hover:scale-[1.01]" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                     <div className="flex items-center gap-2">
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#f3e8ff' }}>
@@ -368,7 +415,7 @@ export default function EmployeeProfile() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>Department</p>
-                        <p className="font-semibold text-xs" style={{ color: textPrimary }}>{emp.dept}</p>
+                        <p className="font-semibold text-xs" style={{ color: textPrimary }}>{departmentName}</p>
                       </div>
                     </div>
                   </div>
