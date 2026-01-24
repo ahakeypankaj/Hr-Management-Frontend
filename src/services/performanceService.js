@@ -57,6 +57,23 @@ export async function setPerformanceGoals(performanceId, goalsData) {
 }
 
 /**
+ * Submit self-review for a performance review
+ * @param {string} performanceId - The performance review ID
+ * @param {Object} reviewData - Object containing:
+ *   - goals: array of { selfRating }
+ * @returns {Promise} API response
+ */
+export async function submitSelfReview(performanceId, reviewData) {
+  try {
+    const response = await api.post(`/performance/${performanceId}/self-review`, reviewData);
+    return response.data;
+  } catch (error) {
+    console.error('Error submitting self-review:', error);
+    throw error;
+  }
+}
+
+/**
  * Submit manager review for a performance review
  * @param {string} performanceId - The performance review ID
  * @param {Object} reviewData - Object containing:
@@ -83,6 +100,72 @@ export async function getTeamPerformance() {
     return response.data;
   } catch (error) {
     console.error('Error fetching team performance:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get my performance data
+ * @returns {Promise} API response with performance array
+ */
+export async function getMyPerformance() {
+  try {
+    const response = await api.get('/performance/my');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching my performance:', error);
+    throw error;
+  }
+}
+
+/**
+ * Add feedback for a performance review
+ * @param {Object} feedbackData - Object containing:
+ *   - performanceId: string
+ *   - comments: string
+ *   - rating: number
+ * @returns {Promise} API response
+ */
+export async function addFeedback(feedbackData) {
+  try {
+    const response = await api.post('/feedback/add', feedbackData);
+    return response.data;
+  } catch (error) {
+    console.error('Error adding feedback:', error);
+    throw error;
+  }
+}
+
+/**
+ * HR calibrate performance review
+ * @param {string} performanceId - The performance review ID
+ * @param {Object} calibrateData - Object containing:
+ *   - overallRating: number
+ * @returns {Promise} API response
+ */
+export async function calibratePerformance(performanceId, calibrateData) {
+  try {
+    const response = await api.post(`/performance/${performanceId}/calibrate`, calibrateData);
+    return response.data;
+  } catch (error) {
+    console.error('Error calibrating performance:', error);
+    throw error;
+  }
+}
+
+/**
+ * HR finalize performance review
+ * @param {string} performanceId - The performance review ID
+ * @param {Object} finalizeData - Object containing:
+ *   - status: string (e.g., "finalized")
+ * @returns {Promise} API response
+ */
+export async function finalizePerformance(performanceId, finalizeData) {
+  try {
+    const response = await api.post(`/performance/${performanceId}/finalize`, finalizeData);
+    return response.data;
+  } catch (error) {
+    console.error('Error finalizing performance:', error);
     throw error;
   }
 }
