@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
-import { getTeamPerformance } from "../../services/performanceService";
+import {
+  getTeamPerformance,
+  setPerformanceGoals,
+  submitManagerReview,
+  calibratePerformance,
+  finalizePerformance,
+} from "../../services/performanceService";
 import { fetchEmployees } from "../../services/directoryService";
 
 // Data will be fetched from API
@@ -28,6 +34,24 @@ export default function PerformanceHub() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Assign Goal Modal State
+  const [showAssignGoalModal, setShowAssignGoalModal] = useState(false);
+  const [selectedPerformanceId, setSelectedPerformanceId] = useState("");
+  const [selectedEmployee, setSelectedEmployee] = useState("");
+  const [goalForm, setGoalForm] = useState([{ title: "", description: "", weightage: 20 }]);
+  const [isSubmittingGoals, setIsSubmittingGoals] = useState(false);
+  const [goalError, setGoalError] = useState("");
+
+  // Review Modal State
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [selectedReview, setSelectedReview] = useState(null);
+  const [reviewForm, setReviewForm] = useState([]);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [overallRating, setOverallRating] = useState("");
+  const [isCalibrating, setIsCalibrating] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
 
   // Map API response to goals format
   const mapToGoals = (teamData) => {
@@ -86,6 +110,7 @@ export default function PerformanceHub() {
       'manager-review': 'in_progress',
       'manager-submitted': 'in_progress',
       'completed': 'completed',
+      'finalized': 'completed',
     };
     return statusMap[status] || 'pending';
   };
@@ -103,39 +128,159 @@ export default function PerformanceHub() {
 
   // Fetch team performance data
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Fetch team performance
-        const performanceResponse = await getTeamPerformance();
-        const teamData = performanceResponse.team || performanceResponse || [];
-        setTeamPerformance(teamData);
-
-        // Fetch all employees for dropdowns
-        const employeesResponse = await fetchEmployees();
-        let employees = [];
-        if (Array.isArray(employeesResponse)) {
-          employees = employeesResponse;
-        } else if (employeesResponse?.users && Array.isArray(employeesResponse.users)) {
-          employees = employeesResponse.users;
-        } else if (employeesResponse?.data && Array.isArray(employeesResponse.data)) {
-          employees = employeesResponse.data;
-        }
-        setAllEmployees(employees);
-      } catch (err) {
-        console.error('Error fetching performance data:', err);
-        setError('Failed to load performance data');
-        setTeamPerformance([]);
-        setAllEmployees([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const performanceResponse = await getTeamPerformance();
+      const teamData = performanceResponse?.perf || performanceResponse?.team || performanceResponse || [];
+      setTeamPerformance(Array.isArray(teamData) ? teamData : []);
+      const employeesResponse = await fetchEmployees();
+      let employees = [];
+      if (Array.isArray(employeesResponse)) employees = employeesResponse;
+      else if (employeesResponse?.users?.length) employees = employeesResponse.users;
+      else if (employeesResponse?.data?.length) employees = employeesResponse.data;
+      setAllEmployees(employees);
+    } catch (err) {
+      console.error('Error fetching performance data:', err);
+      setError('Failed to load performance data');
+      setTeamPerformance([]);
+      setAllEmployees([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openAssignModal = () => {
+    setGoalError("");
+    setSelectedPerformanceId("");
+    setSelectedEmployee("");
+    setGoalForm([{ title: "", description: "", weightage: 20 }]);
+    setShowAssignGoalModal(true);
+  };
+
+  const handleAddGoalRow = () => {
+    setGoalForm((prev) => [...prev, { title: "", description: "", weightage: 20 }]);
+  };
+
+  const handleGoalFormChange = (index, field, value) => {
+    setGoalForm((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  const handleRemoveGoalRow = (index) => {
+    if (goalForm.length <= 1) return;
+    setGoalForm((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmitGoals = async () => {
+    const perfId = selectedPerformanceId || teamPerformance[0]?._id;
+    if (!perfId) {
+      setGoalError("Select an employee / performance first.");
+      return;
+    }
+    const goals = goalForm
+      .map((g) => ({
+        title: (g.title || "").trim(),
+        description: (g.description || "").trim(),
+        weightage: Math.min(100, Math.max(0, Number(g.weightage) || 0)),
+      }))
+      .filter((g) => g.title);
+    if (!goals.length) {
+      setGoalError("Add at least one goal with a title.");
+      return;
+    }
+    setGoalError("");
+    setIsSubmittingGoals(true);
+    try {
+      await setPerformanceGoals(perfId, { goals });
+      setShowAssignGoalModal(false);
+      await fetchData();
+    } catch (err) {
+      setGoalError(err.response?.data?.message || err.message || "Failed to assign goals");
+    } finally {
+      setIsSubmittingGoals(false);
+    }
+  };
+
+  const openReviewModal = (review) => {
+    const perf = teamPerformance.find((p) => p._id === review.performanceId);
+    if (!perf) return;
+    setSelectedReview(review);
+    setReviewForm(
+      (perf.goals || []).map((g) => ({
+        managerRating: g.managerRating ?? "",
+        comments: g.comments ?? "",
+      }))
+    );
+    setOverallRating(perf.overallRating ?? "");
+    setShowReviewModal(true);
+  };
+
+  const handleReviewFormChange = (index, field, value) => {
+    setReviewForm((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  const handleSubmitManagerReview = async () => {
+    if (!selectedReview?.performanceId) return;
+    const goals = reviewForm.map((r) => ({
+      managerRating: Number(r.managerRating) || 0,
+      comments: String(r.comments || "").trim(),
+    }));
+    setReviewError("");
+    setIsSubmittingReview(true);
+    try {
+      await submitManagerReview(selectedReview.performanceId, { goals });
+      setShowReviewModal(false);
+      await fetchData();
+    } catch (err) {
+      setReviewError(err.response?.data?.message || err.message || "Failed to submit review");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  const handleCalibrate = async () => {
+    if (!selectedReview?.performanceId || !overallRating) return;
+    setIsCalibrating(true);
+    setReviewError("");
+    try {
+      await calibratePerformance(selectedReview.performanceId, {
+        overallRating: Number(overallRating),
+      });
+      setShowReviewModal(false);
+      await fetchData();
+    } catch (err) {
+      setReviewError(err.response?.data?.message || err.message || "Calibrate failed");
+    } finally {
+      setIsCalibrating(false);
+    }
+  };
+
+  const handleFinalize = async () => {
+    if (!selectedReview?.performanceId) return;
+    setIsFinalizing(true);
+    setReviewError("");
+    try {
+      await finalizePerformance(selectedReview.performanceId, { status: "finalized" });
+      setShowReviewModal(false);
+      await fetchData();
+    } catch (err) {
+      setReviewError(err.response?.data?.message || err.message || "Finalize failed");
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
 
   // Get unique departments from employees
   const getDepartments = () => {
@@ -247,6 +392,7 @@ export default function PerformanceHub() {
           <p style={{ color: textSecondary }}>Manage goals, reviews, and performance scores</p>
         </div>
         <button 
+          onClick={openAssignModal}
           className="px-5 py-2.5 rounded-xl font-bold text-white transition-all hover:opacity-90" 
           style={{ backgroundColor: navyBlue, boxShadow: `0 4px 15px ${navyBlue}40` }}
         >
@@ -514,7 +660,11 @@ export default function PerformanceHub() {
                         </span>
                         {/* Actions */}
                         {review.status !== "completed" && (
-                          <button className="px-4 py-2 rounded-lg text-sm font-bold text-white" style={{ backgroundColor: navyBlue }}>
+                          <button
+                            onClick={() => openReviewModal(review)}
+                            className="px-4 py-2 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90"
+                            style={{ backgroundColor: navyBlue }}
+                          >
                             Review
                           </button>
                         )}
