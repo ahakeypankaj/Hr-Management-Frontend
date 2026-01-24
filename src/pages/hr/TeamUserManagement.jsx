@@ -622,18 +622,22 @@ export default function TeamUserManagement() {
                   👤 Personal Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                    <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📧 Email</p>
-                    <p className="font-semibold text-xs break-all" style={{ color: textPrimary }}>
-                      {selectedMember.email || selectedMember.personalEmail || selectedMember.companyEmail || "N/A"}
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                    <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📞 Phone</p>
-                    <p className="font-semibold text-xs" style={{ color: textPrimary }}>
-                      {selectedMember.phoneCode ? `${selectedMember.phoneCode} ` : ""}{selectedMember.phone || selectedMember.phoneNumber || "N/A"}
-                    </p>
-                  </div>
+                  {(selectedMember.email || selectedMember.personalEmail || selectedMember.companyEmail) && (
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📧 Email</p>
+                      <p className="font-semibold text-xs break-all" style={{ color: textPrimary }}>
+                        {selectedMember.email || selectedMember.personalEmail || selectedMember.companyEmail}
+                      </p>
+                    </div>
+                  )}
+                  {(selectedMember.phone || selectedMember.phoneNumber) && (
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📞 Phone</p>
+                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
+                        {selectedMember.phoneCode ? `${selectedMember.phoneCode} ` : ""}{selectedMember.phone || selectedMember.phoneNumber}
+                      </p>
+                    </div>
+                  )}
                   {selectedMember.employeeId && (
                     <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                       <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>🆔 Employee ID</p>
@@ -642,12 +646,14 @@ export default function TeamUserManagement() {
                       </p>
                     </div>
                   )}
-                  <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                    <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📅 Join Date</p>
-                    <p className="font-semibold text-xs" style={{ color: textPrimary }}>
-                      {selectedMember.joinDate || selectedMember.joiningDate || selectedMember.proposedJoiningDate || "N/A"}
-                    </p>
-                  </div>
+                  {(selectedMember.joinDate || selectedMember.joiningDate || selectedMember.proposedJoiningDate) && (
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📅 Join Date</p>
+                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
+                        {selectedMember.joinDate || selectedMember.joiningDate || selectedMember.proposedJoiningDate}
+                      </p>
+                    </div>
+                  )}
                   {selectedMember.address && (
                     <div className="p-3 rounded-lg md:col-span-2" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                       <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📍 Address</p>
@@ -665,18 +671,22 @@ export default function TeamUserManagement() {
                   💼 Job Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                    <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>🏢 Department</p>
-                    <p className="font-semibold text-xs" style={{ color: textPrimary }}>
-                      {selectedMember.department || selectedMember.dept || "N/A"}
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                    <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>💼 Designation</p>
-                    <p className="font-semibold text-xs" style={{ color: textPrimary }}>
-                      {selectedMember.jobTitle || selectedMember.designation || "N/A"}
-                    </p>
-                  </div>
+                  {(selectedMember.department || selectedMember.dept) && (
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>🏢 Department</p>
+                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
+                        {selectedMember.department || selectedMember.dept}
+                      </p>
+                    </div>
+                  )}
+                  {(selectedMember.jobTitle || selectedMember.designation) && (
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                      <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>💼 Designation</p>
+                      <p className="font-semibold text-xs" style={{ color: textPrimary }}>
+                        {selectedMember.jobTitle || selectedMember.designation}
+                      </p>
+                    </div>
+                  )}
                   {selectedMember.jobLevel && (
                     <div className="p-3 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                       <p className="text-xs font-medium mb-1" style={{ color: textSecondary }}>📊 Job Level</p>

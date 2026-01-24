@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
-import { getAttendanceDashboard } from "../../services/attendanceService";
+import { getAttendanceDashboard, getMonthlyAttendance } from "../../services/attendanceService";
 
 // Map API attendance data to UI format
 const mapAttendanceToEmployee = (attendance) => {
@@ -79,6 +79,8 @@ export default function AttendanceManagement() {
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [calendarData, setCalendarData] = useState(null);
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
 
   // Fetch attendance dashboard data
   useEffect(() => {
@@ -150,49 +152,50 @@ export default function AttendanceManagement() {
 
   const handleFilterChange = () => setCurrentPage(1);
 
-  // Generate static attendance data for selected month
-  const generateAttendanceData = (year, month) => {
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOfMonth = new Date(year, month, 1).getDay();
-    
-    const attendanceData = {};
-    
-    // Generate static data: mix of Present, Absent, and Late
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day);
-      const dayOfWeek = date.getDay();
-      
-      // Skip weekends (Saturday = 6, Sunday = 0)
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        attendanceData[day] = { status: 'weekend', checkInTime: null };
-      } else {
-        // Randomly assign status: 70% Present, 15% Late, 15% Absent
-        const rand = Math.random();
-        if (rand < 0.7) {
-          // Present - check-in before 9:30 AM
-          const checkInHour = Math.floor(Math.random() * 2) + 8; // 8 or 9
-          const checkInMinute = checkInHour === 8 ? Math.floor(Math.random() * 60) : Math.floor(Math.random() * 30);
-          attendanceData[day] = { 
-            status: 'present', 
-            checkInTime: `${checkInHour.toString().padStart(2, '0')}:${checkInMinute.toString().padStart(2, '0')}` 
-          };
-        } else if (rand < 0.85) {
-          // Late - check-in after 9:30 AM
-          const checkInHour = Math.floor(Math.random() * 3) + 9; // 9, 10, or 11
-          const checkInMinute = checkInHour === 9 ? Math.floor(Math.random() * 30) + 30 : Math.floor(Math.random() * 60);
-          attendanceData[day] = { 
-            status: 'late', 
-            checkInTime: `${checkInHour.toString().padStart(2, '0')}:${checkInMinute.toString().padStart(2, '0')}` 
-          };
-        } else {
-          // Absent
-          attendanceData[day] = { status: 'absent', checkInTime: null };
+  // Fetch monthly attendance data from API
+  useEffect(() => {
+    if (showCalendarModal) {
+      const fetchMonthlyAttendance = async () => {
+        setIsLoadingCalendar(true);
+        try {
+          // API expects month as 1-12, but JavaScript Date uses 0-11
+          const apiMonth = selectedMonth + 1;
+          const response = await getMonthlyAttendance(selectedYear, apiMonth);
+          
+          const payload = response?.data ?? response;
+          if (payload?.attendance) {
+            // Transform API response to calendar format; normalize status to lowercase for getStatusColor
+            const attendanceData = {};
+            payload.attendance.forEach((item) => {
+              attendanceData[item.day] = {
+                status: typeof item.status === "string" ? item.status.toLowerCase() : item.status,
+                checkInTime: item.checkInTime,
+                checkOutTime: item.checkOutTime,
+                totalHours: item.totalHours,
+                isLate: item.isLate,
+                isWeekend: item.isWeekend,
+                isHoliday: item.isHoliday,
+                isLeave: item.isLeave,
+              };
+            });
+            setCalendarData({
+              attendanceData,
+              daysInMonth: payload.daysInMonth,
+              firstDayOfMonth: payload.firstDayOfMonth,
+              summary: payload.summary,
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching monthly attendance:", error);
+          setCalendarData(null);
+        } finally {
+          setIsLoadingCalendar(false);
         }
-      }
+      };
+
+      fetchMonthlyAttendance();
     }
-    
-    return { attendanceData, daysInMonth, firstDayOfMonth };
-  };
+  }, [showCalendarModal, selectedMonth, selectedYear]);
 
   // Navigate months
   const handlePreviousMonth = () => {
@@ -225,14 +228,13 @@ export default function AttendanceManagement() {
     }
   };
 
-  // Stats from API summary
+  // Stats from API summary (no Opt. Holiday or View Calendar – calendar is a top button)
   const stats = [
     { label: "Total Employees", value: summary.totalEmployees || 0, color: "#2563eb", icon: "👥" },
     { label: "Present", value: summary.present || 0, color: "#16a34a", icon: "🟢" },
     { label: "Checked Out", value: summary.checkedOut || 0, color: "#2563eb", icon: "🔵" },
     { label: "On Leave", value: summary.onLeave || 0, color: "#d97706", icon: "🟡" },
     { label: "Holiday", value: summary.holiday || 0, color: "#2563eb", icon: "🎊" },
-    { label: "Opt. Holiday", value: summary.optionalHoliday || 0, color: "#9333ea", icon: "🎉" },
   ];
 
   return (
@@ -257,7 +259,7 @@ export default function AttendanceManagement() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 animate-fade-in-up">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 animate-fade-in-up">
         {stats.map((stat, index) => (
           <div key={index} className="p-5 hover-lift" style={cardStyle}>
             <div className="flex items-center justify-between">
@@ -271,22 +273,6 @@ export default function AttendanceManagement() {
             </div>
           </div>
         ))}
-        {/* View Calendar Button */}
-        <div 
-          className="p-5 hover-lift cursor-pointer" 
-          style={cardStyle}
-          onClick={() => setShowCalendarModal(true)}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p style={{ color: textSecondary }} className="text-sm font-medium">View Calendar</p>
-              <p style={{ color: textPrimary }} className="text-3xl font-bold mt-1">📅</p>
-            </div>
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: '#0891b220' }}>
-              📅
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Filters */}
@@ -391,8 +377,9 @@ export default function AttendanceManagement() {
                       </td>
                       <td className="px-6 py-4">
                         <div>
-                          <p className="font-medium" style={{ color: textPrimary }}>{employee.department || "N/A"}</p>
-                          <p className="text-xs" style={{ color: textSecondary }}>{employee.designation || "N/A"}</p>
+                          {employee.department && <p className="font-medium" style={{ color: textPrimary }}>{employee.department}</p>}
+                          {employee.designation && <p className="text-xs" style={{ color: textSecondary }}>{employee.designation}</p>}
+                          {!employee.department && !employee.designation && <span className="text-sm" style={{ color: textSecondary }}>—</span>}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -463,11 +450,15 @@ export default function AttendanceManagement() {
 
       {/* Attendance Calendar Modal */}
       {showCalendarModal && (() => {
-        const { attendanceData, daysInMonth, firstDayOfMonth } = generateAttendanceData(selectedYear, selectedMonth);
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         const today = new Date();
         const isCurrentMonth = selectedMonth === today.getMonth() && selectedYear === today.getFullYear();
+        
+        // Use API data if available, otherwise show loading
+        const attendanceData = calendarData?.attendanceData || {};
+        const daysInMonth = calendarData?.daysInMonth || new Date(selectedYear, selectedMonth + 1, 0).getDate();
+        const firstDayOfMonth = calendarData?.firstDayOfMonth || new Date(selectedYear, selectedMonth, 1).getDay();
         
         const getStatusColor = (status) => {
           switch (status) {
@@ -475,6 +466,8 @@ export default function AttendanceManagement() {
             case 'late': return { bg: '#fef3c7', text: '#d97706', border: '#fde68a' };
             case 'absent': return { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' };
             case 'weekend': return { bg: isDark ? '#334155' : '#f1f5f9', text: isDark ? '#94a3b8' : '#64748b', border: isDark ? '#475569' : '#e2e8f0' };
+            case 'half-day': return { bg: '#dbeafe', text: '#2563eb', border: '#bfdbfe' };
+            case 'leave': return { bg: '#f3e8ff', text: '#7c3aed', border: '#e9d5ff' };
             default: return { bg: isDark ? '#334155' : '#f8fafc', text: textSecondary, border: isDark ? '#475569' : '#e2e8f0' };
           }
         };
@@ -536,6 +529,13 @@ export default function AttendanceManagement() {
 
               {/* Calendar Body */}
               <div className="p-6">
+                {isLoadingCalendar ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                    <span className="ml-4" style={{ color: textPrimary }}>Loading calendar data...</span>
+                  </div>
+                ) : (
+                  <>
                 {/* Legend */}
                 <div className="flex flex-wrap gap-4 mb-6 pb-4 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
                   <div className="flex items-center gap-2">
@@ -549,6 +549,14 @@ export default function AttendanceManagement() {
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded" style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca' }}></div>
                     <span className="text-sm" style={{ color: textPrimary }}>Absent</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded" style={{ backgroundColor: '#dbeafe', border: '1px solid #bfdbfe' }}></div>
+                    <span className="text-sm" style={{ color: textPrimary }}>Half Day</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded" style={{ backgroundColor: '#f3e8ff', border: '1px solid #e9d5ff' }}></div>
+                    <span className="text-sm" style={{ color: textPrimary }}>Leave</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded" style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}></div>
@@ -580,6 +588,27 @@ export default function AttendanceManagement() {
                     const dayData = attendanceData[day];
                     const statusColors = getStatusColor(dayData?.status);
                     const isToday = isCurrentMonth && today.getDate() === day;
+                    let formattedCheckInTime = null;
+                    if (dayData?.checkInTime) {
+                      try {
+                        const d = new Date(dayData.checkInTime);
+                        formattedCheckInTime = Number.isNaN(d.getTime())
+                          ? String(dayData.checkInTime)
+                          : d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+                      } catch {
+                        formattedCheckInTime = String(dayData.checkInTime);
+                      }
+                    }
+                    const isLate = dayData?.isLate || dayData?.status === "late";
+                    const title = dayData?.status === "weekend"
+                      ? "Weekend"
+                      : dayData?.status === "leave"
+                        ? "Leave"
+                        : dayData?.status === "absent"
+                          ? "Absent"
+                          : formattedCheckInTime
+                            ? `Check-in: ${formattedCheckInTime}${dayData?.totalHours != null ? ` | Hours: ${Number(dayData.totalHours).toFixed(2)}h` : ""}`
+                            : "No check-in";
 
                     return (
                       <div
@@ -587,34 +616,31 @@ export default function AttendanceManagement() {
                         className="aspect-square p-1 rounded-lg transition-all hover:scale-105"
                         style={{
                           backgroundColor: statusColors.bg,
-                          border: `2px solid ${isToday ? '#2563eb' : statusColors.border}`,
-                          cursor: dayData?.status !== 'weekend' ? 'pointer' : 'default'
+                          border: `2px solid ${isToday ? "#2563eb" : statusColors.border}`,
+                          cursor: dayData?.status && dayData.status !== "weekend" ? "pointer" : "default",
+                          minHeight: "60px",
                         }}
-                        title={dayData?.checkInTime ? `Check-in: ${dayData.checkInTime}` : dayData?.status === 'weekend' ? 'Weekend' : 'No check-in'}
+                        title={title}
                       >
                         <div className="flex flex-col items-center justify-center h-full">
-                          <span
-                            className="text-sm font-bold"
-                            style={{ color: statusColors.text }}
-                          >
+                          <span className="text-sm font-bold" style={{ color: statusColors.text }}>
                             {day}
                           </span>
-                          {dayData?.checkInTime && (
-                            <span
-                              className="text-[10px] mt-0.5"
-                              style={{ color: statusColors.text }}
-                            >
-                              {dayData.checkInTime}
+                          {formattedCheckInTime && (
+                            <span className="text-[9px] mt-0.5" style={{ color: statusColors.text }}>
+                              {formattedCheckInTime}
                             </span>
                           )}
-                          {dayData?.status === 'late' && (
-                            <span className="text-[10px] mt-0.5" style={{ color: '#d97706' }}>⚠️</span>
+                          {isLate && (
+                            <span className="text-[10px] mt-0.5" style={{ color: "#d97706" }}>⚠️</span>
                           )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

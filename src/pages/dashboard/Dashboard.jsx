@@ -9,6 +9,9 @@ import { fetchDashboardData } from "../../services/dashboardService";
 import { getAttendanceDashboard } from "../../services/attendanceService";
 import { fetchEmployeeEOD, fetchEODDetails } from "../../services/eodService";
 import { fetchEmployees } from "../../services/directoryService";
+import { getQuotes } from "../../services/quoteService";
+import { fetchEvents } from "../../services/eventService";
+import { getRecentActivity } from "../../services/activityService";
 
 // Employee Stats
 const getEmployeeStats = (user, eodStatus = null) => {
@@ -23,13 +26,15 @@ const getEmployeeStats = (user, eodStatus = null) => {
   const eodStatusValue = eodStatus === 'submitted' ? 'Submitted' : 'Pending';
   const eodStatusColor = eodStatus === 'submitted' ? '#16a34a' : '#ea580c';
   const eodStatusChange = eodStatus === 'submitted' ? 'completed' : 'not submitted';
+  const eodDate = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
   stats.push({
     label: "Today's EOD Track",
     value: eodStatusValue,
     color: eodStatusColor,
     icon: "📝",
-    change: eodStatusChange
+    change: eodStatusChange,
+    date: eodDate
   });
 
   // Add View Calendar box
@@ -48,6 +53,14 @@ const getEmployeeStats = (user, eodStatus = null) => {
 // Default HR/Manager Stats (fallback)
 const defaultHrStats = [
   { label: "Total Employees", value: 0, color: "#2563eb", icon: "👥", change: "loading..." },
+  { label: "Pending Approvals", value: 0, color: "#ea580c", icon: "✅", change: "need action" },
+  { label: "New Hires", value: 0, color: "#16a34a", icon: "🎉", change: "this month" },
+  { label: "Open Grievances", value: 0, color: "#dc2626", icon: "📝", change: "unresolved" },
+];
+
+// Default Admin Stats (fallback)
+const defaultAdminStats = [
+  { label: "Total Users", value: 0, color: "#2563eb", icon: "👥", change: "loading..." },
   { label: "Pending Approvals", value: 0, color: "#ea580c", icon: "✅", change: "need action" },
   { label: "New Hires", value: 0, color: "#16a34a", icon: "🎉", change: "this month" },
   { label: "Open Grievances", value: 0, color: "#dc2626", icon: "📝", change: "unresolved" },
@@ -120,17 +133,10 @@ const hrQuickLinks = [
 // Quick Links for Admin
 const adminQuickLinks = [
   { name: "User Mgmt", path: "/hr/users", icon: "👥", color: "#dc2626" },
+  { name: "Attendance Management", path: "/hr/attendance", icon: "⏰", color: "#16a34a" },
   { name: "Approvals", path: "/hr/approvals", icon: "✅", color: "#16a34a" },
   { name: "Reports", path: "/hr/reports", icon: "📑", color: "#2563eb" },
   { name: "Settings", path: "/hr/settings", icon: "🔧", color: "#7c3aed" },
-];
-
-// Admin Stats
-const adminStats = [
-  { label: "Total Users", value: 156, color: "#2563eb", icon: "👥", change: "all employees" },
-  { label: "Pending Verification", value: 5, color: "#ea580c", icon: "🔍", change: "need review" },
-  { label: "Active Sessions", value: 42, color: "#16a34a", icon: "🟢", change: "online now" },
-  { label: "System Health", value: "99%", color: "#7c3aed", icon: "⚡", change: "uptime" },
 ];
 
 // Weekly Motivational Quotes (changes every Monday)
@@ -199,6 +205,18 @@ export default function Dashboard() {
   // Calendar modal state (for Employee only)
   const [showCalendarModal, setShowCalendarModal] = useState(false);
 
+  // Quote state (for Employee only)
+  const [currentQuote, setCurrentQuote] = useState(null);
+  const [isLoadingQuote, setIsLoadingQuote] = useState(false);
+
+  // Events state (for Employee and HR)
+  const [upcomingEventsData, setUpcomingEventsData] = useState([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+
+  // Recent Activity state (for HR and Admin)
+  const [recentActivitiesData, setRecentActivitiesData] = useState([]);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(false);
+
   // Fetch dashboard data for HR/Admin
   useEffect(() => {
     if (isHRManager || isAdmin) {
@@ -252,8 +270,10 @@ export default function Dashboard() {
             id: employee._id || employee.id,
             name: employee.name || "Unknown",
             role: employee.designation || employee.role || "Employee",
+            department: employee.department?.name || employee.department || "",
             avatar: (employee.name || "U").charAt(0).toUpperCase(),
-            status: "online", // Default status
+            profilePicture: employee.profilePicture || null,
+            status: "online",
           }));
           setTeamMembersData(mappedMembers);
         } catch (error) {
@@ -327,7 +347,7 @@ export default function Dashboard() {
     }
   }, [isEmployee, user?.id]);
 
-  // Map API stats to UI format
+  // Map API stats to UI format for HR
   const getHrStats = () => {
     const stats = [];
     
@@ -350,13 +370,51 @@ export default function Dashboard() {
     const eodValue = eodTotal > 0 ? `${eodSubmitted}/${eodTotal}` : '0/0';
     const eodColor = eodTotal > 0 && eodSubmitted === eodTotal ? '#16a34a' : '#ea580c';
     const eodChange = eodTotal > 0 ? `${Math.round((eodSubmitted / eodTotal) * 100)}% complete` : 'no data';
+    const eodDate = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
     stats.push({
       label: "EOD Tracker",
       value: eodValue,
       color: eodColor,
       icon: "📝",
-      change: eodChange
+      change: eodChange,
+      date: eodDate
+    });
+
+    return stats;
+  };
+
+  // Map API stats to UI format for Admin (similar to HR but with admin-specific labels)
+  const getAdminStats = () => {
+    const stats = [];
+    
+    if (dashboardData?.stats) {
+      const { stats: apiStats } = dashboardData;
+      stats.push(
+        { label: "Total Users", value: apiStats.totalEmployees || 0, color: "#2563eb", icon: "👥", change: "all employees" },
+        { label: "Pending Approvals", value: apiStats.pendingApprovals || 0, color: "#ea580c", icon: "✅", change: "need action" },
+        { label: "New Hires", value: apiStats.newHires || 0, color: "#16a34a", icon: "🎉", change: "this month" },
+        { label: "Open Grievances", value: apiStats.openGrievances || 0, color: "#dc2626", icon: "📝", change: "unresolved" }
+      );
+    } else {
+      stats.push(...defaultAdminStats);
+    }
+
+    // Always add EOD Tracker box dynamically using fetched data
+    const eodSubmitted = todayEODSummary?.submitted || 0;
+    const eodTotal = todayEODSummary?.total || dashboardData?.stats?.totalEmployees || 0;
+    const eodValue = eodTotal > 0 ? `${eodSubmitted}/${eodTotal}` : '0/0';
+    const eodColor = eodTotal > 0 && eodSubmitted === eodTotal ? '#16a34a' : '#ea580c';
+    const eodChange = eodTotal > 0 ? `${Math.round((eodSubmitted / eodTotal) * 100)}% complete` : 'no data';
+    const eodDate = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+    stats.push({
+      label: "EOD Tracker",
+      value: eodValue,
+      color: eodColor,
+      icon: "📝",
+      change: eodChange,
+      date: eodDate
     });
 
     return stats;
@@ -376,16 +434,47 @@ export default function Dashboard() {
   };
 
   // Map API weekly attendance to chart format
+  // API format: { date: "2026-01-18", percentage: 100 }
   const getWeeklyAttendance = () => {
-    if (!dashboardData?.charts?.weeklyAttendance || dashboardData.charts.weeklyAttendance.length === 0) {
+    const raw = dashboardData?.charts?.weeklyAttendance ?? dashboardData?.attendance?.weeklyAttendance ?? [];
+    if (!Array.isArray(raw) || raw.length === 0) {
       return defaultWeeklyAttendance;
     }
-    const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    return dashboardData.charts.weeklyAttendance.map((item, index) => ({
-      label: dayLabels[index] || `Day ${index + 1}`,
-      value: item.percentage || 0,
-    }));
+    return raw.map((item) => {
+      let label = "—";
+      if (item.date) {
+        const d = new Date(item.date);
+        if (!isNaN(d.getTime())) {
+          label = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        }
+      }
+      return {
+        label,
+        value: item.percentage ?? 0,
+      };
+    });
   };
+
+  // Fetch recent activities for HR and Admin
+  useEffect(() => {
+    if (isHRManager || isAdmin) {
+      const loadRecentActivities = async () => {
+        setIsLoadingActivities(true);
+        try {
+          const data = await getRecentActivity();
+          const activities = Array.isArray(data?.data) ? data.data : [];
+          // Take first 4 activities for dashboard
+          setRecentActivitiesData(activities.slice(0, 4));
+        } catch (error) {
+          console.error('Failed to load recent activities:', error);
+          setRecentActivitiesData([]);
+        } finally {
+          setIsLoadingActivities(false);
+        }
+      };
+      loadRecentActivities();
+    }
+  }, [isHRManager, isAdmin]);
 
   // Map API activities to UI format
   const getActivities = () => {
@@ -440,35 +529,183 @@ export default function Dashboard() {
   };
 
   // Map API team data to UI format
+  // Dashboard API team: { _id, name, designation, profilePicture, department: { name, _id } }
   const getTeamMembers = () => {
-    // Use directory API data if available, otherwise fallback to dashboardData or default
-    if (teamMembersData.length > 0) {
-      return teamMembersData;
-    }
-    if (dashboardData?.team && dashboardData.team.length > 0) {
+    if (dashboardData?.team && Array.isArray(dashboardData.team) && dashboardData.team.length > 0) {
       return dashboardData.team.slice(0, 4).map((member) => ({
         id: member._id || member.id,
         name: member.name || "Unknown",
         role: member.designation || member.role || "Employee",
+        department: member.department?.name || "",
         avatar: (member.name || "U").charAt(0).toUpperCase(),
-        status: "online", // Default status
+        profilePicture: member.profilePicture || null,
+        status: "online",
       }));
     }
-    return teamMembers; // Use default if no data
+    if (teamMembersData.length > 0) {
+      return teamMembersData;
+    }
+    return teamMembers;
   };
   
   // Get appropriate stats and quick links based on role
-  const currentStats = isAdmin ? adminStats : (isHRManager ? getHrStats() : getEmployeeStats(user, todayEODStatus));
+  const currentStats = isAdmin ? getAdminStats() : (isHRManager ? getHrStats() : getEmployeeStats(user, todayEODStatus));
   const quickLinks = isAdmin ? adminQuickLinks : (isHRManager ? hrQuickLinks : employeeQuickLinks);
   
   // Get chart data
   const departmentData = (isHRManager || isAdmin) ? getDepartmentData() : [];
   const weeklyAttendanceData = (isHRManager || isAdmin) ? getWeeklyAttendance() : [];
-  const activities = !isAdmin ? getActivities() : [];
-  const teamData = isHRManager ? getTeamMembers() : [];
+  const activities = getActivities(); // Enable for all roles including admin
+  const teamData = (isHRManager || isAdmin) ? getTeamMembers() : [];
 
-  // Get current week's quote
-  const currentQuote = weeklyQuotes[getWeeklyQuoteIndex()];
+  // Helper functions for formatting activities (similar to Settings)
+  const getActionTypeStyle = (type) => {
+    switch (type) {
+      case "approval":
+      case "success": return { bg: "#dcfce7", color: "#16a34a", icon: "✅" };
+      case "user": return { bg: "#dbeafe", color: "#2563eb", icon: "👤" };
+      case "security": return { bg: "#fef3c7", color: "#d97706", icon: "🔐" };
+      case "info": return { bg: "#dbeafe", color: "#2563eb", icon: "📋" };
+      default: return { bg: "#f1f5f9", color: "#64748b", icon: "📋" };
+    }
+  };
+
+  const formatActivityDetails = (item) => {
+    const meta = item.metadata || {};
+    if (meta.leaveType != null && meta.totalDays != null) return `${meta.leaveType}, ${meta.totalDays} day(s)`;
+    if (meta.leaveType) return String(meta.leaveType);
+    return item.entityType || "";
+  };
+
+  const formatActivityTime = (iso) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    const now = new Date();
+    const diffTime = Math.abs(now - d);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+      if (diffHours === 0) {
+        const diffMins = Math.floor(diffTime / (1000 * 60));
+        return diffMins <= 1 ? "Just now" : `${diffMins} minutes ago`;
+      }
+      return diffHours === 1 ? "1 hour ago" : `${diffHours} hours ago`;
+    } else if (diffDays === 1) {
+      return "Yesterday, " + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    } else if (diffDays < 7) {
+      return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  };
+
+  // Fetch published quote for Employee dashboard
+  useEffect(() => {
+    if (isEmployee) {
+      const loadQuote = async () => {
+        setIsLoadingQuote(true);
+        try {
+          const data = await getQuotes();
+          const quotes = data?.quotes || data?.data || [];
+          if (Array.isArray(quotes) && quotes.length > 0) {
+            // Use the first published quote
+            const quote = quotes[0];
+            setCurrentQuote({
+              quote: quote.text || quote.quote || "",
+              author: quote.authorName || quote.author || "Unknown"
+            });
+          } else {
+            // Fallback to static quote if no API quotes
+            const fallbackQuote = weeklyQuotes[getWeeklyQuoteIndex()];
+            setCurrentQuote(fallbackQuote);
+          }
+        } catch (error) {
+          console.error('Failed to load quote:', error);
+          // Fallback to static quote on error
+          const fallbackQuote = weeklyQuotes[getWeeklyQuoteIndex()];
+          setCurrentQuote(fallbackQuote);
+        } finally {
+          setIsLoadingQuote(false);
+        }
+      };
+      loadQuote();
+    }
+  }, [isEmployee]);
+
+  // Fetch upcoming events for Employee and HR
+  useEffect(() => {
+    if (isEmployee || isHRManager) {
+      const loadEvents = async () => {
+        setIsLoadingEvents(true);
+        try {
+          const data = await fetchEvents();
+          const events = data?.events || [];
+          
+          // Filter upcoming events (date >= today) and sort by date
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const upcoming = events
+            .filter(event => {
+              if (!event.date) return false;
+              const eventDate = new Date(event.date);
+              eventDate.setHours(0, 0, 0, 0);
+              return eventDate >= today;
+            })
+            .sort((a, b) => new Date(a.date) - new Date(b.date))
+            .slice(0, 3) // Take first 3
+            .map(event => {
+              const eventDate = new Date(event.date);
+              const dayName = eventDate.toLocaleDateString('en-US', { weekday: 'short' });
+              const dayNumber = eventDate.getDate();
+              const monthName = eventDate.toLocaleDateString('en-US', { month: 'short' });
+              
+              // Format date for display
+              let dateDisplay = dayName;
+              if (eventDate.toDateString() === today.toDateString()) {
+                dateDisplay = "Today";
+              } else if (eventDate.getTime() - today.getTime() === 86400000) {
+                dateDisplay = "Tomorrow";
+              } else {
+                dateDisplay = `${dayName}, ${monthName} ${dayNumber}`;
+              }
+              
+              // Format time
+              let timeDisplay = "";
+              if (event.time) {
+                const timeStr = event.time;
+                // Handle both "HH:MM" and "HH:MM:SS" formats
+                const [hours, minutes] = timeStr.split(':');
+                const hour = parseInt(hours, 10);
+                const ampm = hour >= 12 ? 'PM' : 'AM';
+                const displayHour = hour % 12 || 12;
+                timeDisplay = `${displayHour}:${minutes} ${ampm}`;
+              }
+              
+              return {
+                id: event._id || event.id,
+                title: event.title || "Untitled Event",
+                date: dateDisplay,
+                time: timeDisplay || "All Day",
+                type: event.type || "meeting",
+                originalDate: event.date
+              };
+            });
+          
+          setUpcomingEventsData(upcoming);
+        } catch (error) {
+          console.error('Failed to load events:', error);
+          setUpcomingEventsData([]);
+        } finally {
+          setIsLoadingEvents(false);
+        }
+      };
+      loadEvents();
+    }
+  }, [isEmployee, isHRManager]);
+
+  // Get current week's quote (fallback if API quote not loaded yet)
+  const displayQuote = currentQuote || weeklyQuotes[getWeeklyQuoteIndex()];
 
   // Generate static attendance data for current month
   const generateAttendanceData = () => {
@@ -579,35 +816,49 @@ export default function Dashboard() {
             <div className="text-2xl">👤</div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="text-center">
-              <p className="text-sm" style={{ color: textSecondary }}>Employee ID</p>
-              <p className="font-semibold" style={{ color: textPrimary }}>{user.employeeId || 'N/A'}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-sm" style={{ color: textSecondary }}>Department</p>
-              <p className="font-semibold" style={{ color: textPrimary }}>{user.department || 'N/A'}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-sm" style={{ color: textSecondary }}>Designation</p>
-              <p className="font-semibold" style={{ color: textPrimary }}>{user.designation || 'N/A'}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-sm" style={{ color: textSecondary }}>Joining Date</p>
-              <p className="font-semibold" style={{ color: textPrimary }}>
-                {user.joiningDate ? new Date(user.joiningDate).toLocaleDateString() : 'N/A'}
-              </p>
-            </div>
+            {user.employeeId && (
+              <div className="text-center">
+                <p className="text-sm" style={{ color: textSecondary }}>Employee ID</p>
+                <p className="font-semibold" style={{ color: textPrimary }}>{user.employeeId}</p>
+              </div>
+            )}
+            {user.department && (
+              <div className="text-center">
+                <p className="text-sm" style={{ color: textSecondary }}>Department</p>
+                <p className="font-semibold" style={{ color: textPrimary }}>{user.department}</p>
+              </div>
+            )}
+            {user.designation && (
+              <div className="text-center">
+                <p className="text-sm" style={{ color: textSecondary }}>Designation</p>
+                <p className="font-semibold" style={{ color: textPrimary }}>{user.designation}</p>
+              </div>
+            )}
+            {user.joiningDate && (
+              <div className="text-center">
+                <p className="text-sm" style={{ color: textSecondary }}>Joining Date</p>
+                <p className="font-semibold" style={{ color: textPrimary }}>
+                  {new Date(user.joiningDate).toLocaleDateString()}
+                </p>
+              </div>
+            )}
           </div>
-          <div className="mt-4 pt-4 border-t" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
-            <div className="flex items-center justify-between text-sm">
-              <span style={{ color: textSecondary }}>Company Email:</span>
-              <span style={{ color: textPrimary }}>{user.companyEmail || 'N/A'}</span>
+          {(user.companyEmail || user.employmentType) && (
+            <div className="mt-4 pt-4 border-t" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+              {user.companyEmail && (
+                <div className="flex items-center justify-between text-sm">
+                  <span style={{ color: textSecondary }}>Company Email:</span>
+                  <span style={{ color: textPrimary }}>{user.companyEmail}</span>
+                </div>
+              )}
+              {user.employmentType && (
+                <div className="flex items-center justify-between text-sm mt-1">
+                  <span style={{ color: textSecondary }}>Employment Type:</span>
+                  <span style={{ color: textPrimary }}>{user.employmentType}</span>
+                </div>
+              )}
             </div>
-            <div className="flex items-center justify-between text-sm mt-1">
-              <span style={{ color: textSecondary }}>Employment Type:</span>
-              <span style={{ color: textPrimary }}>{user.employmentType || 'N/A'}</span>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -638,18 +889,27 @@ export default function Dashboard() {
                 💡 Quote of the Week
               </span>
             </div>
-            <p 
-              className="text-xl font-medium italic mb-3 leading-relaxed"
-              style={{ color: textPrimary }}
-            >
-              "{currentQuote.quote}"
-            </p>
-            <p 
-              className="text-sm font-semibold"
-              style={{ color: colors.primary }}
-            >
-              — {currentQuote.author}
-            </p>
+            {isLoadingQuote ? (
+              <div className="flex items-center gap-2 py-4">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: colors.primary }} />
+                <span style={{ color: textSecondary }}>Loading quote...</span>
+              </div>
+            ) : (
+              <>
+                <p 
+                  className="text-xl font-medium italic mb-3 leading-relaxed"
+                  style={{ color: textPrimary }}
+                >
+                  "{displayQuote.quote}"
+                </p>
+                <p 
+                  className="text-sm font-semibold"
+                  style={{ color: colors.primary }}
+                >
+                  — {displayQuote.author}
+                </p>
+              </>
+            )}
           </div>
           {/* Decorative Element */}
           <div 
@@ -661,8 +921,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* Stats Cards - 5 cols for HR/Admin (5 boxes), 6 cols for Employee (6 boxes) */}
+      <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 ${(isHRManager || isAdmin) ? 'lg:grid-cols-5' : 'lg:grid-cols-6'}`}>
         {currentStats.map((stat, index) => (
           <div 
             key={index} 
@@ -675,6 +935,9 @@ export default function Dashboard() {
                 <p style={{ color: textSecondary }} className="text-sm font-medium">{stat.label}</p>
                 <p style={{ color: textPrimary }} className="text-3xl font-bold mt-1">{stat.value}</p>
                 <p className="text-xs mt-1" style={{ color: stat.color }}>{stat.change}</p>
+                {stat.date && (
+                  <p className="text-xs mt-0.5" style={{ color: textSecondary }}>{stat.date}</p>
+                )}
               </div>
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl animate-pulse-slow"
@@ -863,11 +1126,51 @@ export default function Dashboard() {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Activity - For Employee and HR */}
-        {!isAdmin && (
-          <div className="lg:col-span-2 p-6 animate-fade-in-up stagger-3" style={cardStyle}>
-            <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Recent Activity</h2>
-            {isLoadingDashboard && (isHRManager || isAdmin) ? (
+        {/* Recent Activity - For Employee, HR, and Admin */}
+        <div className="lg:col-span-2 p-6 animate-fade-in-up stagger-3" style={cardStyle}>
+          <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Recent Activity</h2>
+          {(isHRManager || isAdmin) ? (
+            isLoadingActivities ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: colors.primary }}></div>
+                <span className="ml-3 text-sm" style={{ color: textSecondary }}>Loading activities...</span>
+              </div>
+            ) : recentActivitiesData.length === 0 ? (
+              <p className="text-center py-12 text-sm" style={{ color: textSecondary }}>No recent activity</p>
+            ) : (
+              <div className="space-y-3">
+                {recentActivitiesData.map((activity) => {
+                  const typeStyle = getActionTypeStyle(activity.type);
+                  const details = formatActivityDetails(activity);
+                  return (
+                    <div
+                      key={activity._id}
+                      className="flex items-center gap-4 p-4 rounded-xl transition-all hover:scale-[1.01]"
+                      style={{ 
+                        backgroundColor: isDark ? '#334155' : '#f8fafc',
+                      }}
+                    >
+                      <div 
+                        className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                        style={{ backgroundColor: typeStyle.bg }}
+                      >
+                        {typeStyle.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold" style={{ color: textPrimary }}>{activity.action}</p>
+                        <p className="text-sm" style={{ color: textSecondary }}>
+                          {activity.userId?.name ?? "—"}
+                          {details ? ` · ${details}` : ""}
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: textSecondary }}>{formatActivityTime(activity.createdAt)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          ) : (
+            isLoadingDashboard && (isHRManager || isAdmin) ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: colors.primary }}></div>
               </div>
@@ -901,62 +1204,14 @@ export default function Dashboard() {
                 </div>
                 ))}
               </div>
-            )}
-          </div>
-        )}
+            )
+          )}
+        </div>
 
-        {/* Admin System Overview */}
-        {isAdmin && (
-          <div className="lg:col-span-2 p-6 animate-fade-in-up stagger-3" style={cardStyle}>
-            <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>System Overview</h2>
-            <div className="space-y-4">
-              {[
-                { label: "User Registrations (This Month)", value: 12, icon: "👤", color: "#2563eb" },
-                { label: "Pending Approvals", value: 8, icon: "⏳", color: "#ea580c" },
-                { label: "Documents to Verify", value: 5, icon: "📄", color: "#7c3aed" },
-                { label: "BGV In Progress", value: 3, icon: "🔍", color: "#16a34a" },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-4 p-4 rounded-xl" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: `${item.color}20` }}>
-                    {item.icon}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium" style={{ color: textPrimary }}>{item.label}</p>
-                  </div>
-                  <p className="text-2xl font-bold" style={{ color: item.color }}>{item.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Quick Links - For Employee and HR only (not Admin) */}
-        {!isAdmin && (
-          <div className="p-6 animate-fade-in-up stagger-4" style={cardStyle}>
-            <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Quick Actions</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {quickLinks.map((link, index) => (
-                <Link
-                  key={index}
-                  to={link.path}
-                  className="p-4 rounded-xl text-center transition-all hover-lift hover-glow flex flex-col items-center justify-center min-h-[100px]"
-                  style={{ 
-                    background: `linear-gradient(135deg, ${link.color}15, ${link.color}05)`,
-                    border: `1px solid ${link.color}30`
-                  }}
-                >
-                  <span className="text-3xl block mb-2">{link.icon}</span>
-                  <span className="text-xs sm:text-sm font-semibold leading-tight text-center" style={{ color: link.color }}>{link.name}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Admin Quick Access */}
-        {isAdmin && (
-          <div className="p-6 animate-fade-in-up stagger-4" style={cardStyle}>
-            <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Admin Quick Access</h2>
+        {/* Quick Links - For Employee, HR, and Admin */}
+        <div className="p-6 animate-fade-in-up stagger-4" style={cardStyle}>
+          <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>{isAdmin ? "Admin Quick Access" : "Quick Actions"}</h2>
+          {isAdmin ? (
             <div className="space-y-3">
               {adminQuickLinks.map((link, index) => (
                 <Link
@@ -976,8 +1231,25 @@ export default function Dashboard() {
                 </Link>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {quickLinks.map((link, index) => (
+                <Link
+                  key={index}
+                  to={link.path}
+                  className="p-4 rounded-xl text-center transition-all hover-lift hover-glow flex flex-col items-center justify-center min-h-[100px]"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${link.color}15, ${link.color}05)`,
+                    border: `1px solid ${link.color}30`
+                  }}
+                >
+                  <span className="text-3xl block mb-2">{link.icon}</span>
+                  <span className="text-xs sm:text-sm font-semibold leading-tight text-center" style={{ color: link.color }}>{link.name}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Bottom Row - For Employee and HR only */}
@@ -986,45 +1258,56 @@ export default function Dashboard() {
           {/* Upcoming Events */}
           <div className="p-6 animate-fade-in-up stagger-5" style={cardStyle}>
             <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Upcoming Events</h2>
-            <div className="space-y-3">
-              {upcomingEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="flex items-center gap-4 p-4 rounded-xl transition-all hover:scale-[1.01]"
-                  style={{ 
-                    backgroundColor: isDark ? '#334155' : '#f8fafc',
-                    border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`
-                  }}
-                >
+            {isLoadingEvents ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: colors.primary }} />
+                <span className="ml-3 text-sm" style={{ color: textSecondary }}>Loading events...</span>
+              </div>
+            ) : upcomingEventsData.length === 0 ? (
+              <p className="text-center py-8 text-sm" style={{ color: textSecondary }}>No upcoming events</p>
+            ) : (
+              <div className="space-y-3">
+                {upcomingEventsData.map((event) => (
                   <div
-                    className="w-14 h-14 rounded-xl flex flex-col items-center justify-center text-white text-sm font-bold"
+                    key={event.id}
+                    className="flex items-center gap-4 p-4 rounded-xl transition-all hover:scale-[1.01]"
                     style={{ 
-                      background: event.type === "meeting" 
-                        ? "linear-gradient(135deg, #2563eb, #1e3a5f)" 
-                        : event.type === "review" 
-                        ? "linear-gradient(135deg, #7c3aed, #5b21b6)" 
-                        : "linear-gradient(135deg, #16a34a, #15803d)"
+                      backgroundColor: isDark ? '#334155' : '#f8fafc',
+                      border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`
                     }}
                   >
-                    {event.date === "Daily" ? (
-                      <>
-                        <span className="text-lg">📅</span>
-                        <span className="text-[10px] opacity-80">Daily</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-lg">{event.date.substring(0, 3)}</span>
-                        <span className="text-[10px] opacity-80">{event.date}</span>
-                      </>
-                    )}
+                    <div
+                      className="w-14 h-14 rounded-xl flex flex-col items-center justify-center text-white text-sm font-bold"
+                      style={{ 
+                        background: event.type === "meeting" 
+                          ? "linear-gradient(135deg, #2563eb, #1e3a5f)" 
+                          : event.type === "holiday" || event.type === "company"
+                          ? "linear-gradient(135deg, #16a34a, #15803d)"
+                          : event.type === "webinar" || event.type === "team"
+                          ? "linear-gradient(135deg, #7c3aed, #5b21b6)"
+                          : "linear-gradient(135deg, #2563eb, #1e3a5f)"
+                      }}
+                    >
+                      {event.date === "Today" || event.date === "Tomorrow" ? (
+                        <>
+                          <span className="text-lg">📅</span>
+                          <span className="text-[10px] opacity-80">{event.date === "Today" ? "Today" : "Tomorrow"}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-lg">{event.date.substring(0, 3)}</span>
+                          <span className="text-[10px] opacity-80">{event.date.split(',')[0]}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold" style={{ color: textPrimary }}>{event.title}</p>
+                      <p className="text-sm" style={{ color: textSecondary }}>{event.time}</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-semibold" style={{ color: textPrimary }}>{event.title}</p>
-                    <p className="text-sm" style={{ color: textSecondary }}>{event.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Team Members - HR Only */}
@@ -1043,13 +1326,21 @@ export default function Dashboard() {
                     className="flex items-center gap-4 p-3 rounded-xl transition-all hover:scale-[1.01]"
                     style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}
                   >
-                    <div className="relative">
-                      <div 
-                        className="w-11 h-11 rounded-full flex items-center justify-center text-white font-semibold"
-                        style={{ background: 'linear-gradient(135deg, #1e3a5f, #2563eb)' }}
-                      >
-                        {member.avatar}
-                      </div>
+                    <div className="relative flex-shrink-0">
+                      {member.profilePicture ? (
+                        <img
+                          src={member.profilePicture}
+                          alt={member.name}
+                          className="w-11 h-11 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div 
+                          className="w-11 h-11 rounded-full flex items-center justify-center text-white font-semibold"
+                          style={{ background: 'linear-gradient(135deg, #1e3a5f, #2563eb)' }}
+                        >
+                          {member.avatar}
+                        </div>
+                      )}
                       <span
                         className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
                         style={{ 
@@ -1058,9 +1349,11 @@ export default function Dashboard() {
                         }}
                       ></span>
                     </div>
-                    <div className="flex-1">
-                      <p className="font-semibold" style={{ color: textPrimary }}>{member.name}</p>
-                      <p className="text-sm" style={{ color: textSecondary }}>{member.role}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate" style={{ color: textPrimary }}>{member.name}</p>
+                      <p className="text-sm truncate" style={{ color: textSecondary }}>
+                        {[member.department, member.role].filter(Boolean).join(" · ") || member.role}
+                      </p>
                     </div>
                   </div>
                   )) : (

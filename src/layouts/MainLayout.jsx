@@ -175,7 +175,7 @@ export default function MainLayout({ children }) {
     { name: "Approvals", path: "/hr/approvals", icon: "✅", highlight: true },
     { name: "Onboarding Employees", path: "/hr/team", icon: "👥" },
     { name: "Add Onboarding Employee", path: "/hr/users/add", icon: "➕" },
-    { name: "Attendance Mgmt (Live)", path: "/hr/attendance", icon: "⏰" },
+    { name: "Attendance Management", path: "/hr/attendance", icon: "⏰" },
     { name: "EOD Management (EOD)", path: "/eod-management", icon: "📑" },
     { name: "Grievance Mgmt", path: "/hr/grievances", icon: "📝" },
     { name: "Directory", path: "/directory", icon: "📖" },
@@ -193,7 +193,7 @@ export default function MainLayout({ children }) {
     { name: "Expenses", path: "/expense", icon: "💰" },
   ];
 
-  // Admin Menu Items (Full authority - no profile, no leave management, no onboarding)
+  // Admin Menu Items (aligned with HR – includes Attendance Management like HR module)
   const adminMenu = [
     { name: "Dashboard", path: "/dashboard", icon: "📊" },
     { divider: true, label: "User Administration" },
@@ -201,7 +201,7 @@ export default function MainLayout({ children }) {
     { name: "Add Onboarding Employee", path: "/hr/users/add", icon: "➕" },
     { name: "Approvals", path: "/hr/approvals", icon: "✅", highlight: true },
     { divider: true, label: "Organization" },
-    { name: "Attendance Mgmt (Live)", path: "/hr/attendance", icon: "⏰" },
+    { name: "Attendance Management", path: "/hr/attendance", icon: "⏰" },
     { name: "EOD Mgmt (EOD)", path: "/eod-management", icon: "📑" },
     { name: "Grievance Mgmt", path: "/hr/grievances", icon: "📝" },
     { name: "Directory", path: "/directory", icon: "📖" },
