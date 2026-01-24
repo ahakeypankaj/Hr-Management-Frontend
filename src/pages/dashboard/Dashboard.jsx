@@ -7,14 +7,43 @@ import BarChart from "../../components/charts/BarChart";
 import PieChart from "../../components/charts/PieChart";
 import { fetchDashboardData } from "../../services/dashboardService";
 import { getAttendanceDashboard } from "../../services/attendanceService";
+import { fetchEmployeeEOD, fetchEODDetails } from "../../services/eodService";
+import { fetchEmployees } from "../../services/directoryService";
 
 // Employee Stats
-const getEmployeeStats = (user) => [
-  { label: "Pending Tasks", value: 3, color: "#2563eb", icon: "📋", change: "+2" },
-  { label: "Leave Balance", value: 12, color: "#16a34a", icon: "🏖️", change: "days" },
-  { label: "Attendance", value: "95%", color: "#7c3aed", icon: "⏰", change: "this month" },
-  { label: "Open Grievances", value: 1, color: "#ea580c", icon: "📝", change: "pending" },
-];
+const getEmployeeStats = (user, eodStatus = null) => {
+  const stats = [
+    { label: "Pending Tasks", value: 3, color: "#2563eb", icon: "📋", change: "+2" },
+    { label: "Leave Balance", value: 12, color: "#16a34a", icon: "🏖️", change: "days" },
+    { label: "Attendance", value: "95%", color: "#7c3aed", icon: "⏰", change: "this month" },
+    { label: "Open Grievances", value: 1, color: "#ea580c", icon: "📝", change: "pending" },
+  ];
+
+  // Add Today's EOD Track box
+  const eodStatusValue = eodStatus === 'submitted' ? 'Submitted' : 'Pending';
+  const eodStatusColor = eodStatus === 'submitted' ? '#16a34a' : '#ea580c';
+  const eodStatusChange = eodStatus === 'submitted' ? 'completed' : 'not submitted';
+
+  stats.push({
+    label: "Today's EOD Track",
+    value: eodStatusValue,
+    color: eodStatusColor,
+    icon: "📝",
+    change: eodStatusChange
+  });
+
+  // Add View Calendar box
+  stats.push({
+    label: "View Calendar",
+    value: "📅",
+    color: "#0891b2",
+    icon: "📅",
+    change: "attendance",
+    isClickable: true
+  });
+
+  return stats;
+};
 
 // Default HR/Manager Stats (fallback)
 const defaultHrStats = [
@@ -155,6 +184,21 @@ export default function Dashboard() {
   const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
   const [attendanceError, setAttendanceError] = useState(null);
 
+  // Today's EOD status (for Employee only)
+  const [todayEODStatus, setTodayEODStatus] = useState(null);
+  const [isLoadingEOD, setIsLoadingEOD] = useState(false);
+
+  // Today's EOD summary (for HR/Admin only)
+  const [todayEODSummary, setTodayEODSummary] = useState(null);
+  const [isLoadingEODSummary, setIsLoadingEODSummary] = useState(false);
+
+  // Team members from directory (for HR/Admin only)
+  const [teamMembersData, setTeamMembersData] = useState([]);
+  const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false);
+
+  // Calendar modal state (for Employee only)
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+
   // Fetch dashboard data for HR/Admin
   useEffect(() => {
     if (isHRManager || isAdmin) {
@@ -195,16 +239,127 @@ export default function Dashboard() {
     }
   }, [isHRManager, isAdmin]);
 
+  // Fetch team members from directory API for HR/Admin
+  useEffect(() => {
+    if (isHRManager || isAdmin) {
+      const loadTeamMembers = async () => {
+        setIsLoadingTeamMembers(true);
+        try {
+          const data = await fetchEmployees();
+          const employees = data.users || data.data || data || [];
+          // Map employees to team member format
+          const mappedMembers = employees.slice(0, 4).map((employee) => ({
+            id: employee._id || employee.id,
+            name: employee.name || "Unknown",
+            role: employee.designation || employee.role || "Employee",
+            avatar: (employee.name || "U").charAt(0).toUpperCase(),
+            status: "online", // Default status
+          }));
+          setTeamMembersData(mappedMembers);
+        } catch (error) {
+          console.error('Failed to load team members:', error);
+          setTeamMembersData([]);
+        } finally {
+          setIsLoadingTeamMembers(false);
+        }
+      };
+      loadTeamMembers();
+    }
+  }, [isHRManager, isAdmin]);
+
+  // Fetch today's EOD summary for HR/Admin
+  useEffect(() => {
+    if (isHRManager || isAdmin) {
+      const loadTodayEODSummary = async () => {
+        setIsLoadingEODSummary(true);
+        try {
+          const today = new Date().toISOString().split('T')[0];
+          const data = await fetchEODDetails({
+            startDate: today,
+            endDate: today,
+            page: 1,
+            limit: 1
+          });
+          
+          // Extract stats from API response (similar to EODManagement component)
+          const stats = data.stats || data.summary || {};
+          const submitted = stats.submittedToday || stats.submitted || stats.totalSubmitted || 0;
+          const total = stats.totalEmployees || stats.total || 0;
+          
+          setTodayEODSummary({
+            submitted: submitted,
+            total: total
+          });
+        } catch (error) {
+          console.error('Failed to load today\'s EOD summary:', error);
+          setTodayEODSummary({ submitted: 0, total: 0 });
+        } finally {
+          setIsLoadingEODSummary(false);
+        }
+      };
+      loadTodayEODSummary();
+    }
+  }, [isHRManager, isAdmin]);
+
+  // Fetch today's EOD status for Employee
+  useEffect(() => {
+    if (isEmployee && user?.id) {
+      const loadTodayEOD = async () => {
+        setIsLoadingEOD(true);
+        try {
+          const today = new Date().toISOString().split('T')[0];
+          const data = await fetchEmployeeEOD(user.id, today, today, 1, 1);
+          const eods = data.eods || [];
+          // Check if there's an EOD for today
+          const todayEOD = eods.find(eod => {
+            const eodDate = eod.date ? new Date(eod.date).toISOString().split('T')[0] : null;
+            return eodDate === today;
+          });
+          setTodayEODStatus(todayEOD ? 'submitted' : 'pending');
+        } catch (error) {
+          console.error('Failed to load today\'s EOD status:', error);
+          setTodayEODStatus('pending'); // Default to pending on error
+        } finally {
+          setIsLoadingEOD(false);
+        }
+      };
+      loadTodayEOD();
+    }
+  }, [isEmployee, user?.id]);
+
   // Map API stats to UI format
   const getHrStats = () => {
-    if (!dashboardData?.stats) return defaultHrStats;
-    const { stats } = dashboardData;
-    return [
-      { label: "Total Employees", value: stats.totalEmployees || 0, color: "#2563eb", icon: "👥", change: "all employees" },
-      { label: "Pending Approvals", value: stats.pendingApprovals || 0, color: "#ea580c", icon: "✅", change: "need action" },
-      { label: "New Hires", value: stats.newHires || 0, color: "#16a34a", icon: "🎉", change: "this month" },
-      { label: "Open Grievances", value: stats.openGrievances || 0, color: "#dc2626", icon: "📝", change: "unresolved" },
-    ];
+    const stats = [];
+    
+    if (dashboardData?.stats) {
+      const { stats: apiStats } = dashboardData;
+      stats.push(
+        { label: "Total Employees", value: apiStats.totalEmployees || 0, color: "#2563eb", icon: "👥", change: "all employees" },
+        { label: "Pending Approvals", value: apiStats.pendingApprovals || 0, color: "#ea580c", icon: "✅", change: "need action" },
+        { label: "New Hires", value: apiStats.newHires || 0, color: "#16a34a", icon: "🎉", change: "this month" },
+        { label: "Open Grievances", value: apiStats.openGrievances || 0, color: "#dc2626", icon: "📝", change: "unresolved" }
+      );
+    } else {
+      stats.push(...defaultHrStats);
+    }
+
+    // Always add EOD Tracker box dynamically using fetched data
+    const eodSubmitted = todayEODSummary?.submitted || 0;
+    // Use total from EOD summary, or fallback to dashboardData totalEmployees if available
+    const eodTotal = todayEODSummary?.total || dashboardData?.stats?.totalEmployees || 0;
+    const eodValue = eodTotal > 0 ? `${eodSubmitted}/${eodTotal}` : '0/0';
+    const eodColor = eodTotal > 0 && eodSubmitted === eodTotal ? '#16a34a' : '#ea580c';
+    const eodChange = eodTotal > 0 ? `${Math.round((eodSubmitted / eodTotal) * 100)}% complete` : 'no data';
+
+    stats.push({
+      label: "EOD Tracker",
+      value: eodValue,
+      color: eodColor,
+      icon: "📝",
+      change: eodChange
+    });
+
+    return stats;
   };
 
   // Map API department distribution to chart format
@@ -286,20 +441,24 @@ export default function Dashboard() {
 
   // Map API team data to UI format
   const getTeamMembers = () => {
-    if (!dashboardData?.team || dashboardData.team.length === 0) {
-      return teamMembers; // Use default if no team data
+    // Use directory API data if available, otherwise fallback to dashboardData or default
+    if (teamMembersData.length > 0) {
+      return teamMembersData;
     }
-    return dashboardData.team.slice(0, 4).map((member) => ({
-      id: member._id || member.id,
-      name: member.name || "Unknown",
-      role: member.designation || member.role || "Employee",
-      avatar: (member.name || "U").charAt(0).toUpperCase(),
-      status: "online", // Default status
-    }));
+    if (dashboardData?.team && dashboardData.team.length > 0) {
+      return dashboardData.team.slice(0, 4).map((member) => ({
+        id: member._id || member.id,
+        name: member.name || "Unknown",
+        role: member.designation || member.role || "Employee",
+        avatar: (member.name || "U").charAt(0).toUpperCase(),
+        status: "online", // Default status
+      }));
+    }
+    return teamMembers; // Use default if no data
   };
   
   // Get appropriate stats and quick links based on role
-  const currentStats = isAdmin ? adminStats : (isHRManager ? getHrStats() : getEmployeeStats(user));
+  const currentStats = isAdmin ? adminStats : (isHRManager ? getHrStats() : getEmployeeStats(user, todayEODStatus));
   const quickLinks = isAdmin ? adminQuickLinks : (isHRManager ? hrQuickLinks : employeeQuickLinks);
   
   // Get chart data
@@ -310,6 +469,53 @@ export default function Dashboard() {
 
   // Get current week's quote
   const currentQuote = weeklyQuotes[getWeeklyQuoteIndex()];
+
+  // Generate static attendance data for current month
+  const generateAttendanceData = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    
+    const attendanceData = {};
+    
+    // Generate static data: mix of Present, Absent, and Late
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const dayOfWeek = date.getDay();
+      
+      // Skip weekends (Saturday = 6, Sunday = 0)
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        attendanceData[day] = { status: 'weekend', checkInTime: null };
+      } else {
+        // Randomly assign status: 70% Present, 15% Late, 15% Absent
+        const rand = Math.random();
+        if (rand < 0.7) {
+          // Present - check-in before 9:30 AM
+          const checkInHour = Math.floor(Math.random() * 2) + 8; // 8 or 9
+          const checkInMinute = checkInHour === 8 ? Math.floor(Math.random() * 60) : Math.floor(Math.random() * 30);
+          attendanceData[day] = { 
+            status: 'present', 
+            checkInTime: `${checkInHour.toString().padStart(2, '0')}:${checkInMinute.toString().padStart(2, '0')}` 
+          };
+        } else if (rand < 0.85) {
+          // Late - check-in after 9:30 AM
+          const checkInHour = Math.floor(Math.random() * 3) + 9; // 9, 10, or 11
+          const checkInMinute = checkInHour === 9 ? Math.floor(Math.random() * 30) + 30 : Math.floor(Math.random() * 60);
+          attendanceData[day] = { 
+            status: 'late', 
+            checkInTime: `${checkInHour.toString().padStart(2, '0')}:${checkInMinute.toString().padStart(2, '0')}` 
+          };
+        } else {
+          // Absent
+          attendanceData[day] = { status: 'absent', checkInTime: null };
+        }
+      }
+    }
+    
+    return { attendanceData, year, month, daysInMonth, firstDayOfMonth };
+  };
 
   const colors = {
     primary: '#1e3a5f',
@@ -456,12 +662,13 @@ export default function Dashboard() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {currentStats.map((stat, index) => (
           <div 
             key={index} 
-            className="p-5 hover-lift animate-fade-in-up"
+            className={`p-5 hover-lift animate-fade-in-up ${stat.isClickable ? 'cursor-pointer' : ''}`}
             style={{ ...cardStyle, animationDelay: `${index * 0.1}s` }}
+            onClick={() => stat.isClickable && isEmployee && setShowCalendarModal(true)}
           >
             <div className="flex items-center justify-between">
               <div>
@@ -824,7 +1031,7 @@ export default function Dashboard() {
           {isHRManager && (
             <div className="p-6 animate-fade-in-up stagger-5" style={cardStyle}>
               <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Team Members</h2>
-              {isLoadingDashboard ? (
+              {isLoadingTeamMembers ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: colors.primary }}></div>
                 </div>
@@ -877,6 +1084,151 @@ export default function Dashboard() {
           )}
         </div>
       )}
+
+      {/* Attendance Calendar Modal - Employee Only */}
+      {isEmployee && showCalendarModal && (() => {
+        const { attendanceData, year, month, daysInMonth, firstDayOfMonth } = generateAttendanceData();
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        
+        const getStatusColor = (status) => {
+          switch (status) {
+            case 'present': return { bg: '#dcfce7', text: '#16a34a', border: '#bbf7d0' };
+            case 'late': return { bg: '#fef3c7', text: '#d97706', border: '#fde68a' };
+            case 'absent': return { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' };
+            case 'weekend': return { bg: isDark ? '#334155' : '#f1f5f9', text: isDark ? '#94a3b8' : '#64748b', border: isDark ? '#475569' : '#e2e8f0' };
+            default: return { bg: isDark ? '#334155' : '#f8fafc', text: textSecondary, border: isDark ? '#475569' : '#e2e8f0' };
+          }
+        };
+
+        return (
+          <div
+            className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in p-4"
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)'
+            }}
+            onClick={() => setShowCalendarModal(false)}
+          >
+            <div
+              className="w-full max-w-4xl animate-scale-in"
+              style={{
+                backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                borderRadius: '24px',
+                boxShadow: '0 25px 80px -12px rgba(0, 0, 0, 0.8)',
+                overflow: 'hidden'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div
+                className="p-6 border-b"
+                style={{
+                  background: 'linear-gradient(135deg, #1e3a5f, #2563eb)',
+                  borderColor: isDark ? '#334155' : '#e2e8f0'
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">Monthly Attendance Calendar</h2>
+                    <p className="text-blue-100 text-sm mt-1">{monthNames[month]} {year}</p>
+                  </div>
+                  <button
+                    onClick={() => setShowCalendarModal(false)}
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Calendar Body */}
+              <div className="p-6">
+                {/* Legend */}
+                <div className="flex flex-wrap gap-4 mb-6 pb-4 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded" style={{ backgroundColor: '#dcfce7', border: '1px solid #bbf7d0' }}></div>
+                    <span className="text-sm" style={{ color: textPrimary }}>Present</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded" style={{ backgroundColor: '#fef3c7', border: '1px solid #fde68a' }}></div>
+                    <span className="text-sm" style={{ color: textPrimary }}>Late (after 9:30 AM)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded" style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca' }}></div>
+                    <span className="text-sm" style={{ color: textPrimary }}>Absent</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded" style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}></div>
+                    <span className="text-sm" style={{ color: textPrimary }}>Weekend</span>
+                  </div>
+                </div>
+
+                {/* Calendar Grid */}
+                <div className="grid grid-cols-7 gap-2">
+                  {/* Day Headers */}
+                  {dayNames.map((day) => (
+                    <div
+                      key={day}
+                      className="text-center font-bold text-sm py-2"
+                      style={{ color: textSecondary }}
+                    >
+                      {day}
+                    </div>
+                  ))}
+
+                  {/* Empty cells for days before month starts */}
+                  {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+                    <div key={`empty-${i}`} className="aspect-square"></div>
+                  ))}
+
+                  {/* Calendar Days */}
+                  {Array.from({ length: daysInMonth }).map((_, i) => {
+                    const day = i + 1;
+                    const dayData = attendanceData[day];
+                    const statusColors = getStatusColor(dayData?.status);
+                    const isToday = new Date().getDate() === day && new Date().getMonth() === month && new Date().getFullYear() === year;
+
+                    return (
+                      <div
+                        key={day}
+                        className="aspect-square p-1 rounded-lg transition-all hover:scale-105"
+                        style={{
+                          backgroundColor: statusColors.bg,
+                          border: `2px solid ${isToday ? '#2563eb' : statusColors.border}`,
+                          cursor: dayData?.status !== 'weekend' ? 'pointer' : 'default'
+                        }}
+                        title={dayData?.checkInTime ? `Check-in: ${dayData.checkInTime}` : dayData?.status === 'weekend' ? 'Weekend' : 'No check-in'}
+                      >
+                        <div className="flex flex-col items-center justify-center h-full">
+                          <span
+                            className="text-sm font-bold"
+                            style={{ color: statusColors.text }}
+                          >
+                            {day}
+                          </span>
+                          {dayData?.checkInTime && (
+                            <span
+                              className="text-[10px] mt-0.5"
+                              style={{ color: statusColors.text }}
+                            >
+                              {dayData.checkInTime}
+                            </span>
+                          )}
+                          {dayData?.status === 'late' && (
+                            <span className="text-[10px] mt-0.5" style={{ color: '#d97706' }}>⚠️</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
