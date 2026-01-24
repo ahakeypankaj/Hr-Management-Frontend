@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useTheme } from "../../context/ThemeContext";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 // Mock audit logs
 const mockAuditLogs = [
@@ -39,13 +40,15 @@ const mockWeeklyQuotes = [
 export default function Settings() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  
+
   const [activeTab, setActiveTab] = useState("audit");
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState("");
   const [editItem, setEditItem] = useState(null);
   const [quotes, setQuotes] = useState(mockWeeklyQuotes);
   const [newQuote, setNewQuote] = useState({ quote: "", author: "", weekStart: "" });
+
+  useScrollLock(showModal);
 
   const navyBlue = '#1e3a5f';
   const cardStyle = {
@@ -111,369 +114,371 @@ export default function Settings() {
   };
 
   return (
-    <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      {/* Header */}
-      <div className="flex items-center justify-between animate-fade-in-down">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>Settings & Audit</h1>
-          <p style={{ color: textSecondary }}>Manage policies, departments, quotes, and view system activity</p>
+    <>
+      <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        {/* Header */}
+        <div className="flex items-center justify-between animate-fade-in-down">
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>Settings & Audit</h1>
+            <p style={{ color: textSecondary }}>Manage policies, departments, quotes, and view system activity</p>
+          </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 p-1 rounded-xl animate-fade-in-up overflow-x-auto" style={{ backgroundColor: isDark ? '#1e293b' : '#f1f5f9' }}>
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className="flex-1 py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 whitespace-nowrap"
-            style={{
-              backgroundColor: activeTab === tab.id ? navyBlue : 'transparent',
-              color: activeTab === tab.id ? '#ffffff' : textSecondary,
-            }}
-          >
-            <span>{tab.icon}</span>
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Audit Logs Tab */}
-      {activeTab === "audit" && (
-        <div className="animate-fade-in-up" style={cardStyle}>
-          <div className="p-6 flex items-center justify-between" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-            <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Recent Activity</h2>
+        {/* Tabs */}
+        <div className="flex gap-2 p-1 rounded-xl animate-fade-in-up overflow-x-auto" style={{ backgroundColor: isDark ? '#1e293b' : '#f1f5f9' }}>
+          {tabs.map((tab) => (
             <button
-              className="px-4 py-2 rounded-xl text-sm font-semibold"
-              style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="flex-1 py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 whitespace-nowrap"
+              style={{
+                backgroundColor: activeTab === tab.id ? navyBlue : 'transparent',
+                color: activeTab === tab.id ? '#ffffff' : textSecondary,
+              }}
             >
-              📥 Export Logs
+              <span>{tab.icon}</span>
+              {tab.label}
             </button>
-          </div>
-          <div className="divide-y" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
-            {mockAuditLogs.map((log) => {
-              const typeStyle = getActionTypeStyle(log.type);
-              return (
-                <div key={log.id} className="p-5 hover:bg-opacity-50 transition-all">
-                  <div className="flex items-start gap-4">
-                    <div 
-                      className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                      style={{ backgroundColor: typeStyle.bg }}
-                    >
-                      {typeStyle.icon}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-bold" style={{ color: textPrimary }}>{log.action}</h3>
-                        <span 
-                          className="px-2 py-0.5 rounded-full text-xs"
-                          style={{ backgroundColor: typeStyle.bg, color: typeStyle.color }}
-                        >
-                          {log.type}
-                        </span>
-                      </div>
-                      <p style={{ color: textSecondary }}>
-                        <span className="font-medium">{log.user}</span> → {log.target}
-                      </p>
-                      <p className="text-sm mt-1" style={{ color: textSecondary }}>{log.details}</p>
-                    </div>
-                    <p className="text-sm" style={{ color: textSecondary }}>{log.timestamp}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          ))}
         </div>
-      )}
 
-      {/* Leave Policies Tab */}
-      {activeTab === "policies" && (
-        <div className="animate-fade-in-up" style={cardStyle}>
-          <div className="p-6 flex items-center justify-between" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-            <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Leave Policies</h2>
-            <button
-              onClick={() => openModal('policy')}
-              className="px-4 py-2 rounded-xl text-sm font-bold text-white"
-              style={{ backgroundColor: navyBlue }}
-            >
-              + Add Policy
-            </button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
-                <tr>
-                  {["Leave Type", "Total Days", "Carry Over", "Max Consecutive", "Notice (Days)", "Actions"].map(h => (
-                    <th key={h} className="px-6 py-4 text-left text-xs font-bold uppercase" style={{ color: textSecondary }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {mockLeavePolicies.map((policy) => (
-                  <tr key={policy.id} style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-                    <td className="px-6 py-4 font-medium" style={{ color: textPrimary }}>{policy.type}</td>
-                    <td className="px-6 py-4" style={{ color: textPrimary }}>{policy.total}</td>
-                    <td className="px-6 py-4" style={{ color: textPrimary }}>{policy.carryOver}</td>
-                    <td className="px-6 py-4" style={{ color: textPrimary }}>{policy.maxConsecutive}</td>
-                    <td className="px-6 py-4" style={{ color: textPrimary }}>{policy.notice}</td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => openModal('policy', policy)}
-                        className="px-3 py-1 rounded-lg text-sm font-medium"
-                        style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}
-                      >
-                        Edit
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Departments Tab */}
-      {activeTab === "departments" && (
-        <div className="animate-fade-in-up" style={cardStyle}>
-          <div className="p-6 flex items-center justify-between" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-            <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Departments</h2>
-            <button
-              onClick={() => openModal('department')}
-              className="px-4 py-2 rounded-xl text-sm font-bold text-white"
-              style={{ backgroundColor: navyBlue }}
-            >
-              + Add Department
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-            {mockDepartments.map((dept) => (
-              <div 
-                key={dept.id}
-                className="p-5 rounded-xl transition-all hover:scale-[1.02]"
-                style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-lg" style={{ color: textPrimary }}>{dept.name}</h3>
-                  <button
-                    onClick={() => openModal('department', dept)}
-                    className="text-sm"
-                    style={{ color: navyBlue }}
-                  >
-                    Edit
-                  </button>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <p style={{ color: textSecondary }}>👤 Head: <span style={{ color: textPrimary }}>{dept.head}</span></p>
-                  <p style={{ color: textSecondary }}>👥 Employees: <span style={{ color: textPrimary }}>{dept.employees}</span></p>
-                  <p style={{ color: textSecondary }}>📍 Location: <span style={{ color: textPrimary }}>{dept.location}</span></p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Weekly Quotes Tab */}
-      {activeTab === "quotes" && (
-        <div className="space-y-4 animate-fade-in-up">
-          {/* Add New Quote */}
-          <div className="p-6" style={cardStyle}>
-            <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>💬 Add Weekly Quote</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Quote</label>
-                <textarea
-                  rows={3}
-                  value={newQuote.quote}
-                  onChange={(e) => setNewQuote({ ...newQuote, quote: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl outline-none resize-none"
-                  style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                  placeholder="Enter an inspiring quote..."
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Author</label>
-                  <input
-                    type="text"
-                    value={newQuote.author}
-                    onChange={(e) => setNewQuote({ ...newQuote, author: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl outline-none"
-                    style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                    placeholder="Author name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Week Start Date (Monday)</label>
-                  <input
-                    type="date"
-                    value={newQuote.weekStart}
-                    onChange={(e) => setNewQuote({ ...newQuote, weekStart: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl outline-none"
-                    style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                  />
-                </div>
-              </div>
+        {/* Audit Logs Tab */}
+        {activeTab === "audit" && (
+          <div className="animate-fade-in-up" style={cardStyle}>
+            <div className="p-6 flex items-center justify-between" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+              <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Recent Activity</h2>
               <button
-                onClick={handleSaveQuote}
-                disabled={!newQuote.quote || !newQuote.author || !newQuote.weekStart}
-                className="w-full py-3 rounded-xl font-bold text-white disabled:opacity-50"
-                style={{ backgroundColor: navyBlue }}
+                className="px-4 py-2 rounded-xl text-sm font-semibold"
+                style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
               >
-                ➕ Schedule Quote
+                📥 Export Logs
               </button>
             </div>
-          </div>
-
-          {/* Quotes List */}
-          <div className="p-6" style={cardStyle}>
-            <h3 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Scheduled & Past Quotes</h3>
-            <div className="space-y-4">
-              {quotes.sort((a, b) => new Date(b.weekStart) - new Date(a.weekStart)).map((quote) => {
-                const statusStyle = getQuoteStatusStyle(quote.status);
+            <div className="divide-y" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+              {mockAuditLogs.map((log) => {
+                const typeStyle = getActionTypeStyle(log.type);
                 return (
-                  <div 
-                    key={quote.id}
-                    className="p-5 rounded-xl transition-all"
-                    style={{ 
-                      backgroundColor: isDark ? '#334155' : '#f8fafc', 
-                      border: quote.status === 'active' ? `2px solid ${navyBlue}` : `1px solid ${isDark ? '#475569' : '#e2e8f0'}` 
-                    }}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <span 
-                        className="px-3 py-1 rounded-full text-xs font-bold"
-                        style={{ backgroundColor: statusStyle.bg, color: statusStyle.color }}
+                  <div key={log.id} className="p-5 hover:bg-opacity-50 transition-all">
+                    <div className="flex items-start gap-4">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                        style={{ backgroundColor: typeStyle.bg }}
                       >
-                        {statusStyle.label}
-                      </span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => openModal('quote', quote)}
-                          className="px-3 py-1 rounded-lg text-xs font-medium"
-                          style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteQuote(quote.id)}
-                          className="px-3 py-1 rounded-lg text-xs font-medium"
-                          style={{ backgroundColor: '#fee2e2', color: '#dc2626' }}
-                        >
-                          Delete
-                        </button>
+                        {typeStyle.icon}
                       </div>
-                    </div>
-                    <blockquote className="text-lg italic mb-2" style={{ color: textPrimary }}>
-                      "{quote.quote}"
-                    </blockquote>
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium" style={{ color: navyBlue }}>— {quote.author}</p>
-                      <p className="text-sm" style={{ color: textSecondary }}>
-                        📅 Week of {new Date(quote.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold" style={{ color: textPrimary }}>{log.action}</h3>
+                          <span
+                            className="px-2 py-0.5 rounded-full text-xs"
+                            style={{ backgroundColor: typeStyle.bg, color: typeStyle.color }}
+                          >
+                            {log.type}
+                          </span>
+                        </div>
+                        <p style={{ color: textSecondary }}>
+                          <span className="font-medium">{log.user}</span> → {log.target}
+                        </p>
+                        <p className="text-sm mt-1" style={{ color: textSecondary }}>{log.details}</p>
+                      </div>
+                      <p className="text-sm" style={{ color: textSecondary }}>{log.timestamp}</p>
                     </div>
                   </div>
                 );
               })}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Announcements Tab */}
-      {activeTab === "announcements" && (
-        <div className="space-y-4 animate-fade-in-up">
-          <div className="p-6" style={cardStyle}>
-            <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Create Announcement</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Title</label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-3 rounded-xl outline-none"
-                  style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                  placeholder="Announcement title..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Message</label>
-                <textarea
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-xl outline-none resize-none"
-                  style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                  placeholder="Write your announcement..."
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Target Audience</label>
-                  <select
-                    className="w-full px-4 py-3 rounded-xl outline-none"
-                    style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                  >
-                    <option>All Employees</option>
-                    <option>Engineering</option>
-                    <option>Sales</option>
-                    <option>HR</option>
-                    <option>Finance</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Priority</label>
-                  <select
-                    className="w-full px-4 py-3 rounded-xl outline-none"
-                    style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                  >
-                    <option>Normal</option>
-                    <option>Important</option>
-                    <option>Urgent</option>
-                  </select>
-                </div>
-              </div>
+        {/* Leave Policies Tab */}
+        {activeTab === "policies" && (
+          <div className="animate-fade-in-up" style={cardStyle}>
+            <div className="p-6 flex items-center justify-between" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+              <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Leave Policies</h2>
               <button
-                className="w-full py-3 rounded-xl font-bold text-white"
+                onClick={() => openModal('policy')}
+                className="px-4 py-2 rounded-xl text-sm font-bold text-white"
                 style={{ backgroundColor: navyBlue }}
               >
-                📢 Publish Announcement
+                + Add Policy
               </button>
             </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
+                  <tr>
+                    {["Leave Type", "Total Days", "Carry Over", "Max Consecutive", "Notice (Days)", "Actions"].map(h => (
+                      <th key={h} className="px-6 py-4 text-left text-xs font-bold uppercase" style={{ color: textSecondary }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {mockLeavePolicies.map((policy) => (
+                    <tr key={policy.id} style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+                      <td className="px-6 py-4 font-medium" style={{ color: textPrimary }}>{policy.type}</td>
+                      <td className="px-6 py-4" style={{ color: textPrimary }}>{policy.total}</td>
+                      <td className="px-6 py-4" style={{ color: textPrimary }}>{policy.carryOver}</td>
+                      <td className="px-6 py-4" style={{ color: textPrimary }}>{policy.maxConsecutive}</td>
+                      <td className="px-6 py-4" style={{ color: textPrimary }}>{policy.notice}</td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => openModal('policy', policy)}
+                          className="px-3 py-1 rounded-lg text-sm font-medium"
+                          style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}
+                        >
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
+        )}
 
-          {/* Recent Announcements */}
-          <div className="p-6" style={cardStyle}>
-            <h3 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Recent Announcements</h3>
-            <div className="space-y-3">
-              {[
-                { title: "Holiday Notice: Christmas", date: "Dec 10, 2024", audience: "All", priority: "normal" },
-                { title: "Office Closed: Dec 25-26", date: "Dec 8, 2024", audience: "All", priority: "important" },
-                { title: "Year-end Review Schedule", date: "Dec 5, 2024", audience: "All", priority: "urgent" },
-              ].map((ann, i) => (
-                <div 
-                  key={i}
-                  className="p-4 rounded-xl flex items-center justify-between"
-                  style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}
+        {/* Departments Tab */}
+        {activeTab === "departments" && (
+          <div className="animate-fade-in-up" style={cardStyle}>
+            <div className="p-6 flex items-center justify-between" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+              <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Departments</h2>
+              <button
+                onClick={() => openModal('department')}
+                className="px-4 py-2 rounded-xl text-sm font-bold text-white"
+                style={{ backgroundColor: navyBlue }}
+              >
+                + Add Department
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+              {mockDepartments.map((dept) => (
+                <div
+                  key={dept.id}
+                  className="p-5 rounded-xl transition-all hover:scale-[1.02]"
+                  style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}
                 >
-                  <div>
-                    <h4 className="font-medium" style={{ color: textPrimary }}>{ann.title}</h4>
-                    <p className="text-sm" style={{ color: textSecondary }}>{ann.date} • {ann.audience}</p>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold text-lg" style={{ color: textPrimary }}>{dept.name}</h3>
+                    <button
+                      onClick={() => openModal('department', dept)}
+                      className="text-sm"
+                      style={{ color: navyBlue }}
+                    >
+                      Edit
+                    </button>
                   </div>
-                  <span 
-                    className="px-3 py-1 rounded-full text-xs font-medium"
-                    style={{ 
-                      backgroundColor: ann.priority === "urgent" ? "#fee2e2" : ann.priority === "important" ? "#fef3c7" : "#dcfce7",
-                      color: ann.priority === "urgent" ? "#dc2626" : ann.priority === "important" ? "#d97706" : "#16a34a"
-                    }}
-                  >
-                    {ann.priority}
-                  </span>
+                  <div className="space-y-2 text-sm">
+                    <p style={{ color: textSecondary }}>👤 Head: <span style={{ color: textPrimary }}>{dept.head}</span></p>
+                    <p style={{ color: textSecondary }}>👥 Employees: <span style={{ color: textPrimary }}>{dept.employees}</span></p>
+                    <p style={{ color: textSecondary }}>📍 Location: <span style={{ color: textPrimary }}>{dept.location}</span></p>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Weekly Quotes Tab */}
+        {activeTab === "quotes" && (
+          <div className="space-y-4 animate-fade-in-up">
+            {/* Add New Quote */}
+            <div className="p-6" style={cardStyle}>
+              <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>💬 Add Weekly Quote</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Quote</label>
+                  <textarea
+                    rows={3}
+                    value={newQuote.quote}
+                    onChange={(e) => setNewQuote({ ...newQuote, quote: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl outline-none resize-none"
+                    style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                    placeholder="Enter an inspiring quote..."
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Author</label>
+                    <input
+                      type="text"
+                      value={newQuote.author}
+                      onChange={(e) => setNewQuote({ ...newQuote, author: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl outline-none"
+                      style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                      placeholder="Author name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Week Start Date (Monday)</label>
+                    <input
+                      type="date"
+                      value={newQuote.weekStart}
+                      onChange={(e) => setNewQuote({ ...newQuote, weekStart: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl outline-none"
+                      style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleSaveQuote}
+                  disabled={!newQuote.quote || !newQuote.author || !newQuote.weekStart}
+                  className="w-full py-3 rounded-xl font-bold text-white disabled:opacity-50"
+                  style={{ backgroundColor: navyBlue }}
+                >
+                  ➕ Schedule Quote
+                </button>
+              </div>
+            </div>
+
+            {/* Quotes List */}
+            <div className="p-6" style={cardStyle}>
+              <h3 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Scheduled & Past Quotes</h3>
+              <div className="space-y-4">
+                {quotes.sort((a, b) => new Date(b.weekStart) - new Date(a.weekStart)).map((quote) => {
+                  const statusStyle = getQuoteStatusStyle(quote.status);
+                  return (
+                    <div
+                      key={quote.id}
+                      className="p-5 rounded-xl transition-all"
+                      style={{
+                        backgroundColor: isDark ? '#334155' : '#f8fafc',
+                        border: quote.status === 'active' ? `2px solid ${navyBlue}` : `1px solid ${isDark ? '#475569' : '#e2e8f0'}`
+                      }}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <span
+                          className="px-3 py-1 rounded-full text-xs font-bold"
+                          style={{ backgroundColor: statusStyle.bg, color: statusStyle.color }}
+                        >
+                          {statusStyle.label}
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => openModal('quote', quote)}
+                            className="px-3 py-1 rounded-lg text-xs font-medium"
+                            style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteQuote(quote.id)}
+                            className="px-3 py-1 rounded-lg text-xs font-medium"
+                            style={{ backgroundColor: '#fee2e2', color: '#dc2626' }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                      <blockquote className="text-lg italic mb-2" style={{ color: textPrimary }}>
+                        "{quote.quote}"
+                      </blockquote>
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium" style={{ color: navyBlue }}>— {quote.author}</p>
+                        <p className="text-sm" style={{ color: textSecondary }}>
+                          📅 Week of {new Date(quote.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Announcements Tab */}
+        {activeTab === "announcements" && (
+          <div className="space-y-4 animate-fade-in-up">
+            <div className="p-6" style={cardStyle}>
+              <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Create Announcement</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Title</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-3 rounded-xl outline-none"
+                    style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                    placeholder="Announcement title..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Message</label>
+                  <textarea
+                    rows={4}
+                    className="w-full px-4 py-3 rounded-xl outline-none resize-none"
+                    style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                    placeholder="Write your announcement..."
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Target Audience</label>
+                    <select
+                      className="w-full px-4 py-3 rounded-xl outline-none"
+                      style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                    >
+                      <option>All Employees</option>
+                      <option>Engineering</option>
+                      <option>Sales</option>
+                      <option>HR</option>
+                      <option>Finance</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Priority</label>
+                    <select
+                      className="w-full px-4 py-3 rounded-xl outline-none"
+                      style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                    >
+                      <option>Normal</option>
+                      <option>Important</option>
+                      <option>Urgent</option>
+                    </select>
+                  </div>
+                </div>
+                <button
+                  className="w-full py-3 rounded-xl font-bold text-white"
+                  style={{ backgroundColor: navyBlue }}
+                >
+                  📢 Publish Announcement
+                </button>
+              </div>
+            </div>
+
+            {/* Recent Announcements */}
+            <div className="p-6" style={cardStyle}>
+              <h3 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Recent Announcements</h3>
+              <div className="space-y-3">
+                {[
+                  { title: "Holiday Notice: Christmas", date: "Dec 10, 2024", audience: "All", priority: "normal" },
+                  { title: "Office Closed: Dec 25-26", date: "Dec 8, 2024", audience: "All", priority: "important" },
+                  { title: "Year-end Review Schedule", date: "Dec 5, 2024", audience: "All", priority: "urgent" },
+                ].map((ann, i) => (
+                  <div
+                    key={i}
+                    className="p-4 rounded-xl flex items-center justify-between"
+                    style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}
+                  >
+                    <div>
+                      <h4 className="font-medium" style={{ color: textPrimary }}>{ann.title}</h4>
+                      <p className="text-sm" style={{ color: textSecondary }}>{ann.date} • {ann.audience}</p>
+                    </div>
+                    <span
+                      className="px-3 py-1 rounded-full text-xs font-medium"
+                      style={{
+                        backgroundColor: ann.priority === "urgent" ? "#fee2e2" : ann.priority === "important" ? "#fef3c7" : "#dcfce7",
+                        color: ann.priority === "urgent" ? "#dc2626" : ann.priority === "important" ? "#d97706" : "#16a34a"
+                      }}
+                    >
+                      {ann.priority}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Edit Modal */}
       {showModal && (
@@ -563,9 +568,9 @@ export default function Settings() {
 
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowModal(false)} className="flex-1 py-3 rounded-xl font-semibold" style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}>Cancel</button>
-              <button 
-                onClick={modalType === 'quote' ? handleSaveQuote : () => setShowModal(false)} 
-                className="flex-1 py-3 rounded-xl font-bold text-white" 
+              <button
+                onClick={modalType === 'quote' ? handleSaveQuote : () => setShowModal(false)}
+                className="flex-1 py-3 rounded-xl font-bold text-white"
                 style={{ backgroundColor: navyBlue }}
               >
                 Save
@@ -574,6 +579,6 @@ export default function Settings() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -10,6 +10,7 @@ import {
     deleteAsset
 } from "../../services/assetService";
 import { fetchEmployees } from "../../services/directoryService";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 const assetTypes = [
     "Laptop / Desktop",
@@ -89,6 +90,9 @@ export default function AssetManagement() {
     useEffect(() => {
         fetchData();
     }, [isHR]);
+
+    // Lock scroll when modal is open
+    useScrollLock(showModal);
 
     const generateDefaultSerial = () => {
         const now = new Date();
@@ -170,126 +174,132 @@ export default function AssetManagement() {
     };
 
     return (
-        <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            {/* Header */}
-            <div className="flex items-center justify-between animate-fade-in-down">
-                <div>
-                    <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>{isHR ? "Asset Management" : "My Assets"}</h1>
-                    <p style={{ color: textSecondary }}>{isHR ? "Track and manage company equipment" : "View equipment assigned to you"}</p>
+        <>
+            <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                {/* Header */}
+                <div className="flex items-center justify-between animate-fade-in-down">
+                    <div>
+                        <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>{isHR ? "Asset Management" : "My Assets"}</h1>
+                        <p style={{ color: textSecondary }}>{isHR ? "Track and manage company equipment" : "View equipment assigned to you"}</p>
+                    </div>
+                    {isHR && (
+                        <button
+                            onClick={() => handleOpenModal()}
+                            className="px-6 py-3 rounded-xl font-bold text-white flex items-center gap-2 transition-all hover:opacity-90"
+                            style={{ backgroundColor: navyBlue, boxShadow: `0 4px 15px ${navyBlue}40` }}
+                        >
+                            📦 Add New Asset
+                        </button>
+                    )}
                 </div>
-                {isHR && (
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="px-6 py-3 rounded-xl font-bold text-white flex items-center gap-2 transition-all hover:opacity-90"
-                        style={{ backgroundColor: navyBlue, boxShadow: `0 4px 15px ${navyBlue}40` }}
-                    >
-                        📦 Add New Asset
-                    </button>
+
+                {isLoading ? (
+                    <div className="flex flex-col items-center justify-center py-20" style={cardStyle}>
+                        <div className="w-12 h-12 border-4 border-t-transparent animate-spin rounded-full mb-4" style={{ borderColor: `${navyBlue}40`, borderTopColor: navyBlue }}></div>
+                        <p style={{ color: textSecondary }}>Loading assets...</p>
+                    </div>
+                ) : error ? (
+                    <div className="p-8 text-center" style={cardStyle}>
+                        <p style={{ color: "#dc2626" }} className="font-bold mb-4">⚠️ {error}</p>
+                        <button onClick={fetchData} className="px-4 py-2 rounded-lg text-white font-semibold style={{ backgroundColor: navyBlue }}">Retry</button>
+                    </div>
+                ) : assets.length === 0 ? (
+                    <div className="p-20 text-center" style={cardStyle}>
+                        <div className="text-6xl mb-4">📦</div>
+                        <p className="text-lg font-bold" style={{ color: textPrimary }}>No assets found</p>
+                        <p style={{ color: textSecondary }}>{isHR ? "Start by adding equipment to the system." : "You have no assets assigned at the moment."}</p>
+                    </div>
+                ) : (
+                    <div className={isHR ? "overflow-x-auto rounded-2xl shadow-sm border overflow-hidden" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"} style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                        {isHR ? (
+                            /* HR Table View */
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr style={{ backgroundColor: isDark ? '#1e293b' : '#f8fafc' }}>
+                                        <th className="px-6 py-4 text-sm font-bold" style={{ color: textSecondary }}>Asset Name</th>
+                                        <th className="px-6 py-4 text-sm font-bold" style={{ color: textSecondary }}>Type</th>
+                                        <th className="px-6 py-4 text-sm font-bold" style={{ color: textSecondary }}>Serial No.</th>
+                                        <th className="px-6 py-4 text-sm font-bold" style={{ color: textSecondary }}>Assigned To</th>
+                                        <th className="px-6 py-4 text-sm font-bold" style={{ color: textSecondary }}>Status</th>
+                                        <th className="px-6 py-4 text-sm font-bold" style={{ color: textSecondary }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200" style={{ backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                                    {assets.map((asset) => (
+                                        <tr key={asset._id} className="hover:bg-gray-50/5 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <p className="font-bold" style={{ color: textPrimary }}>{asset.assetName}</p>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm" style={{ color: textSecondary }}>{asset.assetType}</td>
+                                            <td className="px-6 py-4 text-sm font-mono" style={{ color: textSecondary }}>{asset.serialNumber}</td>
+                                            <td className="px-6 py-4 text-sm">
+                                                {asset.assignedTo ? (
+                                                    <div>
+                                                        <p className="font-medium" style={{ color: textPrimary }}>{asset.assignedTo.name}</p>
+                                                        <p style={{ color: textSecondary }} className="text-xs">{asset.assignedTo.employeeId}</p>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs italic" style={{ color: textSecondary }}>Unassigned</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: `${getStatusColor(asset.status)}20`, color: getStatusColor(asset.status) }}>
+                                                    {asset.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleOpenModal(asset)} className="p-2 rounded-lg hover:bg-blue-100/10 transition-colors" title="Edit">✏️</button>
+                                                    <button onClick={() => handleDelete(asset._id)} className="p-2 rounded-lg hover:bg-red-100/10 transition-colors" title="Delete">🗑️</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : (
+                            /* Employee Card View */
+                            assets.map((asset) => (
+                                <div key={asset._id} className="p-6 transition-all hover-lift" style={cardStyle}>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: `${navyBlue}10` }}>
+                                            {asset.assetType.includes("Laptop") ? "💻" : asset.assetType.includes("Keyboard") ? "⌨️" : "📦"}
+                                        </div>
+                                        <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: `#16a34a20`, color: "#16a34a" }}>
+                                            Assigned
+                                        </span>
+                                    </div>
+                                    <h3 className="text-lg font-bold mb-1" style={{ color: textPrimary }}>{asset.assetName}</h3>
+                                    <p className="text-sm mb-4" style={{ color: textSecondary }}>{asset.assetType}</p>
+                                    <div className="space-y-2 pt-4 border-t" style={{ borderColor: isDark ? '#334155' : '#f1f5f9' }}>
+                                        <div className="flex justify-between text-sm">
+                                            <span style={{ color: textSecondary }}>Serial Number:</span>
+                                            <span className="font-mono" style={{ color: textPrimary }}>{asset.serialNumber}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span style={{ color: textSecondary }}>Condition:</span>
+                                            <span style={{ color: textPrimary }}>{asset.condition}</span>
+                                        </div>
+                                        {asset.description && (
+                                            <div className="pt-2">
+                                                <p className="text-xs italic" style={{ color: textSecondary }}>{asset.description}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 )}
             </div>
 
-            {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-20" style={cardStyle}>
-                    <div className="w-12 h-12 border-4 border-t-transparent animate-spin rounded-full mb-4" style={{ borderColor: `${navyBlue}40`, borderTopColor: navyBlue }}></div>
-                    <p style={{ color: textSecondary }}>Loading assets...</p>
-                </div>
-            ) : error ? (
-                <div className="p-8 text-center" style={cardStyle}>
-                    <p style={{ color: "#dc2626" }} className="font-bold mb-4">⚠️ {error}</p>
-                    <button onClick={fetchData} className="px-4 py-2 rounded-lg text-white font-semibold style={{ backgroundColor: navyBlue }}">Retry</button>
-                </div>
-            ) : assets.length === 0 ? (
-                <div className="p-20 text-center" style={cardStyle}>
-                    <div className="text-6xl mb-4">📦</div>
-                    <p className="text-lg font-bold" style={{ color: textPrimary }}>No assets found</p>
-                    <p style={{ color: textSecondary }}>{isHR ? "Start by adding equipment to the system." : "You have no assets assigned at the moment."}</p>
-                </div>
-            ) : (
-                <div className={isHR ? "overflow-x-auto rounded-2xl shadow-sm border overflow-hidden" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"} style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
-                    {isHR ? (
-                        /* HR Table View */
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr style={{ backgroundColor: isDark ? '#1e293b' : '#f8fafc' }}>
-                                    <th className="px-6 py-4 text-sm font-bold" style={{ color: textSecondary }}>Asset Name</th>
-                                    <th className="px-6 py-4 text-sm font-bold" style={{ color: textSecondary }}>Type</th>
-                                    <th className="px-6 py-4 text-sm font-bold" style={{ color: textSecondary }}>Serial No.</th>
-                                    <th className="px-6 py-4 text-sm font-bold" style={{ color: textSecondary }}>Assigned To</th>
-                                    <th className="px-6 py-4 text-sm font-bold" style={{ color: textSecondary }}>Status</th>
-                                    <th className="px-6 py-4 text-sm font-bold" style={{ color: textSecondary }}>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200" style={{ backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#334155' : '#e2e8f0' }}>
-                                {assets.map((asset) => (
-                                    <tr key={asset._id} className="hover:bg-gray-50/5 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <p className="font-bold" style={{ color: textPrimary }}>{asset.assetName}</p>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm" style={{ color: textSecondary }}>{asset.assetType}</td>
-                                        <td className="px-6 py-4 text-sm font-mono" style={{ color: textSecondary }}>{asset.serialNumber}</td>
-                                        <td className="px-6 py-4 text-sm">
-                                            {asset.assignedTo ? (
-                                                <div>
-                                                    <p className="font-medium" style={{ color: textPrimary }}>{asset.assignedTo.name}</p>
-                                                    <p style={{ color: textSecondary }} className="text-xs">{asset.assignedTo.employeeId}</p>
-                                                </div>
-                                            ) : (
-                                                <span className="text-xs italic" style={{ color: textSecondary }}>Unassigned</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: `${getStatusColor(asset.status)}20`, color: getStatusColor(asset.status) }}>
-                                                {asset.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex gap-2">
-                                                <button onClick={() => handleOpenModal(asset)} className="p-2 rounded-lg hover:bg-blue-100/10 transition-colors" title="Edit">✏️</button>
-                                                <button onClick={() => handleDelete(asset._id)} className="p-2 rounded-lg hover:bg-red-100/10 transition-colors" title="Delete">🗑️</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    ) : (
-                        /* Employee Card View */
-                        assets.map((asset) => (
-                            <div key={asset._id} className="p-6 transition-all hover-lift" style={cardStyle}>
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: `${navyBlue}10` }}>
-                                        {asset.assetType.includes("Laptop") ? "💻" : asset.assetType.includes("Keyboard") ? "⌨️" : "📦"}
-                                    </div>
-                                    <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: `#16a34a20`, color: "#16a34a" }}>
-                                        Assigned
-                                    </span>
-                                </div>
-                                <h3 className="text-lg font-bold mb-1" style={{ color: textPrimary }}>{asset.assetName}</h3>
-                                <p className="text-sm mb-4" style={{ color: textSecondary }}>{asset.assetType}</p>
-                                <div className="space-y-2 pt-4 border-t" style={{ borderColor: isDark ? '#334155' : '#f1f5f9' }}>
-                                    <div className="flex justify-between text-sm">
-                                        <span style={{ color: textSecondary }}>Serial Number:</span>
-                                        <span className="font-mono" style={{ color: textPrimary }}>{asset.serialNumber}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span style={{ color: textSecondary }}>Condition:</span>
-                                        <span style={{ color: textPrimary }}>{asset.condition}</span>
-                                    </div>
-                                    {asset.description && (
-                                        <div className="pt-2">
-                                            <p className="text-xs italic" style={{ color: textSecondary }}>{asset.description}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            )}
-
             {/* HR Modal */}
             {showModal && (
-                <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/50 backdrop-blur-sm">
+                <div style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)'
+                }} className="fixed inset-0 flex items-center justify-center z-50 p-4 ">
                     <div className="w-full max-w-2xl bg-white rounded-2xl overflow-hidden shadow-2xl animate-scale-in" style={{ backgroundColor: isDark ? '#1e293b' : '#ffffff' }}>
                         <div className="p-6 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
                             <h2 className="text-xl font-bold" style={{ color: textPrimary }}>{editingAsset ? "Edit Asset" : "Add New Asset"}</h2>
@@ -385,6 +395,6 @@ export default function AssetManagement() {
                     </div>
                 </div>
             )}
-        </div>
+        </>
     );
 }

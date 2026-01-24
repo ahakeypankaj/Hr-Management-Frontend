@@ -3,11 +3,12 @@ import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import api from "../../services/api";
 import { addGrievanceComment } from "../../services/grievanceService";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 const statusOptions = [
   { value: "submitted", label: "Submitted", color: "#f59e0b", bgColor: "#fef3c7" },
   { value: "in-review", label: "In Review", color: "#3b82f6", bgColor: "#dbeafe" },
-  { value: "resolved", label: "Resolved", color: "#10b981", bgColor: "#d1fae5", disabled: true  },
+  { value: "resolved", label: "Resolved", color: "#10b981", bgColor: "#d1fae5", disabled: true },
   { value: "closed", label: "Closed", color: "#6b7280", bgColor: "#f3f4f6" }
 ];
 
@@ -30,6 +31,8 @@ export default function HRGrievances() {
   const [showModal, setShowModal] = useState(false);
   const [resolutionMessage, setResolutionMessage] = useState("");
   const [resolving, setResolving] = useState(false);
+
+  useScrollLock(showModal);
 
   const navyBlue = '#1e3a5f';
   const cardStyle = {
@@ -125,16 +128,16 @@ export default function HRGrievances() {
       const updatedGrievances = grievances.map(g =>
         g._id === grievanceId
           ? {
-              ...g,
-              comments: response.comments || [...(g.comments || []), {
-                id: Date.now(),
-                message: commentText,
-                createdAt: new Date().toISOString(),
-                userName: user.name || 'HR Manager',
-                userRole: user.role === 'hr_manager' ? 'HR Manager' : 'Admin',
-                isAnonymous: false // HR/Admin comments are never anonymous
-              }]
-            }
+            ...g,
+            comments: response.comments || [...(g.comments || []), {
+              id: Date.now(),
+              message: commentText,
+              createdAt: new Date().toISOString(),
+              userName: user.name || 'HR Manager',
+              userRole: user.role === 'hr_manager' ? 'HR Manager' : 'Admin',
+              isAnonymous: false // HR/Admin comments are never anonymous
+            }]
+          }
           : g
       );
       setGrievances(updatedGrievances);
@@ -154,8 +157,8 @@ export default function HRGrievances() {
 
   const filteredGrievances = grievances.filter(grievance => {
     const matchesSearch = grievance.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         grievance.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (grievance.employeeName && grievance.employeeName.toLowerCase().includes(searchTerm.toLowerCase()));
+      grievance.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (grievance.employeeName && grievance.employeeName.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === "all" || grievance.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -173,236 +176,238 @@ export default function HRGrievances() {
   }
 
   return (
-    <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-down">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold" style={{ color: textPrimary }}>Grievance Management</h1>
-          <p className="text-sm sm:text-base" style={{ color: textSecondary }}>Manage and track all employee grievances</p>
-        </div>
-        <div className="flex gap-2 sm:gap-3">
-          <button
-            onClick={fetchAllGrievances}
-            className="px-3 sm:px-4 py-2 rounded-xl font-semibold flex items-center gap-1 sm:gap-2 transition-all hover:opacity-80"
-            style={{ backgroundColor: navyBlue, color: '#ffffff' }}
-          >
-            🔄 <span className="hidden sm:inline">Refresh</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Success/Error Messages */}
-      {success && (
-        <div className="p-4 rounded-xl flex items-center gap-3 animate-fade-in" style={{ backgroundColor: '#d1fae5', border: '1px solid #10b981' }}>
-          <span className="text-xl">✅</span>
-          <span className="font-medium" style={{ color: '#065f46' }}>{success}</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="p-4 rounded-xl flex items-center gap-3 animate-fade-in" style={{ backgroundColor: '#fee2e2', border: '1px solid #ef4444' }}>
-          <span className="text-xl">❌</span>
-          <span className="font-medium" style={{ color: '#dc2626' }}>{error}</span>
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 animate-fade-in-up">
-        <div className="flex-1">
-          <input
-            type="text"
-            placeholder="Search grievances..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
-            style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-          />
-        </div>
-        <div className="sm:w-48">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
-            style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-          >
-            <option value="all">All Status</option>
-            {statusOptions.map(option => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-up stagger-1">
-        {statusOptions.map(status => {
-          const count = grievances.filter(g => g.status === status.value).length;
-          return (
-            <div key={status.value} className="p-4 rounded-xl" style={{ backgroundColor: status.bgColor, border: `1px solid ${status.color}30` }}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium" style={{ color: status.color }}>{status.label}</p>
-                  <p className="text-2xl font-bold" style={{ color: status.color }}>{count}</p>
-                </div>
-                <span className="text-2xl">📋</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Grievances List */}
-      <div className="space-y-4 animate-fade-in-up stagger-2">
-        {filteredGrievances.length === 0 ? (
-          <div className="text-center py-12" style={cardStyle}>
-            <span className="text-4xl mb-4 block">📝</span>
-            <p className="text-lg font-medium" style={{ color: textPrimary }}>No grievances found</p>
-            <p style={{ color: textSecondary }}>Try adjusting your search or filter criteria</p>
+    <>
+      <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-down">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: textPrimary }}>Grievance Management</h1>
+            <p className="text-sm sm:text-base" style={{ color: textSecondary }}>Manage and track all employee grievances</p>
           </div>
-        ) : (
-          filteredGrievances.map((grievance, index) => {
-            const statusInfo = getStatusInfo(grievance.status);
+          <div className="flex gap-2 sm:gap-3">
+            <button
+              onClick={fetchAllGrievances}
+              className="px-3 sm:px-4 py-2 rounded-xl font-semibold flex items-center gap-1 sm:gap-2 transition-all hover:opacity-80"
+              style={{ backgroundColor: navyBlue, color: '#ffffff' }}
+            >
+              🔄 <span className="hidden sm:inline">Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Success/Error Messages */}
+        {success && (
+          <div className="p-4 rounded-xl flex items-center gap-3 animate-fade-in" style={{ backgroundColor: '#d1fae5', border: '1px solid #10b981' }}>
+            <span className="text-xl">✅</span>
+            <span className="font-medium" style={{ color: '#065f46' }}>{success}</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-4 rounded-xl flex items-center gap-3 animate-fade-in" style={{ backgroundColor: '#fee2e2', border: '1px solid #ef4444' }}>
+            <span className="text-xl">❌</span>
+            <span className="font-medium" style={{ color: '#dc2626' }}>{error}</span>
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-4 animate-fade-in-up">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="Search grievances..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+              style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+            />
+          </div>
+          <div className="sm:w-48">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+              style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+            >
+              <option value="all">All Status</option>
+              {statusOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-up stagger-1">
+          {statusOptions.map(status => {
+            const count = grievances.filter(g => g.status === status.value).length;
             return (
-              <div 
-                key={grievance._id} 
-                className="p-6  hover:opacity-90 transition-opacity" 
-                style={{ ...cardStyle, animationDelay: `${index * 100}ms` }}
-              >
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-start gap-4 cursor-pointer" onClick={() => { setSelectedGrievance(grievance); setShowModal(true); }}>
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold flex-shrink-0"
-                           style={{ backgroundColor: `${navyBlue}20`, color: navyBlue }}>
-                        {grievance.employeeName ? grievance.employeeName.charAt(0) : '👤'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-lg truncate" style={{ color: textPrimary }}>{grievance.subject}</h3>
-                        <p className="text-sm mb-2" style={{ color: textSecondary }}>
-                          {grievance.employeeName || 'Anonymous'} • {new Date(grievance.createdAt).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm line-clamp-2" style={{ color: textSecondary }}>{grievance.description}</p>
-                        <div className="flex flex-wrap gap-2 mt-3">
-                          <span className="px-3 py-1 rounded-full text-xs font-medium"
-                                style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}>
-                            📁 {grievance.category}
-                          </span>
-                          <span className="px-3 py-1 rounded-full text-xs font-medium"
-                                style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}>
-                            🚨 {grievance.priority}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+              <div key={status.value} className="p-4 rounded-xl" style={{ backgroundColor: status.bgColor, border: `1px solid ${status.color}30` }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: status.color }}>{status.label}</p>
+                    <p className="text-2xl font-bold" style={{ color: status.color }}>{count}</p>
                   </div>
-
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    {/* Status Dropdown */}
-                    <div className="relative">
-                      <select
-                        value={grievance.status}
-                        onChange={(e) => updateGrievanceStatus(grievance._id, e.target.value)}
-                        disabled={updating === grievance._id || grievance.status === "resolved"}
-                        className="px-4 py-2 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
-                        style={{
-                          backgroundColor: statusInfo.bgColor,
-                          border: `1px solid ${statusInfo.color}30`,
-                          color: statusInfo.color,
-                          fontWeight: '600'
-                        }}
-                      >
-                        {statusOptions.map(option => (
-                          <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>
-                        ))}
-                      </select>
-                      {updating === grievance._id && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Comments Section - Always Visible */}
-                <div className="mt-6 pt-4 border-t" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
-                  {/* Existing Comments */}
-                  {grievance.comments && grievance.comments.length > 0 && (
-                    <div className="space-y-3 mb-4">
-                      <h4 className="font-semibold text-sm" style={{ color: textPrimary }}>💬 Comments ({grievance.comments.length})</h4>
-                      {grievance.comments.map((comment, commentIndex) => (
-                        <div key={comment.id || commentIndex} className="p-3 rounded-lg"
-                             style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}>
-                          <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-                                 style={{ backgroundColor: `${navyBlue}20`, color: navyBlue }}>
-                              {comment.isAnonymous ? '👤' : (comment.userName ? comment.userName.charAt(0) : '👤')}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="font-medium text-sm" style={{ color: textPrimary }}>
-                                  {comment.isAnonymous ? 'Anonymous' : (comment.userName || 'Anonymous')}
-                                </span>
-                                <span className="text-xs px-2 py-0.5 rounded-full"
-                                      style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}>
-                                  {comment.userRole || 'Employee'}
-                                </span>
-                                <span className="text-xs" style={{ color: textSecondary }}>
-                                  {new Date(comment.createdAt).toLocaleString()}
-                                </span>
-                              </div>
-                              <p className="text-sm" style={{ color: textSecondary }}>{comment.message}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Add Comment Input */}
-                  <div className="flex gap-3">
-                    <input
-                      type="text"
-                      value={commentInputs[grievance._id] || ''}
-                      onChange={(e) => setCommentInputs(prev => ({ ...prev, [grievance._id]: e.target.value }))}
-                      onKeyPress={(e) => e.key === 'Enter' && handleAddComment(grievance._id)}
-                      placeholder="Add a comment..."
-                      className="flex-1 px-4 py-3 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
-                      style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                      disabled={commentingOn === grievance._id}
-                    />
-                    <button
-                      onClick={() => handleAddComment(grievance._id)}
-                      disabled={!(commentInputs[grievance._id] || '').trim() || commentingOn === grievance._id}
-                      className="px-6 py-3 rounded-xl font-semibold transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{ backgroundColor: navyBlue, color: '#ffffff' }}
-                    >
-                      {commentingOn === grievance._id ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      ) : (
-                        '💬 Send'
-                      )}
-                    </button>
-                  </div>
+                  <span className="text-2xl">📋</span>
                 </div>
               </div>
             );
-          })
-        )}
+          })}
+        </div>
+
+        {/* Grievances List */}
+        <div className="space-y-4 animate-fade-in-up stagger-2">
+          {filteredGrievances.length === 0 ? (
+            <div className="text-center py-12" style={cardStyle}>
+              <span className="text-4xl mb-4 block">📝</span>
+              <p className="text-lg font-medium" style={{ color: textPrimary }}>No grievances found</p>
+              <p style={{ color: textSecondary }}>Try adjusting your search or filter criteria</p>
+            </div>
+          ) : (
+            filteredGrievances.map((grievance, index) => {
+              const statusInfo = getStatusInfo(grievance.status);
+              return (
+                <div
+                  key={grievance._id}
+                  className="p-6  hover:opacity-90 transition-opacity"
+                  style={{ ...cardStyle, animationDelay: `${index * 100}ms` }}
+                >
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-start gap-4 cursor-pointer" onClick={() => { setSelectedGrievance(grievance); setShowModal(true); }}>
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold flex-shrink-0"
+                          style={{ backgroundColor: `${navyBlue}20`, color: navyBlue }}>
+                          {grievance.employeeName ? grievance.employeeName.charAt(0) : '👤'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-lg truncate" style={{ color: textPrimary }}>{grievance.subject}</h3>
+                          <p className="text-sm mb-2" style={{ color: textSecondary }}>
+                            {grievance.employeeName || 'Anonymous'} • {new Date(grievance.createdAt).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm line-clamp-2" style={{ color: textSecondary }}>{grievance.description}</p>
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            <span className="px-3 py-1 rounded-full text-xs font-medium"
+                              style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}>
+                              📁 {grievance.category}
+                            </span>
+                            <span className="px-3 py-1 rounded-full text-xs font-medium"
+                              style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}>
+                              🚨 {grievance.priority}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                      {/* Status Dropdown */}
+                      <div className="relative">
+                        <select
+                          value={grievance.status}
+                          onChange={(e) => updateGrievanceStatus(grievance._id, e.target.value)}
+                          disabled={updating === grievance._id || grievance.status === "resolved"}
+                          className="px-4 py-2 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
+                          style={{
+                            backgroundColor: statusInfo.bgColor,
+                            border: `1px solid ${statusInfo.color}30`,
+                            color: statusInfo.color,
+                            fontWeight: '600'
+                          }}
+                        >
+                          {statusOptions.map(option => (
+                            <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>
+                          ))}
+                        </select>
+                        {updating === grievance._id && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Comments Section - Always Visible */}
+                  <div className="mt-6 pt-4 border-t" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                    {/* Existing Comments */}
+                    {grievance.comments && grievance.comments.length > 0 && (
+                      <div className="space-y-3 mb-4">
+                        <h4 className="font-semibold text-sm" style={{ color: textPrimary }}>💬 Comments ({grievance.comments.length})</h4>
+                        {grievance.comments.map((comment, commentIndex) => (
+                          <div key={comment.id || commentIndex} className="p-3 rounded-lg"
+                            style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}>
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                                style={{ backgroundColor: `${navyBlue}20`, color: navyBlue }}>
+                                {comment.isAnonymous ? '👤' : (comment.userName ? comment.userName.charAt(0) : '👤')}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-medium text-sm" style={{ color: textPrimary }}>
+                                    {comment.isAnonymous ? 'Anonymous' : (comment.userName || 'Anonymous')}
+                                  </span>
+                                  <span className="text-xs px-2 py-0.5 rounded-full"
+                                    style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}>
+                                    {comment.userRole || 'Employee'}
+                                  </span>
+                                  <span className="text-xs" style={{ color: textSecondary }}>
+                                    {new Date(comment.createdAt).toLocaleString()}
+                                  </span>
+                                </div>
+                                <p className="text-sm" style={{ color: textSecondary }}>{comment.message}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add Comment Input */}
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        value={commentInputs[grievance._id] || ''}
+                        onChange={(e) => setCommentInputs(prev => ({ ...prev, [grievance._id]: e.target.value }))}
+                        onKeyPress={(e) => e.key === 'Enter' && handleAddComment(grievance._id)}
+                        placeholder="Add a comment..."
+                        className="flex-1 px-4 py-3 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-400"
+                        style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                        disabled={commentingOn === grievance._id}
+                      />
+                      <button
+                        onClick={() => handleAddComment(grievance._id)}
+                        disabled={!(commentInputs[grievance._id] || '').trim() || commentingOn === grievance._id}
+                        className="px-6 py-3 rounded-xl font-semibold transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: navyBlue, color: '#ffffff' }}
+                      >
+                        {commentingOn === grievance._id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        ) : (
+                          '💬 Send'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* Grievance Detail Modal */}
       {showModal && selectedGrievance && (
-        <div 
+        <div
           className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in p-4"
-          style={{ 
+          style={{
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)'
           }}
         >
-          <div 
+          <div
             className="w-full max-w-4xl animate-scale-in"
-            style={{ 
+            style={{
               backgroundColor: isDark ? '#1e293b' : '#ffffff',
               borderRadius: '24px',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
@@ -411,9 +416,9 @@ export default function HRGrievances() {
             }}
           >
             {/* Modal Header */}
-            <div 
+            <div
               className="p-6"
-              style={{ 
+              style={{
                 background: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)',
               }}
             >
@@ -451,7 +456,7 @@ export default function HRGrievances() {
                   <div className="space-y-2 text-sm">
                     <p><span className="font-medium" style={{ color: textPrimary }}>Category:</span> <span style={{ color: textSecondary }}>{selectedGrievance.category}</span></p>
                     <p><span className="font-medium" style={{ color: textPrimary }}>Priority:</span> <span style={{ color: textSecondary }}>{selectedGrievance.priority}</span></p>
-                    <p><span className="font-medium" style={{ color: textPrimary }}>Status:</span> 
+                    <p><span className="font-medium" style={{ color: textPrimary }}>Status:</span>
                       <span className="ml-2 px-2 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: getStatusInfo(selectedGrievance.status).bgColor, color: getStatusInfo(selectedGrievance.status).color }}>
                         {getStatusInfo(selectedGrievance.status).label}
                       </span>
@@ -501,7 +506,7 @@ export default function HRGrievances() {
                       <div key={comment.id || commentIndex} className="p-4 rounded-lg" style={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}>
                         <div className="flex items-start gap-3">
                           <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-                               style={{ backgroundColor: `${navyBlue}20`, color: navyBlue }}>
+                            style={{ backgroundColor: `${navyBlue}20`, color: navyBlue }}>
                             {comment.isAnonymous ? '👤' : (comment.userName ? comment.userName.charAt(0) : '👤')}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -510,7 +515,7 @@ export default function HRGrievances() {
                                 {comment.isAnonymous ? 'Anonymous' : (comment.userName || 'Anonymous')}
                               </span>
                               <span className="text-xs px-2 py-0.5 rounded-full"
-                                    style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}>
+                                style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}>
                                 {comment.userRole || 'Employee'}
                               </span>
                               <span className="text-xs" style={{ color: textSecondary }}>
@@ -529,6 +534,6 @@ export default function HRGrievances() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
