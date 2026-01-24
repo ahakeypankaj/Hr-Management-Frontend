@@ -19,6 +19,7 @@ import Grievance from '../pages/grievance/Grievance'
 import Performance from '../pages/performance/Performance'
 import Events from '../pages/events/Events'
 import EODManagement from '../pages/attendance/EODManagement'
+import AssetManagement from '../pages/assets/AssetManagement'
 
 // HR/Manager Pages
 import TeamUserManagement from '../pages/hr/TeamUserManagement'
@@ -120,6 +121,11 @@ export default function AppRoutes() {
       {/* Events - Available to all logged in users */}
       <Route path="/events" element={
         <ProtectedRoute><Events /></ProtectedRoute>
+      } />
+
+      {/* Assets - Available to all logged in users */}
+      <Route path="/assets" element={
+        <ProtectedRoute><AssetManagement /></ProtectedRoute>
       } />
 
       {/* ===================== EMPLOYEE & HR/MANAGER ONLY ===================== */}
