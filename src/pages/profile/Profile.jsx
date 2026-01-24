@@ -3,19 +3,6 @@ import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import api from "../../services/api";
 
-// Country codes for phone
-const countryCodes = [
-  { code: "+91", country: "India", flag: "🇮🇳" },
-  { code: "+1", country: "USA", flag: "🇺🇸" },
-  { code: "+44", country: "UK", flag: "🇬🇧" },
-  { code: "+61", country: "Australia", flag: "🇦🇺" },
-  { code: "+65", country: "Singapore", flag: "🇸🇬" },
-  { code: "+971", country: "UAE", flag: "🇦🇪" },
-  { code: "+49", country: "Germany", flag: "🇩🇪" },
-  { code: "+33", country: "France", flag: "🇫🇷" },
-  { code: "+81", country: "Japan", flag: "🇯🇵" },
-  { code: "+86", country: "China", flag: "🇨🇳" },
-];
 
 export default function Profile() {
   const { user } = useAuth();
@@ -26,21 +13,13 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [isEditing, setIsEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [editData, setEditData] = useState({
-    phone: "",
-    address: "",
-    emergencyPhoneCode: "+91",
-    emergencyContact: "",
-  });
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
   const [passwordError, setPasswordError] = useState("");
-  const [uploadProgress, setUploadProgress] = useState(null);
   const [showIDCardModal, setShowIDCardModal] = useState(false);
 
   const navyBlue = '#1e3a5f';
@@ -93,23 +72,12 @@ export default function Profile() {
       };
 
       setProfile(profileData);
-      setEditData({
-        phone: profileData.phone || "",
-        address: profileData.address,
-        emergencyPhoneCode: profileData.emergencyPhoneCode,
-        emergencyContact: profileData.emergencyContact,
-      });
     } catch (error) {
       console.error('Error fetching profile:', error);
       setError('Failed to load profile data');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSave = () => {
-    setIsEditing(false);
-    // API call would go here
   };
 
   const handlePasswordChange = () => {
@@ -128,22 +96,6 @@ export default function Profile() {
     alert("Password changed successfully!");
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setUploadProgress(0);
-      const interval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            setTimeout(() => setUploadProgress(null), 1000);
-            return 100;
-          }
-          return prev + 10;
-        });
-      }, 100);
-    }
-  };
 
   return (
     <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -200,10 +152,6 @@ export default function Profile() {
                 >
                   {profile.name.charAt(0)}
                 </div>
-                <label className="absolute bottom-0 right-0 w-10 h-10 bg-white rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-transform">
-                  <span className="text-lg">📷</span>
-                  <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
-                </label>
               </div>
 
               {/* Basic Info */}
@@ -224,27 +172,7 @@ export default function Profile() {
                   )}
                 </div>
               </div>
-
-              {/* Edit Button */}
-              <button
-                onClick={() => setIsEditing(!isEditing)}
-                className="px-6 py-3 rounded-xl font-semibold transition-all"
-                style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.3)' }}
-              >
-                {isEditing ? '❌ Cancel' : '✏️ Edit Profile'}
-              </button>
             </div>
-
-            {/* Upload Progress */}
-            {uploadProgress !== null && (
-              <div className="mt-4 bg-white/20 rounded-full overflow-hidden">
-                <div
-                  className="h-2 bg-white transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-                <p className="text-xs text-white/80 text-center mt-1">Uploading... {uploadProgress}%</p>
-              </div>
-            )}
           </div>
 
           {/* Info Grid */}
@@ -270,17 +198,7 @@ export default function Profile() {
                 </div>
                 <div className="flex items-center justify-between py-2" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
                   <span style={{ color: textSecondary }}>Phone</span>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editData.phone}
-                      onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
-                      className="px-3 py-1 rounded-lg outline-none"
-                      style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary, border: `1px solid ${navyBlue}` }}
-                    />
-                  ) : (
-                    <span className="font-medium" style={{ color: textPrimary }}>{profile.phone || 'Not provided'}</span>
-                  )}
+                  <span className="font-medium" style={{ color: textPrimary }}>{profile.phone || 'Not provided'}</span>
                 </div>
                 <div className="flex items-center justify-between py-2" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
                   <span style={{ color: textSecondary }}>Date of Birth</span>
@@ -327,54 +245,13 @@ export default function Profile() {
               <div className="space-y-4">
                 <div>
                   <label style={{ color: textSecondary }} className="text-sm">Address</label>
-                  {isEditing ? (
-                    <textarea
-                      value={editData.address}
-                      onChange={(e) => setEditData({ ...editData, address: e.target.value })}
-                      className="w-full mt-1 px-3 py-2 rounded-lg outline-none resize-none"
-                      rows={2}
-                      style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary, border: `1px solid ${navyBlue}` }}
-                    />
-                  ) : (
-                    <p className="font-medium mt-1" style={{ color: textPrimary }}>{profile.address}</p>
-                  )}
+                  <p className="font-medium mt-1" style={{ color: textPrimary }}>{profile.address}</p>
                 </div>
                 <div className="flex items-center justify-between py-2" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
                   <span style={{ color: textSecondary }}>Emergency Contact</span>
-                  {isEditing ? (
-                    <div className="flex gap-2">
-                      <select
-                        value={editData.emergencyPhoneCode}
-                        onChange={(e) => setEditData({ ...editData, emergencyPhoneCode: e.target.value })}
-                        className="px-2 py-1 rounded-lg outline-none text-sm"
-                        style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary, border: `1px solid ${navyBlue}` }}
-                      >
-                        {countryCodes.map((c) => (
-                          <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        value={editData.emergencyContact}
-                        onChange={(e) => setEditData({ ...editData, emergencyContact: e.target.value })}
-                        className="px-3 py-1 rounded-lg outline-none w-32"
-                        style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary, border: `1px solid ${navyBlue}` }}
-                      />
-                    </div>
-                  ) : (
-                    <span className="font-medium" style={{ color: textPrimary }}>{profile.emergencyPhoneCode} {profile.emergencyContact}</span>
-                  )}
+                  <span className="font-medium" style={{ color: textPrimary }}>{profile.emergencyPhoneCode} {profile.emergencyContact}</span>
                 </div>
               </div>
-              {isEditing && (
-                <button
-                  onClick={handleSave}
-                  className="mt-4 w-full py-3 rounded-xl font-bold text-white transition-all hover:opacity-90"
-                  style={{ backgroundColor: navyBlue }}
-                >
-                  💾 Save Changes
-                </button>
-              )}
             </div>
 
             {/* Skills */}
@@ -404,13 +281,6 @@ export default function Profile() {
                 <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: `${navyBlue}20`, color: navyBlue }}>📁</span>
                 Documents
               </h3>
-              <label
-                className="px-4 py-2 rounded-xl font-semibold cursor-pointer transition-all hover:opacity-80"
-                style={{ backgroundColor: navyBlue, color: '#ffffff' }}
-              >
-                📤 Upload Document
-                <input type="file" className="hidden" onChange={handleFileUpload} />
-              </label>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {profile.documents.map((doc, i) => (
