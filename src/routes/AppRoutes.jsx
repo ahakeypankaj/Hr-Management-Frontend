@@ -5,6 +5,7 @@ import MainLayout from '../layouts/MainLayout'
 
 // Auth
 import Login from '../pages/auth/Login'
+import AboutTeam from '../pages/about/AboutTeam'
 
 // Employee Pages
 import Dashboard from '../pages/dashboard/Dashboard'
@@ -88,6 +89,12 @@ export default function AppRoutes() {
       <Route
         path="/login"
         element={user.isLoggedIn ? <Navigate to="/dashboard" replace /> : <Login />}
+      />
+
+      {/* Public About / Team page */}
+      <Route
+        path="/about-team"
+        element={<AboutTeam />}
       />
 
       {/* Standalone Document Upload - Public routes (must be before default redirect) */}
