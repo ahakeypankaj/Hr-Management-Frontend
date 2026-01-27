@@ -295,12 +295,20 @@ export default function AssetManagement() {
 
             {/* HR Modal */}
             {showModal && (
-                <div style={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)'
-                }} className="fixed inset-0 flex items-center justify-center z-50 p-4 ">
-                    <div className="w-full max-w-2xl bg-white rounded-2xl overflow-hidden shadow-2xl animate-scale-in" style={{ backgroundColor: isDark ? '#1e293b' : '#ffffff' }}>
+                <div
+                    style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)'
+                    }}
+                    className="fixed inset-0 flex items-center justify-center z-50 p-4 animate-fade-in"
+                    onClick={() => setShowModal(false)}
+                >
+                    <div
+                        className="w-full max-w-2xl bg-white rounded-2xl overflow-hidden shadow-2xl animate-scale-in"
+                        style={{ backgroundColor: isDark ? '#1e293b' : '#ffffff' }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="p-6 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
                             <h2 className="text-xl font-bold" style={{ color: textPrimary }}>{editingAsset ? "Edit Asset" : "Add New Asset"}</h2>
                         </div>

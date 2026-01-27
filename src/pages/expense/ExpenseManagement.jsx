@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { createExpense, getExpenseSummary, listExpensesByUser } from "../../services/expenseService";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 // Country codes for phone
 const expenseCategories = [
@@ -20,7 +21,7 @@ export default function ExpenseManagement() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  
+
   const [expenses, setExpenses] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -52,6 +53,8 @@ export default function ExpenseManagement() {
     receipt: null
   });
 
+  useScrollLock(showCreateModal || showViewModal);
+
   useEffect(() => {
     fetchExpenseSummary();
     fetchExpenses();
@@ -75,7 +78,7 @@ export default function ExpenseManagement() {
     try {
       setLoadingExpenses(true);
       const response = await listExpensesByUser(currentPage, ITEMS_PER_PAGE);
-      
+
       // Transform API response to match component expectations
       const transformedExpenses = response.expenses.map(expense => ({
         id: expense._id,
@@ -89,7 +92,7 @@ export default function ExpenseManagement() {
         receipts: expense.receipts, // Keep original receipts array for detailed view
         rejectionMessage: expense.rejectionMessage
       }));
-      
+
       setExpenses(transformedExpenses);
       setTotalPages(Math.ceil(response.total / ITEMS_PER_PAGE));
     } catch (error) {
@@ -206,7 +209,7 @@ export default function ExpenseManagement() {
         <button
           onClick={() => setShowCreateModal(true)}
           className="px-6 py-3 rounded-xl font-bold text-white transition-all hover:opacity-90"
-          style={{ 
+          style={{
             background: `linear-gradient(135deg, ${navyBlue} 0%, #2563eb 100%)`,
             boxShadow: '0 4px 15px rgba(30, 58, 95, 0.4)'
           }}
@@ -229,7 +232,7 @@ export default function ExpenseManagement() {
                 <p className="text-sm" style={{ color: textSecondary }}>{stat.label}</p>
                 <p className="text-xl font-bold mt-1" style={{ color: stat.color }}>{stat.value}</p>
               </div>
-              <div 
+              <div
                 className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
                 style={{ backgroundColor: `${stat.color}15` }}
               >
@@ -294,9 +297,9 @@ export default function ExpenseManagement() {
 
       {/* Expenses List */}
       <div style={cardStyle} className="overflow-hidden animate-fade-in-up">
-        <div 
+        <div
           className="p-5"
-          style={{ 
+          style={{
             background: `linear-gradient(135deg, ${navyBlue} 0%, #2563eb 100%)`,
           }}
         >
@@ -320,14 +323,14 @@ export default function ExpenseManagement() {
               const category = getCategoryInfo(expense.category);
               const status = getStatusStyle(expense.status);
               return (
-                <div 
+                <div
                   key={expense.id}
                   className="p-5 flex items-center gap-4 hover:bg-opacity-50 transition-all cursor-pointer"
                   style={{ backgroundColor: isDark ? 'transparent' : 'transparent' }}
                   onClick={() => handleViewExpense(expense)}
                 >
                   {/* Category Icon */}
-                  <div 
+                  <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                     style={{ backgroundColor: `${category.color}20` }}
                   >
@@ -345,7 +348,7 @@ export default function ExpenseManagement() {
                   {/* Amount */}
                   <div className="text-right">
                     <p className="font-bold text-lg" style={{ color: textPrimary }}>{formatCurrency(expense.amount)}</p>
-                    <span 
+                    <span
                       className="px-3 py-1 rounded-full text-xs font-bold"
                       style={{ backgroundColor: status.bg, color: status.color }}
                     >
@@ -368,7 +371,7 @@ export default function ExpenseManagement() {
         )}
 
         {/* Pagination */}
-        <div 
+        <div
           className="p-4 flex items-center justify-between"
           style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}
         >
@@ -398,25 +401,27 @@ export default function ExpenseManagement() {
 
       {/* Create Expense Modal */}
       {showCreateModal && (
-        <div 
+        <div
           className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in p-4"
-          style={{ 
+          style={{
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)'
           }}
+          onClick={() => setShowCreateModal(false)}
         >
-          <div 
+          <div
             className="w-full max-w-2xl animate-scale-in"
-            style={{ 
+            style={{
               backgroundColor: isDark ? '#1e293b' : '#ffffff',
               borderRadius: '24px',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
               overflow: 'hidden'
             }}
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div 
+            <div
               className="p-6"
               style={{ background: `linear-gradient(135deg, ${navyBlue} 0%, #2563eb 100%)` }}
             >
@@ -511,7 +516,7 @@ export default function ExpenseManagement() {
                 <label className="block text-sm font-semibold mb-2" style={{ color: textPrimary }}>
                   📎 Upload Receipt
                 </label>
-                <div 
+                <div
                   className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all hover:border-blue-400"
                   style={{ borderColor: isDark ? '#475569' : '#e2e8f0' }}
                 >
@@ -544,7 +549,7 @@ export default function ExpenseManagement() {
                   onClick={handleCreateExpense}
                   disabled={creatingExpense}
                   className="flex-1 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ 
+                  style={{
                     background: `linear-gradient(135deg, ${navyBlue} 0%, #2563eb 100%)`,
                     boxShadow: '0 4px 15px rgba(30, 58, 95, 0.4)'
                   }}
@@ -566,25 +571,27 @@ export default function ExpenseManagement() {
 
       {/* View Expense Modal */}
       {showViewModal && selectedExpense && (
-        <div 
+        <div
           className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in p-4"
-          style={{ 
+          style={{
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)'
           }}
+          onClick={() => setShowViewModal(false)}
         >
-          <div 
+          <div
             className="w-full max-w-lg animate-scale-in"
-            style={{ 
+            style={{
               backgroundColor: isDark ? '#1e293b' : '#ffffff',
               borderRadius: '24px',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
               overflow: 'hidden'
             }}
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div 
+            <div
               className="p-6"
               style={{ background: `linear-gradient(135deg, ${getCategoryInfo(selectedExpense.category).color} 0%, ${getCategoryInfo(selectedExpense.category).color}cc 100%)` }}
             >
@@ -609,7 +616,7 @@ export default function ExpenseManagement() {
                   <p className="text-sm" style={{ color: textSecondary }}>Amount</p>
                   <p className="text-2xl font-bold" style={{ color: textPrimary }}>{formatCurrency(selectedExpense.amount)}</p>
                 </div>
-                <span 
+                <span
                   className="px-4 py-2 rounded-full text-sm font-bold"
                   style={{ backgroundColor: getStatusStyle(selectedExpense.status).bg, color: getStatusStyle(selectedExpense.status).color }}
                 >

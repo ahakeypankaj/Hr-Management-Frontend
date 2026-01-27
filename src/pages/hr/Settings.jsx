@@ -793,143 +793,143 @@ export default function Settings() {
               </div>
             )}
           </div>
-        )}
+        </div>
+      )}
 
-          {/* Announcements Tab */}
-          {activeTab === "announcements" && (
-            <div className="space-y-4 animate-fade-in-up">
-              {announcementError && (
-                <div className="p-4 rounded-xl flex items-center justify-between" style={{ backgroundColor: "#fee2e2", color: "#dc2626" }}>
-                  <span>{announcementError}</span>
-                  <button onClick={fetchAnnouncements} className="px-3 py-1 rounded-lg text-sm font-medium" style={{ backgroundColor: "#fecaca" }}>Retry</button>
-                </div>
-              )}
-              <div className="p-6" style={cardStyle}>
-                <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Create Announcement</h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Title</label>
-                    <input
-                      type="text"
-                      value={announcementForm.title}
-                      onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl outline-none"
-                      style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
-                      placeholder="Announcement title..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Message</label>
-                    <textarea
-                      rows={4}
-                      value={announcementForm.message}
-                      onChange={(e) => setAnnouncementForm({ ...announcementForm, message: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl outline-none resize-none"
-                      style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
-                      placeholder="Write your announcement..."
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Audience</label>
-                      <select
-                        value={announcementForm.audienceType}
-                        onChange={(e) => setAnnouncementForm({ ...announcementForm, audienceType: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl outline-none"
-                        style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
-                      >
-                        <option value="all">All Employees</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Priority</label>
-                      <select
-                        value={announcementForm.priority}
-                        onChange={(e) => setAnnouncementForm({ ...announcementForm, priority: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl outline-none"
-                        style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
-                      >
-                        <option value="low">Low</option>
-                        <option value="normal">Normal</option>
-                        <option value="high">High</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Expires At (optional)</label>
-                    <input
-                      type="date"
-                      value={announcementForm.expiresAt}
-                      onChange={(e) => setAnnouncementForm({ ...announcementForm, expiresAt: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl outline-none"
-                      style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
-                    />
-                  </div>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={announcementForm.isPinned}
-                      onChange={(e) => setAnnouncementForm({ ...announcementForm, isPinned: e.target.checked })}
-                      className="rounded"
-                    />
-                    <span style={{ color: textPrimary }}>Pin announcement</span>
-                  </label>
-                  <button
-                    onClick={handleCreateAnnouncement}
-                    disabled={announcementSaving || !announcementForm.title?.trim() || !announcementForm.message?.trim()}
-                    className="w-full py-3 rounded-xl font-bold text-white disabled:opacity-50"
-                    style={{ backgroundColor: navyBlue }}
-                  >
-                    {announcementSaving ? "Publishing…" : "📢 Publish Announcement"}
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-6" style={cardStyle}>
-                <h3 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Announcements History</h3>
-                {announcementLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2" style={{ borderColor: navyBlue }} />
-                    <span className="ml-3" style={{ color: textSecondary }}>Loading…</span>
-                  </div>
-                ) : announcements.length === 0 ? (
-                  <p className="text-center py-12" style={{ color: textSecondary }}>No announcements yet. Create one above.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {announcements.map((ann) => (
-                      <div
-                        key={ann._id}
-                        className="p-4 rounded-xl flex items-center justify-between flex-wrap gap-2"
-                        style={{ backgroundColor: isDark ? "#334155" : "#f8fafc" }}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium" style={{ color: textPrimary }}>{ann.title}</h4>
-                          <p className="text-sm mt-1 line-clamp-2" style={{ color: textSecondary }}>{ann.message}</p>
-                          <p className="text-xs mt-1" style={{ color: textSecondary }}>
-                            {ann.createdBy?.name && `By ${ann.createdBy.name}`}
-                            {ann.expiresAt && ` • Expires ${new Date(ann.expiresAt).toLocaleDateString("en-US")}`}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {ann.isPinned && <span className="text-amber-500" title="Pinned">📌</span>}
-                          <span
-                            className="px-3 py-1 rounded-full text-xs font-medium"
-                            style={{
-                              backgroundColor: ann.priority === "high" ? "#fee2e2" : ann.priority === "normal" ? "#dcfce7" : "#f1f5f9",
-                              color: ann.priority === "high" ? "#dc2626" : ann.priority === "normal" ? "#16a34a" : "#64748b",
-                            }}
-                          >
-                            {ann.priority || "normal"}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+      {/* Announcements Tab */}
+      {activeTab === "announcements" && (
+        <div className="space-y-4 animate-fade-in-up">
+          {announcementError && (
+            <div className="p-4 rounded-xl flex items-center justify-between" style={{ backgroundColor: "#fee2e2", color: "#dc2626" }}>
+              <span>{announcementError}</span>
+              <button onClick={fetchAnnouncements} className="px-3 py-1 rounded-lg text-sm font-medium" style={{ backgroundColor: "#fecaca" }}>Retry</button>
             </div>
           )}
+          <div className="p-6" style={cardStyle}>
+            <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Create Announcement</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Title</label>
+                <input
+                  type="text"
+                  value={announcementForm.title}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl outline-none"
+                  style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
+                  placeholder="Announcement title..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Message</label>
+                <textarea
+                  rows={4}
+                  value={announcementForm.message}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, message: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl outline-none resize-none"
+                  style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
+                  placeholder="Write your announcement..."
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Audience</label>
+                  <select
+                    value={announcementForm.audienceType}
+                    onChange={(e) => setAnnouncementForm({ ...announcementForm, audienceType: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl outline-none"
+                    style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
+                  >
+                    <option value="all">All Employees</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Priority</label>
+                  <select
+                    value={announcementForm.priority}
+                    onChange={(e) => setAnnouncementForm({ ...announcementForm, priority: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl outline-none"
+                    style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
+                  >
+                    <option value="low">Low</option>
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Expires At (optional)</label>
+                <input
+                  type="date"
+                  value={announcementForm.expiresAt}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, expiresAt: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl outline-none"
+                  style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={announcementForm.isPinned}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, isPinned: e.target.checked })}
+                  className="rounded"
+                />
+                <span style={{ color: textPrimary }}>Pin announcement</span>
+              </label>
+              <button
+                onClick={handleCreateAnnouncement}
+                disabled={announcementSaving || !announcementForm.title?.trim() || !announcementForm.message?.trim()}
+                className="w-full py-3 rounded-xl font-bold text-white disabled:opacity-50"
+                style={{ backgroundColor: navyBlue }}
+              >
+                {announcementSaving ? "Publishing…" : "📢 Publish Announcement"}
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6" style={cardStyle}>
+            <h3 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Announcements History</h3>
+            {announcementLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2" style={{ borderColor: navyBlue }} />
+                <span className="ml-3" style={{ color: textSecondary }}>Loading…</span>
+              </div>
+            ) : announcements.length === 0 ? (
+              <p className="text-center py-12" style={{ color: textSecondary }}>No announcements yet. Create one above.</p>
+            ) : (
+              <div className="space-y-3">
+                {announcements.map((ann) => (
+                  <div
+                    key={ann._id}
+                    className="p-4 rounded-xl flex items-center justify-between flex-wrap gap-2"
+                    style={{ backgroundColor: isDark ? "#334155" : "#f8fafc" }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium" style={{ color: textPrimary }}>{ann.title}</h4>
+                      <p className="text-sm mt-1 line-clamp-2" style={{ color: textSecondary }}>{ann.message}</p>
+                      <p className="text-xs mt-1" style={{ color: textSecondary }}>
+                        {ann.createdBy?.name && `By ${ann.createdBy.name}`}
+                        {ann.expiresAt && ` • Expires ${new Date(ann.expiresAt).toLocaleDateString("en-US")}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {ann.isPinned && <span className="text-amber-500" title="Pinned">📌</span>}
+                      <span
+                        className="px-3 py-1 rounded-full text-xs font-medium"
+                        style={{
+                          backgroundColor: ann.priority === "high" ? "#fee2e2" : ann.priority === "normal" ? "#dcfce7" : "#f1f5f9",
+                          color: ann.priority === "high" ? "#dc2626" : ann.priority === "normal" ? "#16a34a" : "#64748b",
+                        }}
+                      >
+                        {ann.priority || "normal"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+      )}
 
       {showModal && (
         <div
@@ -1080,5 +1080,5 @@ export default function Settings() {
         </div>
       )}
     </>
-  );
+  )
 }

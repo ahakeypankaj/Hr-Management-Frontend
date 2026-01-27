@@ -60,3 +60,33 @@ export async function createQuote(payload) {
     throw error
   }
 }
+/**
+ * Update a quote
+ * @param {string} id - Quote _id
+ * @param {Object} payload
+ * @returns {Promise}
+ */
+export async function updateQuote(id, payload) {
+  try {
+    const response = await api.put(`/quotes/${id}`, payload)
+    return response.data
+  } catch (error) {
+    console.error('[Quote] Error updating quote:', error)
+    throw error
+  }
+}
+
+/**
+ * Delete a quote
+ * @param {string} id - Quote _id
+ * @returns {Promise}
+ */
+export async function deleteQuote(id) {
+  try {
+    const response = await api.delete(`/quotes/${id}`)
+    return response.data
+  } catch (error) {
+    console.error('[Quote] Error deleting quote:', error)
+    throw error
+  }
+}

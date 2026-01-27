@@ -641,6 +641,7 @@ export default function Approvals() {
               <span className="font-bold text-2xl">{totalPending}</span>
               <span className="ml-2 text-sm">pending approvals</span>
             </div>
+          ))}
         </div>
 
         {/* Stats / Tabs */}
