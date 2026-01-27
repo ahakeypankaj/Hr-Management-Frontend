@@ -4,6 +4,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { fetchEvents, createEvent, updateEvent, deleteEvent, rsvpToEvent } from "../../services/eventService";
 import { fetchKudos, postKudo, likeKudo, commentOnKudo } from "../../services/kudoService";
 import { fetchEmployees } from "../../services/directoryService";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 // Mock events data - 2026 Holidays Calendar
 // Badge options
@@ -89,6 +90,9 @@ export default function Events() {
     fetchData();
     fetchEmployeesList();
   }, []);
+
+  // Lock scroll when any modal is open
+  useScrollLock(showKudosModal || showEventModal);
 
   // Check if user can manage events (HR/Manager or Admin)
   const canManageEvents = user?.role === "hr_manager" || user?.role === "admin";
@@ -234,315 +238,287 @@ export default function Events() {
   };
 
   return (
-    <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      {/* Header */}
-      <div className="flex items-center justify-between animate-fade-in-down">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>Events & Kudos</h1>
-          <p style={{ color: textSecondary }}>Stay updated with company events and recognize your colleagues</p>
-        </div>
-        <div className="flex gap-3">
-          {/* Create Event Button - Only for HR/Manager and Admin */}
-          {canManageEvents && (
+    <>
+      <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in-down">
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>Events & Kudos</h1>
+            <p style={{ color: textSecondary }}>Celebrating our team moments and milestones</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {canManageEvents && activeTab === 'events' && (
+              <button
+                onClick={openCreateEventModal}
+                className="px-6 py-3 rounded-xl font-bold text-white flex items-center gap-2 transition-all hover:opacity-90 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                style={{ backgroundColor: '#16a34a', boxShadow: '0 4px 15px rgba(22, 163, 74, 0.4)' }}
+              >
+                📅 Create Event
+              </button>
+            )}
             <button
-              onClick={openCreateEventModal}
+              onClick={() => setShowKudosModal(true)}
               className="px-6 py-3 rounded-xl font-bold text-white flex items-center gap-2 transition-all hover:opacity-90"
-              style={{ backgroundColor: '#16a34a', boxShadow: '0 4px 15px rgba(22, 163, 74, 0.4)' }}
+              style={{ backgroundColor: navyBlue, boxShadow: `0 4px 15px ${navyBlue}40` }}
             >
-              📅 Create Event
+              ⭐ Give Kudos
             </button>
-          )}
-          <button
-            onClick={() => setShowKudosModal(true)}
-            className="px-6 py-3 rounded-xl font-bold text-white flex items-center gap-2 transition-all hover:opacity-90"
-            style={{ backgroundColor: navyBlue, boxShadow: `0 4px 15px ${navyBlue}40` }}
-          >
-            ⭐ Give Kudos
-          </button>
+          </div>
         </div>
-      </div>
 
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20" style={cardStyle}>
-          <div className="w-12 h-12 border-4 border-t-transparent animate-spin rounded-full mb-4" style={{ borderColor: `${navyBlue}40`, borderTopColor: navyBlue }}></div>
-          <p style={{ color: textSecondary }}>Loading data...</p>
-        </div>
-      ) : error ? (
-        <div className="p-8 text-center" style={cardStyle}>
-          <p style={{ color: "#dc2626" }} className="font-bold mb-2">⚠️ {error}</p>
-          <button
-            onClick={fetchData}
-            className="px-4 py-2 rounded-lg text-white font-semibold text-sm transition-all hover:opacity-90"
-            style={{ backgroundColor: navyBlue }}
-          >
-            Retry
-          </button>
-        </div>
-      ) : (
-        <>
-          {/* Stats for HR/Admin */}
-          {canManageEvents && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-up">
-              {[
-                { label: "Total Events", value: events.length, color: "#2563eb", icon: "📅" },
-                { label: "Upcoming", value: events.filter(e => new Date(e.date) >= new Date()).length, color: "#16a34a", icon: "🗓️" },
-                { label: "Total RSVPs", value: events.reduce((acc, e) => acc + e.attending, 0), color: "#7c3aed", icon: "👥" },
-                { label: "Total Kudos", value: kudos.length, color: "#ea580c", icon: "⭐" },
-              ].map((stat, i) => (
-                <div key={i} className="p-5 hover-lift" style={cardStyle}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p style={{ color: textSecondary }} className="text-sm font-medium">{stat.label}</p>
-                      <p style={{ color: textPrimary }} className="text-3xl font-bold mt-1">{stat.value}</p>
-                    </div>
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: `${stat.color}20` }}>
-                      {stat.icon}
-                    </div>
-                  </div>
-                </div>
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20" style={cardStyle}>
+            <div className="w-12 h-12 border-4 border-t-transparent animate-spin rounded-full mb-4" style={{ borderColor: `${navyBlue}40`, borderTopColor: navyBlue }}></div>
+            <p style={{ color: textSecondary }}>Loading data...</p>
+          </div>
+        ) : error ? (
+          <div className="p-8 text-center" style={cardStyle}>
+            <p style={{ color: "#dc2626" }} className="font-bold mb-2">⚠️ {error}</p>
+            <button
+              onClick={fetchData}
+              className="px-4 py-2 rounded-lg text-white font-semibold text-sm transition-all hover:opacity-90"
+              style={{ backgroundColor: navyBlue }}
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Tabs */}
+            <div className="flex space-x-1 p-1 rounded-xl w-full max-w-md bg-gray-100/50 dark:bg-gray-800/50">
+              {['events', 'kudos'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all capitalize ${activeTab === tab ? 'shadow-sm' : 'hover:bg-white/50 dark:hover:bg-gray-700/50'
+                    }`}
+                  style={{
+                    backgroundColor: activeTab === tab ? (isDark ? '#334155' : '#ffffff') : 'transparent',
+                    color: activeTab === tab ? (isDark ? '#e2e8f0' : '#0f172a') : (isDark ? '#94a3b8' : '#64748b'),
+                  }}
+                >
+                  {tab === 'events' ? '📅 Events Calendar' : '⭐ Kudos Feed'}
+                </button>
               ))}
             </div>
-          )}
 
-          {/* Tabs */}
-          <div className="flex gap-2 p-1 rounded-xl animate-fade-in-up" style={{ backgroundColor: isDark ? '#1e293b' : '#f1f5f9' }}>
-            {[
-              { id: "events", label: "Events Calendar", icon: "📅" },
-              { id: "kudos", label: "Kudos Feed", icon: "⭐" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className="flex-1 py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
-                style={{
-                  backgroundColor: activeTab === tab.id ? navyBlue : 'transparent',
-                  color: activeTab === tab.id ? '#ffffff' : textSecondary,
-                }}
-              >
-                <span>{tab.icon}</span>
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Events Tab */}
-          {activeTab === "events" && (
-            <div className="space-y-4 animate-fade-in-up">
-              {/* Upcoming Events */}
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Upcoming Events</h2>
-                <span className="text-sm" style={{ color: textSecondary }}>{events.length} events</span>
-              </div>
-
-              {events.length === 0 ? (
-                <div className="p-12 text-center" style={cardStyle}>
-                  <span className="text-5xl block mb-4">📅</span>
-                  <p className="font-bold text-lg" style={{ color: textPrimary }}>No events scheduled</p>
-                  <p style={{ color: textSecondary }}>
-                    {canManageEvents ? "Create your first event!" : "Check back later for upcoming events."}
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {events.map((event, i) => {
-                    const typeStyle = getEventTypeStyle(event.type);
-                    const isRsvped = rsvpStatus[event.id];
-                    return (
+            {/* Events Tab */}
+            {activeTab === "events" && (
+              <div className="space-y-6 animate-fade-in-up">
+                {/* Upcoming Events */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {events.length === 0 ? (
+                    <div className="col-span-full p-12 text-center" style={cardStyle}>
+                      <span className="text-5xl block mb-4">📅</span>
+                      <p className="font-bold text-lg" style={{ color: textPrimary }}>No upcoming events</p>
+                      <p style={{ color: textSecondary }}>Stay tuned for future updates!</p>
+                    </div>
+                  ) : (
+                    events.map((event, i) => (
                       <div
                         key={event.id}
-                        className="p-5 hover:scale-[1.01] transition-all"
+                        className="group relative overflow-hidden transition-all hover:scale-[1.02] hover:shadow-lg"
                         style={{ ...cardStyle, animationDelay: `${i * 0.1}s` }}
                       >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
-                              style={{ backgroundColor: typeStyle.bg }}
-                            >
-                              {typeStyle.icon}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-bold" style={{ color: textPrimary }}>{event.title}</h3>
-                                {event.isOptional && (
-                                  <span
-                                    className="px-2 py-0.5 rounded-full text-xs font-medium"
-                                    style={{ backgroundColor: '#fef3c7', color: '#d97706' }}
-                                  >
-                                    Optional
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-sm" style={{ color: textSecondary }}>{event.date} • {event.time}</p>
-                              {event.specialNote && (
-                                <p className="text-xs mt-1 font-medium" style={{ color: '#dc2626' }}>
-                                  ⚠️ {event.specialNote}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
+                        {/* Event Stripe */}
+                        <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: getEventTypeStyle(event.type).bg }}></div>
+
+                        <div className="p-6 pl-8">
+                          <div className="flex justify-between items-start mb-4">
                             <span
-                              className="px-3 py-1 rounded-full text-xs font-medium capitalize"
-                              style={{ backgroundColor: typeStyle.bg, color: typeStyle.color }}
+                              className="px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border"
+                              style={{
+                                backgroundColor: getEventTypeStyle(event.type).bg,
+                                color: getEventTypeStyle(event.type).color,
+                                borderColor: `${getEventTypeStyle(event.type).color}20`
+                              }}
                             >
-                              {event.type}
+                              {getEventTypeStyle(event.type).icon} {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
                             </span>
-                            {/* Edit/Delete buttons for HR/Admin */}
                             {canManageEvents && (
-                              <div className="flex gap-1">
+                              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                   onClick={() => openEditEventModal(event)}
-                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all hover:opacity-80"
-                                  style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9' }}
-                                  title="Edit Event"
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                  title="Edit"
                                 >
                                   ✏️
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteEvent(event.id)}
-                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all hover:opacity-80"
-                                  style={{ backgroundColor: '#fee2e2' }}
-                                  title="Delete Event"
+                                  onClick={() => {
+                                    if (window.confirm('Delete this event?')) deleteEvent(event.id).then(fetchData);
+                                  }}
+                                  className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors"
+                                  title="Delete"
                                 >
                                   🗑️
                                 </button>
                               </div>
                             )}
                           </div>
-                        </div>
 
-                        <p className="text-sm mb-3" style={{ color: textSecondary }}>{event.description}</p>
+                          <h3 className="text-xl font-bold mb-2 line-clamp-1" style={{ color: textPrimary }}>{event.title}</h3>
 
-                        <div className="flex items-center justify-between">
-                          <div className="flex flex-col gap-1">
+                          <div className="space-y-2 mb-6">
                             <div className="flex items-center gap-2 text-sm" style={{ color: textSecondary }}>
-                              <span>📍 {event.location}</span>
-                              <span>•</span>
-                              <span>👥 {event.attending} attending</span>
+                              <span>📅</span>
+                              <span className="font-medium">{new Date(event.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
                             </div>
-                            <span className="text-xs" style={{ color: textSecondary }}>
-                              Created by {event.createdBy}
-                            </span>
+                            <div className="flex items-center gap-2 text-sm" style={{ color: textSecondary }}>
+                              <span>⏰</span>
+                              <span>{event.time}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm" style={{ color: textSecondary }}>
+                              <span>📍</span>
+                              <span>{event.location}</span>
+                            </div>
                           </div>
+
+                          {event.description && (
+                            <p className="text-sm mb-6 line-clamp-2" style={{ color: textSecondary }}>
+                              {event.description}
+                            </p>
+                          )}
+
+                          {/* RSVP Section */}
                           {event.rsvp && (
-                            <button
-                              onClick={() => handleRSVP(event.id)}
-                              className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-                              style={{
-                                backgroundColor: isRsvped ? "#dcfce7" : (isDark ? '#334155' : '#f1f5f9'),
-                                color: isRsvped ? "#16a34a" : textPrimary
-                              }}
-                            >
-                              {isRsvped ? "✓ Going" : "RSVP"}
-                            </button>
+                            <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: isDark ? '#334155' : '#f1f5f9' }}>
+                              <div className="flex -space-x-2">
+                                {[...Array(Math.min(3, event.attending))].map((_, i) => (
+                                  <div
+                                    key={i}
+                                    className="w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs bg-gray-100"
+                                    style={{ borderColor: isDark ? '#1e293b' : '#ffffff', color: navyBlue }}
+                                  >
+                                    👤
+                                  </div>
+                                ))}
+                                {event.attending > 3 && (
+                                  <div
+                                    className="w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold bg-gray-50"
+                                    style={{ borderColor: isDark ? '#1e293b' : '#ffffff', color: textSecondary }}
+                                  >
+                                    +{event.attending - 3}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => handleRSVP(event.id)}
+                                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${rsvpStatus[event.id]
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                    : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                  }`}
+                              >
+                                {rsvpStatus[event.id] ? "✓ Going" : "Join Event"}
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
-                    );
-                  })}
+                    ))
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* Kudos Tab */}
-          {activeTab === "kudos" && (
-            <div className="space-y-4 animate-fade-in-up">
-              {kudos.length === 0 ? (
-                <div className="p-12 text-center" style={cardStyle}>
-                  <span className="text-5xl block mb-4">🌟</span>
-                  <p className="font-bold text-lg" style={{ color: textPrimary }}>No kudos yet</p>
-                  <p style={{ color: textSecondary }}>Be the first to recognize a colleague!</p>
-                </div>
-              ) : (
-                kudos.map((kudo, i) => (
-                  <div
-                    key={kudo.id}
-                    className="p-5 hover:scale-[1.005] transition-all"
-                    style={{ ...cardStyle, animationDelay: `${i * 0.1}s` }}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div
-                        className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
-                        style={{ background: `linear-gradient(135deg, ${navyBlue}, #2563eb)` }}
-                      >
-                        {(kudo.from?.name || "U").charAt(0)}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold" style={{ color: textPrimary }}>{kudo.from?.name}</span>
-                          <span style={{ color: textSecondary }}>→</span>
-                          <span className="font-bold" style={{ color: navyBlue }}>{kudo.to?.name}</span>
-                          <span
-                            className="px-2 py-0.5 rounded-full text-xs font-medium"
-                            style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}
-                          >
-                            {kudo.badge}
-                          </span>
+            {/* Kudos Tab */}
+            {activeTab === "kudos" && (
+              <div className="space-y-4 animate-fade-in-up">
+                {kudos.length === 0 ? (
+                  <div className="p-12 text-center" style={cardStyle}>
+                    <span className="text-5xl block mb-4">🌟</span>
+                    <p className="font-bold text-lg" style={{ color: textPrimary }}>No kudos yet</p>
+                    <p style={{ color: textSecondary }}>Be the first to recognize a colleague!</p>
+                  </div>
+                ) : (
+                  kudos.map((kudo, i) => (
+                    <div
+                      key={kudo.id}
+                      className="p-5 hover:scale-[1.005] transition-all"
+                      style={{ ...cardStyle, animationDelay: `${i * 0.1}s` }}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div
+                          className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
+                          style={{ background: `linear-gradient(135deg, ${navyBlue}, #2563eb)` }}
+                        >
+                          {(kudo.from?.name || "U").charAt(0)}
                         </div>
-                        <p className="mb-3" style={{ color: textPrimary }}>{kudo.message}</p>
-                        <div className="flex items-center gap-4">
-                          <button
-                            onClick={() => handleLikeKudo(kudo.id)}
-                            className="flex items-center gap-1 text-sm bg-transparent border-none cursor-pointer hover:opacity-70 transition-all font-medium"
-                            style={{ color: kudo.isLiked ? "#dc2626" : textSecondary }}
-                          >
-                            {kudo.isLiked ? "❤️" : "🤍"} {kudo.likes}
-                          </button>
-                          <button
-                            className="flex items-center gap-1 text-sm bg-transparent border-none cursor-pointer hover:opacity-70 transition-all"
-                            style={{ color: textSecondary }}
-                            onClick={() => setExpandedComments(prev => ({ ...prev, [kudo.id]: !prev[kudo.id] }))}
-                          >
-                            💬 {kudo.commentsCount || 0}
-                          </button>
-                          <span className="text-xs" style={{ color: textSecondary }}>{kudo.date}</span>
-                        </div>
-
-                        {/* Comments Section */}
-                        {expandedComments[kudo.id] && (
-                          <div className="mt-4 pt-4 space-y-3" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#f1f5f9'}` }}>
-                            {/* Comment List */}
-                            {(kudo.comments || []).map((comment) => (
-                              <div key={comment.id} className="text-sm">
-                                <span className="font-bold" style={{ color: textPrimary }}>{comment.userName}: </span>
-                                <span style={{ color: textPrimary }}>{comment.text}</span>
-                                <div className="text-[10px] mt-0.5" style={{ color: textSecondary }}>{comment.date}</div>
-                              </div>
-                            ))}
-
-                            {/* Comment Input */}
-                            <div className="flex gap-2 mt-3">
-                              <input
-                                type="text"
-                                placeholder="Add a comment..."
-                                value={commentInputs[kudo.id] || ""}
-                                onChange={(e) => setCommentInputs(prev => ({ ...prev, [kudo.id]: e.target.value }))}
-                                onKeyPress={(e) => e.key === 'Enter' && handleCommentKudo(kudo.id)}
-                                className="flex-1 px-3 py-1.5 rounded-lg text-sm outline-none transition-all focus:ring-1 focus:ring-purple-400"
-                                style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
-                              />
-                              <button
-                                onClick={() => handleCommentKudo(kudo.id)}
-                                disabled={!commentInputs[kudo.id]?.trim()}
-                                className="p-1.5 rounded-lg text-white disabled:opacity-50 transition-all"
-                                style={{ backgroundColor: navyBlue }}
-                              >
-                                ✈️
-                              </button>
-                            </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold" style={{ color: textPrimary }}>{kudo.from?.name}</span>
+                            <span style={{ color: textSecondary }}>→</span>
+                            <span className="font-bold" style={{ color: navyBlue }}>{kudo.to?.name}</span>
+                            <span
+                              className="px-2 py-0.5 rounded-full text-xs font-medium"
+                              style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}
+                            >
+                              {kudo.badge}
+                            </span>
                           </div>
-                        )}
+                          <p className="mb-3" style={{ color: textPrimary }}>{kudo.message}</p>
+                          <div className="flex items-center gap-4">
+                            <button
+                              onClick={() => handleLikeKudo(kudo.id)}
+                              className="flex items-center gap-1 text-sm bg-transparent border-none cursor-pointer hover:opacity-70 transition-all font-medium"
+                              style={{ color: kudo.isLiked ? "#dc2626" : textSecondary }}
+                            >
+                              {kudo.isLiked ? "❤️" : "🤍"} {kudo.likes}
+                            </button>
+                            <button
+                              className="flex items-center gap-1 text-sm bg-transparent border-none cursor-pointer hover:opacity-70 transition-all"
+                              style={{ color: textSecondary }}
+                              onClick={() => setExpandedComments(prev => ({ ...prev, [kudo.id]: !prev[kudo.id] }))}
+                            >
+                              💬 {kudo.commentsCount || 0}
+                            </button>
+                            <span className="text-xs" style={{ color: textSecondary }}>{kudo.date}</span>
+                          </div>
+
+                          {/* Comments Section */}
+                          {expandedComments[kudo.id] && (
+                            <div className="mt-4 pt-4 space-y-3" style={{ borderTop: `1px solid ${isDark ? '#334155' : '#f1f5f9'}` }}>
+                              {/* Comment List */}
+                              {(kudo.comments || []).map((comment) => (
+                                <div key={comment.id} className="text-sm">
+                                  <span className="font-bold" style={{ color: textPrimary }}>{comment.userName}: </span>
+                                  <span style={{ color: textPrimary }}>{comment.text}</span>
+                                  <div className="text-[10px] mt-0.5" style={{ color: textSecondary }}>{comment.date}</div>
+                                </div>
+                              ))}
+
+                              {/* Comment Input */}
+                              <div className="flex gap-2 mt-3">
+                                <input
+                                  type="text"
+                                  placeholder="Add a comment..."
+                                  value={commentInputs[kudo.id] || ""}
+                                  onChange={(e) => setCommentInputs(prev => ({ ...prev, [kudo.id]: e.target.value }))}
+                                  onKeyPress={(e) => e.key === 'Enter' && handleCommentKudo(kudo.id)}
+                                  className="flex-1 px-3 py-1.5 rounded-lg text-sm outline-none transition-all focus:ring-1 focus:ring-purple-400"
+                                  style={{ backgroundColor: isDark ? '#334155' : '#f8fafc', border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, color: textPrimary }}
+                                />
+                                <button
+                                  onClick={() => handleCommentKudo(kudo.id)}
+                                  disabled={!commentInputs[kudo.id]?.trim()}
+                                  className="p-1.5 rounded-lg text-white disabled:opacity-50 transition-all"
+                                  style={{ backgroundColor: navyBlue }}
+                                >
+                                  ✈️
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </>
-      )}
+                  ))
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Create/Edit Event Modal */}
       {showEventModal && (
@@ -838,6 +814,6 @@ export default function Events() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

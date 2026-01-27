@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
 import { getDepartments, createDepartment, updateDepartment, deleteDepartment } from "../../services/departmentService";
-import { getAllQuotes, createQuote } from "../../services/quoteService";
+import { getAllQuotes, createQuote, updateQuote, deleteQuote } from "../../services/quoteService";
 import { getAllAnnouncements, createAnnouncement } from "../../services/announcementService";
 import { getRecentActivity } from "../../services/activityService";
 import { getLeavePolicies, createLeavePolicy, updateLeavePolicy, deleteLeavePolicy } from "../../services/leaveService";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 export default function Settings() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  
+
   const [activeTab, setActiveTab] = useState("audit");
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState("");
@@ -57,6 +58,8 @@ export default function Settings() {
     noticePeriodDays: 0,
   });
   const [policySaving, setPolicySaving] = useState(false);
+
+  useScrollLock(showModal);
 
   const navyBlue = '#1e3a5f';
   const cardStyle = {
@@ -190,7 +193,7 @@ export default function Settings() {
     if (activeTab === "departments") fetchDepartments();
     if (activeTab === "quotes") fetchQuotes();
     if (activeTab === "announcements") fetchAnnouncements();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const openModal = (type, item = null) => {
@@ -203,13 +206,24 @@ export default function Settings() {
       setPolicyForm(
         item
           ? {
-              leaveType: item.leaveType || "",
-              totalDays: item.totalDays ?? 0,
-              carryOver: item.carryOver ?? 0,
-              maxConsecutiveDays: item.maxConsecutiveDays ?? 0,
-              noticePeriodDays: item.noticePeriodDays ?? 0,
-            }
+            leaveType: item.leaveType || "",
+            totalDays: item.totalDays ?? 0,
+            carryOver: item.carryOver ?? 0,
+            maxConsecutiveDays: item.maxConsecutiveDays ?? 0,
+            noticePeriodDays: item.noticePeriodDays ?? 0,
+          }
           : { leaveType: "", totalDays: 0, carryOver: 0, maxConsecutiveDays: 0, noticePeriodDays: 0 }
+      );
+    }
+    if (type === "quote") {
+      setQuoteForm(
+        item
+          ? {
+            text: item.text || "",
+            authorName: item.authorName || "",
+            publishDate: item.publishDate ? new Date(item.publishDate).toISOString().split("T")[0] : "",
+          }
+          : { text: "", authorName: "", publishDate: "" }
       );
     }
     setShowModal(true);
@@ -292,23 +306,41 @@ export default function Settings() {
     }
   };
 
-  const handleCreateQuote = async () => {
+  const handleSaveQuote = async () => {
     if (!quoteForm.text?.trim() || !quoteForm.authorName?.trim() || !quoteForm.publishDate) return;
     setQuoteSaving(true);
     setQuoteError(null);
+    const payload = {
+      text: quoteForm.text.trim(),
+      authorName: quoteForm.authorName.trim(),
+      publishDate: quoteForm.publishDate,
+    };
     try {
-      await createQuote({
-        text: quoteForm.text.trim(),
-        authorName: quoteForm.authorName.trim(),
-        publishDate: quoteForm.publishDate,
-      });
+      if (editItem?._id) {
+        await updateQuote(editItem._id, payload);
+      } else {
+        await createQuote(payload);
+      }
       setQuoteForm({ text: "", authorName: "", publishDate: "" });
       await fetchQuotes();
+      setShowModal(false);
     } catch (err) {
-      console.error("Failed to create quote:", err);
-      setQuoteError(err?.response?.data?.message || err?.message || "Failed to create quote");
+      console.error("Failed to save quote:", err);
+      setQuoteError(err?.response?.data?.message || err?.message || "Failed to save quote");
     } finally {
       setQuoteSaving(false);
+    }
+  };
+
+  const handleDeleteQuote = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this quote?")) return;
+    setQuoteError(null);
+    try {
+      await deleteQuote(id);
+      await fetchQuotes();
+    } catch (err) {
+      console.error("Failed to delete quote:", err);
+      setQuoteError(err?.response?.data?.message || err?.message || "Failed to delete quote");
     }
   };
 
@@ -341,159 +373,161 @@ export default function Settings() {
   };
 
   return (
-    <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      {/* Header */}
-      <div className="flex items-center justify-between animate-fade-in-down">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>Settings & Audit</h1>
-          <p style={{ color: textSecondary }}>Manage policies, departments, quotes, and view system activity</p>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2 p-1 rounded-xl animate-fade-in-up overflow-x-auto" style={{ backgroundColor: isDark ? '#1e293b' : '#f1f5f9' }}>
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className="flex-1 py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 whitespace-nowrap"
-            style={{
-              backgroundColor: activeTab === tab.id ? navyBlue : 'transparent',
-              color: activeTab === tab.id ? '#ffffff' : textSecondary,
-            }}
-          >
-            <span>{tab.icon}</span>
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Audit Logs Tab */}
-      {activeTab === "audit" && (
-        <div className="animate-fade-in-up" style={cardStyle}>
-          <div className="p-6 flex items-center justify-between" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
-            <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Recent Activity</h2>
-            <button
-              onClick={fetchRecentActivity}
-              disabled={auditLoading}
-              className="px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
-              style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
-            >
-              {auditLoading ? "⏳ Loading…" : "🔄 Refresh"}
-            </button>
+    <>
+      <div className="space-y-6" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        {/* Header */}
+        <div className="flex items-center justify-between animate-fade-in-down">
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: textPrimary }}>Settings & Audit</h1>
+            <p style={{ color: textSecondary }}>Manage policies, departments, quotes, and view system activity</p>
           </div>
-          {auditError ? (
-            <div className="p-6 text-center">
-              <p className="font-medium mb-3" style={{ color: textSecondary }}>{auditError}</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 p-1 rounded-xl animate-fade-in-up overflow-x-auto" style={{ backgroundColor: isDark ? '#1e293b' : '#f1f5f9' }}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="flex-1 py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 whitespace-nowrap"
+              style={{
+                backgroundColor: activeTab === tab.id ? navyBlue : 'transparent',
+                color: activeTab === tab.id ? '#ffffff' : textSecondary,
+              }}
+            >
+              <span>{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Audit Logs Tab */}
+        {activeTab === "audit" && (
+          <div className="animate-fade-in-up" style={cardStyle}>
+            <div className="p-6 flex items-center justify-between" style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+              <h2 className="text-lg font-bold" style={{ color: textPrimary }}>Recent Activity</h2>
               <button
                 onClick={fetchRecentActivity}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
-                style={{ backgroundColor: navyBlue }}
+                disabled={auditLoading}
+                className="px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
+                style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
               >
-                Retry
+                {auditLoading ? "⏳ Loading…" : "🔄 Refresh"}
               </button>
             </div>
-          ) : auditLoading ? (
-            <div className="p-12 flex items-center justify-center gap-3">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: navyBlue }} />
-              <span style={{ color: textSecondary }}>Loading recent activity…</span>
-            </div>
-          ) : activities.length === 0 ? (
-            <p className="p-12 text-center" style={{ color: textSecondary }}>No recent activity.</p>
-          ) : (
-            (() => {
-              const total = activities.length;
-              const totalPages = Math.max(1, Math.ceil(total / auditPageSize));
-              const safePage = Math.min(Math.max(1, auditPage), totalPages);
-              const start = (safePage - 1) * auditPageSize;
-              const end = Math.min(start + auditPageSize, total);
-              const paginated = activities.slice(start, end);
-              return (
-                <>
-                  <div className="divide-y" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
-                    {paginated.map((log) => {
-                      const typeStyle = getActionTypeStyle(log.type);
-                      const details = formatActivityDetails(log);
-                      return (
-                        <div key={log._id} className="p-5 hover:bg-opacity-50 transition-all">
-                          <div className="flex items-start gap-4">
-                            <div
-                              className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                              style={{ backgroundColor: typeStyle.bg }}
-                            >
-                              {typeStyle.icon}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="font-bold" style={{ color: textPrimary }}>{log.action}</h3>
-                                <span
-                                  className="px-2 py-0.5 rounded-full text-xs"
-                                  style={{ backgroundColor: typeStyle.bg, color: typeStyle.color }}
-                                >
-                                  {log.type}
-                                </span>
+            {auditError ? (
+              <div className="p-6 text-center">
+                <p className="font-medium mb-3" style={{ color: textSecondary }}>{auditError}</p>
+                <button
+                  onClick={fetchRecentActivity}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
+                  style={{ backgroundColor: navyBlue }}
+                >
+                  Retry
+                </button>
+              </div>
+            ) : auditLoading ? (
+              <div className="p-12 flex items-center justify-center gap-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: navyBlue }} />
+                <span style={{ color: textSecondary }}>Loading recent activity…</span>
+              </div>
+            ) : activities.length === 0 ? (
+              <p className="p-12 text-center" style={{ color: textSecondary }}>No recent activity.</p>
+            ) : (
+              (() => {
+                const total = activities.length;
+                const totalPages = Math.max(1, Math.ceil(total / auditPageSize));
+                const safePage = Math.min(Math.max(1, auditPage), totalPages);
+                const start = (safePage - 1) * auditPageSize;
+                const end = Math.min(start + auditPageSize, total);
+                const paginated = activities.slice(start, end);
+                return (
+                  <>
+                    <div className="divide-y" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                      {paginated.map((log) => {
+                        const typeStyle = getActionTypeStyle(log.type);
+                        const details = formatActivityDetails(log);
+                        return (
+                          <div key={log._id} className="p-5 hover:bg-opacity-50 transition-all">
+                            <div className="flex items-start gap-4">
+                              <div
+                                className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                                style={{ backgroundColor: typeStyle.bg }}
+                              >
+                                {typeStyle.icon}
                               </div>
-                              <p style={{ color: textSecondary }}>
-                                <span className="font-medium">{log.userId?.name ?? "—"}</span>
-                                {details ? ` · ${details}` : ""}
-                              </p>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h3 className="font-bold" style={{ color: textPrimary }}>{log.action}</h3>
+                                  <span
+                                    className="px-2 py-0.5 rounded-full text-xs"
+                                    style={{ backgroundColor: typeStyle.bg, color: typeStyle.color }}
+                                  >
+                                    {log.type}
+                                  </span>
+                                </div>
+                                <p style={{ color: textSecondary }}>
+                                  <span className="font-medium">{log.userId?.name ?? "—"}</span>
+                                  {details ? ` · ${details}` : ""}
+                                </p>
+                              </div>
+                              <p className="text-sm flex-shrink-0" style={{ color: textSecondary }}>{formatActivityTime(log.createdAt)}</p>
                             </div>
-                            <p className="text-sm flex-shrink-0" style={{ color: textSecondary }}>{formatActivityTime(log.createdAt)}</p>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div
-                    className="flex flex-wrap items-center justify-between gap-4 p-4"
-                    style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}
-                  >
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className="text-sm" style={{ color: textSecondary }}>
-                        Showing {total === 0 ? 0 : start + 1}–{end} of {total}
-                      </span>
-                      <select
-                        value={auditPageSize}
-                        onChange={(e) => {
-                          setAuditPageSize(Number(e.target.value));
-                          setAuditPage(1);
-                        }}
-                        className="px-3 py-1.5 rounded-lg text-sm outline-none"
-                        style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary, border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}
-                      >
-                        {[10, 20, 50].map((n) => (
-                          <option key={n} value={n}>{n} per page</option>
-                        ))}
-                      </select>
+                        );
+                      })}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
-                        disabled={safePage <= 1}
-                        className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
-                      >
-                        ← Prev
-                      </button>
-                      <span className="text-sm px-2" style={{ color: textSecondary }}>
-                        Page {safePage} of {totalPages}
-                      </span>
-                      <button
-                        onClick={() => setAuditPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={safePage >= totalPages}
-                        className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
-                      >
-                        Next →
-                      </button>
+                    <div
+                      className="flex flex-wrap items-center justify-between gap-4 p-4"
+                      style={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}
+                    >
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-sm" style={{ color: textSecondary }}>
+                          Showing {total === 0 ? 0 : start + 1}–{end} of {total}
+                        </span>
+                        <select
+                          value={auditPageSize}
+                          onChange={(e) => {
+                            setAuditPageSize(Number(e.target.value));
+                            setAuditPage(1);
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-sm outline-none"
+                          style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary, border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}` }}
+                        >
+                          {[10, 20, 50].map((n) => (
+                            <option key={n} value={n}>{n} per page</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+                          disabled={safePage <= 1}
+                          className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
+                        >
+                          ← Prev
+                        </button>
+                        <span className="text-sm px-2" style={{ color: textSecondary }}>
+                          Page {safePage} of {totalPages}
+                        </span>
+                        <button
+                          onClick={() => setAuditPage((p) => Math.min(totalPages, p + 1))}
+                          disabled={safePage >= totalPages}
+                          className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{ backgroundColor: isDark ? '#334155' : '#f1f5f9', color: textPrimary }}
+                        >
+                          Next →
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </>
-              );
-            })()
-          )}
-        </div>
-      )}
+                  </>
+                );
+              })()
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Leave Policies Tab */}
       {activeTab === "policies" && (
@@ -691,12 +725,12 @@ export default function Settings() {
                 </div>
               </div>
               <button
-                onClick={handleCreateQuote}
+                onClick={handleSaveQuote}
                 disabled={quoteSaving || !quoteForm.text?.trim() || !quoteForm.authorName?.trim() || !quoteForm.publishDate}
                 className="w-full py-3 rounded-xl font-bold text-white disabled:opacity-50"
                 style={{ backgroundColor: navyBlue }}
               >
-                {quoteSaving ? "Creating…" : "➕ Create Quote"}
+                {quoteSaving ? "Saving…" : editItem ? "💾 Update Quote" : "➕ Create Quote"}
               </button>
             </div>
           </div>
@@ -727,6 +761,22 @@ export default function Settings() {
                         <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: statusStyle.bg, color: statusStyle.color }}>
                           {statusStyle.label}
                         </span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => openModal("quote", q)}
+                            className="px-3 py-1 rounded-lg text-xs font-medium"
+                            style={{ backgroundColor: `${navyBlue}15`, color: navyBlue }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteQuote(q._id)}
+                            className="px-3 py-1 rounded-lg text-xs font-medium"
+                            style={{ backgroundColor: "#fee2e2", color: "#dc2626" }}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                       <blockquote className="text-lg italic mb-2" style={{ color: textPrimary }}>
                         "{q.text}"
@@ -743,148 +793,159 @@ export default function Settings() {
               </div>
             )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Announcements Tab */}
-      {activeTab === "announcements" && (
-        <div className="space-y-4 animate-fade-in-up">
-          {announcementError && (
-            <div className="p-4 rounded-xl flex items-center justify-between" style={{ backgroundColor: "#fee2e2", color: "#dc2626" }}>
-              <span>{announcementError}</span>
-              <button onClick={fetchAnnouncements} className="px-3 py-1 rounded-lg text-sm font-medium" style={{ backgroundColor: "#fecaca" }}>Retry</button>
-            </div>
-          )}
-          <div className="p-6" style={cardStyle}>
-            <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Create Announcement</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Title</label>
-                <input
-                  type="text"
-                  value={announcementForm.title}
-                  onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl outline-none"
-                  style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
-                  placeholder="Announcement title..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Message</label>
-                <textarea
-                  rows={4}
-                  value={announcementForm.message}
-                  onChange={(e) => setAnnouncementForm({ ...announcementForm, message: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl outline-none resize-none"
-                  style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
-                  placeholder="Write your announcement..."
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Audience</label>
-                  <select
-                    value={announcementForm.audienceType}
-                    onChange={(e) => setAnnouncementForm({ ...announcementForm, audienceType: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl outline-none"
-                    style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
-                  >
-                    <option value="all">All Employees</option>
-                  </select>
+          {/* Announcements Tab */}
+          {activeTab === "announcements" && (
+            <div className="space-y-4 animate-fade-in-up">
+              {announcementError && (
+                <div className="p-4 rounded-xl flex items-center justify-between" style={{ backgroundColor: "#fee2e2", color: "#dc2626" }}>
+                  <span>{announcementError}</span>
+                  <button onClick={fetchAnnouncements} className="px-3 py-1 rounded-lg text-sm font-medium" style={{ backgroundColor: "#fecaca" }}>Retry</button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Priority</label>
-                  <select
-                    value={announcementForm.priority}
-                    onChange={(e) => setAnnouncementForm({ ...announcementForm, priority: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl outline-none"
-                    style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
-                  >
-                    <option value="low">Low</option>
-                    <option value="normal">Normal</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Expires At (optional)</label>
-                <input
-                  type="date"
-                  value={announcementForm.expiresAt}
-                  onChange={(e) => setAnnouncementForm({ ...announcementForm, expiresAt: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl outline-none"
-                  style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
-                />
-              </div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={announcementForm.isPinned}
-                  onChange={(e) => setAnnouncementForm({ ...announcementForm, isPinned: e.target.checked })}
-                  className="rounded"
-                />
-                <span style={{ color: textPrimary }}>Pin announcement</span>
-              </label>
-              <button
-                onClick={handleCreateAnnouncement}
-                disabled={announcementSaving || !announcementForm.title?.trim() || !announcementForm.message?.trim()}
-                className="w-full py-3 rounded-xl font-bold text-white disabled:opacity-50"
-                style={{ backgroundColor: navyBlue }}
-              >
-                {announcementSaving ? "Publishing…" : "📢 Publish Announcement"}
-              </button>
-            </div>
-          </div>
-
-          <div className="p-6" style={cardStyle}>
-            <h3 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Announcements</h3>
-            {announcementLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2" style={{ borderColor: navyBlue }} />
-                <span className="ml-3" style={{ color: textSecondary }}>Loading…</span>
-              </div>
-            ) : announcements.length === 0 ? (
-              <p className="text-center py-12" style={{ color: textSecondary }}>No announcements yet. Create one above.</p>
-            ) : (
-              <div className="space-y-3">
-                {announcements.map((ann) => (
-                  <div
-                    key={ann._id}
-                    className="p-4 rounded-xl flex items-center justify-between flex-wrap gap-2"
-                    style={{ backgroundColor: isDark ? "#334155" : "#f8fafc" }}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium" style={{ color: textPrimary }}>{ann.title}</h4>
-                      <p className="text-sm mt-1 line-clamp-2" style={{ color: textSecondary }}>{ann.message}</p>
-                      <p className="text-xs mt-1" style={{ color: textSecondary }}>
-                        {ann.createdBy?.name && `By ${ann.createdBy.name}`}
-                        {ann.expiresAt && ` • Expires ${new Date(ann.expiresAt).toLocaleDateString("en-US")}`}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {ann.isPinned && <span className="text-amber-500" title="Pinned">📌</span>}
-                      <span
-                        className="px-3 py-1 rounded-full text-xs font-medium"
-                        style={{
-                          backgroundColor: ann.priority === "high" ? "#fee2e2" : ann.priority === "normal" ? "#dcfce7" : "#f1f5f9",
-                          color: ann.priority === "high" ? "#dc2626" : ann.priority === "normal" ? "#16a34a" : "#64748b",
-                        }}
+              )}
+              <div className="p-6" style={cardStyle}>
+                <h2 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Create Announcement</h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Title</label>
+                    <input
+                      type="text"
+                      value={announcementForm.title}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl outline-none"
+                      style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
+                      placeholder="Announcement title..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Message</label>
+                    <textarea
+                      rows={4}
+                      value={announcementForm.message}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, message: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl outline-none resize-none"
+                      style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
+                      placeholder="Write your announcement..."
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Audience</label>
+                      <select
+                        value={announcementForm.audienceType}
+                        onChange={(e) => setAnnouncementForm({ ...announcementForm, audienceType: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl outline-none"
+                        style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
                       >
-                        {ann.priority || "normal"}
-                      </span>
+                        <option value="all">All Employees</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Priority</label>
+                      <select
+                        value={announcementForm.priority}
+                        onChange={(e) => setAnnouncementForm({ ...announcementForm, priority: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl outline-none"
+                        style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
+                      >
+                        <option value="low">Low</option>
+                        <option value="normal">Normal</option>
+                        <option value="high">High</option>
+                      </select>
                     </div>
                   </div>
-                ))}
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: textPrimary }}>Expires At (optional)</label>
+                    <input
+                      type="date"
+                      value={announcementForm.expiresAt}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, expiresAt: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl outline-none"
+                      style={{ backgroundColor: isDark ? "#334155" : "#f8fafc", border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`, color: textPrimary }}
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={announcementForm.isPinned}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, isPinned: e.target.checked })}
+                      className="rounded"
+                    />
+                    <span style={{ color: textPrimary }}>Pin announcement</span>
+                  </label>
+                  <button
+                    onClick={handleCreateAnnouncement}
+                    disabled={announcementSaving || !announcementForm.title?.trim() || !announcementForm.message?.trim()}
+                    className="w-full py-3 rounded-xl font-bold text-white disabled:opacity-50"
+                    style={{ backgroundColor: navyBlue }}
+                  >
+                    {announcementSaving ? "Publishing…" : "📢 Publish Announcement"}
+                  </button>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* Edit Modal */}
+              <div className="p-6" style={cardStyle}>
+                <h3 className="text-lg font-bold mb-4" style={{ color: textPrimary }}>Announcements History</h3>
+                {announcementLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2" style={{ borderColor: navyBlue }} />
+                    <span className="ml-3" style={{ color: textSecondary }}>Loading…</span>
+                  </div>
+                ) : announcements.length === 0 ? (
+                  <p className="text-center py-12" style={{ color: textSecondary }}>No announcements yet. Create one above.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {announcements.map((ann) => (
+                      <div
+                        key={ann._id}
+                        className="p-4 rounded-xl flex items-center justify-between flex-wrap gap-2"
+                        style={{ backgroundColor: isDark ? "#334155" : "#f8fafc" }}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium" style={{ color: textPrimary }}>{ann.title}</h4>
+                          <p className="text-sm mt-1 line-clamp-2" style={{ color: textSecondary }}>{ann.message}</p>
+                          <p className="text-xs mt-1" style={{ color: textSecondary }}>
+                            {ann.createdBy?.name && `By ${ann.createdBy.name}`}
+                            {ann.expiresAt && ` • Expires ${new Date(ann.expiresAt).toLocaleDateString("en-US")}`}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {ann.isPinned && <span className="text-amber-500" title="Pinned">📌</span>}
+                          <span
+                            className="px-3 py-1 rounded-full text-xs font-medium"
+                            style={{
+                              backgroundColor: ann.priority === "high" ? "#fee2e2" : ann.priority === "normal" ? "#dcfce7" : "#f1f5f9",
+                              color: ann.priority === "high" ? "#dc2626" : ann.priority === "normal" ? "#16a34a" : "#64748b",
+                            }}
+                          >
+                            {ann.priority || "normal"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in">
-          <div className="w-full max-w-md p-6 animate-scale-in" style={cardStyle}>
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in p-4"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)'
+          }}
+          onClick={() => setShowModal(false)}
+        >
+          <div
+            className="w-full max-w-md p-6 animate-scale-in"
+            style={cardStyle}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold" style={{ color: textPrimary }}>
                 {editItem ? "Edit" : "Add"} {modalType === "policy" ? "Leave Policy" : "Department"}
@@ -998,8 +1059,8 @@ export default function Settings() {
                   modalType === "department"
                     ? handleSaveDepartment
                     : modalType === "policy"
-                    ? handleSavePolicy
-                    : () => setShowModal(false)
+                      ? handleSavePolicy
+                      : () => setShowModal(false)
                 }
                 disabled={
                   (modalType === "department" && (deptSaving || !deptForm.name?.trim() || !deptForm.code?.trim())) ||
@@ -1011,13 +1072,13 @@ export default function Settings() {
                 {modalType === "department" && deptSaving
                   ? "Saving…"
                   : modalType === "policy" && policySaving
-                  ? "Saving…"
-                  : "Save"}
+                    ? "Saving…"
+                    : "Save"}
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
