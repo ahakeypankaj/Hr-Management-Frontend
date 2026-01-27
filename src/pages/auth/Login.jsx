@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { useMsal } from "@azure/msal-react";
@@ -8,6 +9,7 @@ export default function Login() {
   const { login } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { instance } = useMsal();
+  const navigate = useNavigate();
   const isDark = theme === "dark";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -65,6 +67,10 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMeetOurTeam = () => {
+    navigate("/about-team");
   };
 
   return (
@@ -135,6 +141,22 @@ export default function Login() {
                   <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>{item.desc}</p>
                 </div>
               ))}
+            </div>
+
+            {/* Meet Our Meet Button */}
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={handleMeetOurTeam}
+                className="px-6 py-3 rounded-full text-sm font-semibold shadow-lg transition-all hover:scale-105"
+                style={{
+                  backgroundColor: '#f97316',
+                  color: '#ffffff',
+                  boxShadow: '0 10px 25px rgba(249, 115, 22, 0.4)',
+                  border: '1px solid rgba(255,255,255,0.3)'
+                }}
+              >
+                Meet Our Meet
+              </button>
             </div>
 
           </div>
